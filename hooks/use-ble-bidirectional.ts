@@ -54,7 +54,7 @@ export function useBleBidirectional() {
                 kind: direction === 'rx' ? 'text' : undefined,
                 text,
                 ts: Date.now(),
-            },
+            } satisfies MessageLog,
             ...prev,
         ].slice(0, 80));
     }, []);
@@ -67,7 +67,7 @@ export function useBleBidirectional() {
                 kind,
                 text,
                 ts: Date.now(),
-            },
+            } satisfies MessageLog,
             ...prev,
         ].slice(0, 80));
 

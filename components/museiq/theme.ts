@@ -1,0 +1,17 @@
+export const musePalette = {
+  background: '#F6FAFE',
+  backgroundStrong: '#EAF2FB',
+  surface: '#FFFFFF',
+  surfaceMuted: '#EEF4F8',
+  surfaceStrong: '#DCE8F4',
+  border: '#D5E1EE',
+  text: '#14212D',
+  textMuted: '#587086',
+  primary: '#005DA7',
+  primaryStrong: '#0076D1',
+  primarySoft: '#D7E9FF',
+  accent: '#FFBA38',
+  success: '#1F9D6A',
+  danger: '#C33D2A',
+  overlay: 'rgba(20,33,45,0.36)',
+};

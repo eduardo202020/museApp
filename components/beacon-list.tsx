@@ -39,15 +39,6 @@ function BeaconCard({ beacon, distanceN }: BeaconCardProps & { distanceN: number
     const signal = getSignalQuality(beacon.rssi);
     const battery = getBatteryStatus(beacon.battery);
 
-    // Calcular distancia usando Tx Power calibrado @1m
-    // n = 2.5 para espacio libre con mejor ajuste en distancias mayores
-    const estimateDistance = (rssi: number, txPower: number, n: number = 2.5): string => {
-        const distance = Math.pow(10, (txPower - rssi) / (10 * n));
-        return Math.max(0.1, distance).toFixed(1);
-    };
-
-    const distance = estimateDistance(beacon.rssi, beacon.txPower, distanceN);
-
     return (
         <ThemedView style={[styles.card, { borderColor: colors.border }]}>
             {/* Header */}
