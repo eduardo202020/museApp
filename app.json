@@ -53,7 +53,10 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": true,
-          "modes": ["peripheral", "central"],
+          "modes": [
+            "peripheral",
+            "central"
+          ],
           "bluetoothAlwaysPermission": "MuseIQ necesita Bluetooth para detectar beacons de salas cercanas."
         }
       ],
@@ -73,13 +76,16 @@
         "@reactvision/react-viro",
         {
           "android": {
-            "xRMode": ["AR"]
+            "xRMode": [
+              "AR"
+            ]
           },
           "ios": {
             "cameraUsagePermission": "MuseIQ necesita acceso a la camara para experiencias de realidad aumentada."
           }
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
