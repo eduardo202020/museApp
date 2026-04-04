@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Splash Screen</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#9b6b00",
+                        "surface-dim": "#d6dade",
+                        "surface-container-low": "#f0f4f8",
+                        "background": "#f6fafe",
+                        "tertiary-fixed-dim": "#ffba38",
+                        "on-background": "#171c1f",
+                        "outline": "#707785",
+                        "tertiary-fixed": "#ffdeac",
+                        "surface-container": "#eaeef2",
+                        "on-primary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#604100",
+                        "primary-fixed-dim": "#a3c9ff",
+                        "primary-fixed": "#d3e3ff",
+                        "surface-container-highest": "#dfe3e7",
+                        "on-surface-variant": "#404753",
+                        "on-tertiary-fixed": "#281900",
+                        "tertiary": "#7b5500",
+                        "surface-container-high": "#e4e9ed",
+                        "inverse-primary": "#a3c9ff",
+                        "secondary-container": "#bae6f9",
+                        "on-primary-fixed-variant": "#004883",
+                        "on-error-container": "#93000a",
+                        "outline-variant": "#c0c7d5",
+                        "inverse-surface": "#2c3134",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "primary": "#005da7",
+                        "on-primary-fixed": "#001c39",
+                        "surface-variant": "#dfe3e7",
+                        "on-tertiary-container": "#fffbff",
+                        "surface-bright": "#f6fafe",
+                        "secondary": "#396474",
+                        "secondary-fixed-dim": "#a1cddf",
+                        "secondary-fixed": "#bde9fc",
+                        "surface-tint": "#0060ab",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#fdfcff",
+                        "on-secondary-fixed-variant": "#1f4c5b",
+                        "on-secondary-container": "#3d6878",
+                        "surface": "#f6fafe",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "primary-container": "#0076d1",
+                        "inverse-on-surface": "#edf1f5",
+                        "on-secondary-fixed": "#001f28",
+                        "on-surface": "#171c1f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f6fafe;
+        }
+        h1, h2, h3, .brand-font {
+            font-family: 'Manrope', sans-serif;
+        }
+        .loading-bar-active {
+            width: 60%;
+            transition: width 2s ease-in-out;
+        }
+        .glass-effect {
+            backdrop-filter: blur(16px);
+            background: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col min-h-screen bg-surface items-center justify-center overflow-hidden">
+<!-- Background Decoration: Digital Curator Aesthetic -->
+<div class="fixed inset-0 pointer-events-none overflow-hidden">
+<div class="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]"></div>
+<div class="absolute top-[60%] -right-[5%] w-[30%] h-[30%] bg-secondary/10 rounded-full blur-[100px]"></div>
+</div>
+<!-- Main Content Container -->
+<main class="relative z-10 flex flex-col items-center justify-center px-8 w-full max-w-md">
+<!-- Logo Section -->
+<div class="mb-12 flex flex-col items-center">
+<div class="relative w-32 h-32 mb-6 group">
+<!-- Tonal Layering for Logo Background -->
+<div class="absolute inset-0 bg-primary-fixed-dim/20 rounded-xl rotate-6 transition-transform group-hover:rotate-12 duration-500"></div>
+<div class="absolute inset-0 bg-surface-container-lowest rounded-xl shadow-sm flex items-center justify-center p-4">
+<img alt="MuseIQ brand logo" class="w-full h-full object-contain" data-alt="minimalist modern museum app logo icon with geometric shapes in deep blue and gold on a clean white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD56ZM7kMYu3g6gDoMVbWGG7T11yEpz2GVz8bfQabuYlbFFeEi5W7714Rtw45PB6RRRToGlrzuCZx3TT45RiDZkkMTxxXzxQOgeGy9YiYhsGSTcLqJt3TUMrVRwu8hfE7ICCaQC_uUns6SgEreZC7nPyow1tSn4ZXEp3Q0jZNaDLf9Q7S0BHr7W2ObFle04P4wTERk4pA7lIpclkIU2jWvaIH8pi_4HXocQ-E2eWs89N8743GF5tBSmmuskayJ670q3r1TH8RnfymE"/>
+</div>
+</div>
+<div class="text-center">
+<h1 class="text-3xl font-extrabold tracking-tight text-primary brand-font mb-1">MuseIQ</h1>
+<p class="text-on-surface-variant font-medium tracking-[0.2em] text-[10px] uppercase">Ambient Intelligence</p>
+</div>
+</div>
+<!-- Loading & Status Section -->
+<div class="w-full space-y-8">
+<!-- Minimalist Loading Indicator -->
+<div class="w-full h-[3px] bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary loading-bar-active rounded-full shadow-[0_0_12px_rgba(0,93,167,0.3)]"></div>
+</div>
+<!-- Status Messages: Bento-lite Layout -->
+<div class="grid grid-cols-1 gap-4">
+<div class="flex items-center space-x-4 p-4 rounded-xl bg-surface-container-low transition-all">
+<div class="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-primary text-xl">map</span>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface font-semibold text-sm">Preparando recorrido</span>
+<span class="text-on-surface-variant text-xs opacity-70">Cargando mapas y puntos de interés...</span>
+</div>
+</div>
+<div class="flex items-center space-x-4 p-4 rounded-xl bg-surface-container-low/50 transition-all">
+<div class="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-secondary text-xl">verified_user</span>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface font-semibold text-sm">Verificando permisos</span>
+<span class="text-on-surface-variant text-xs opacity-70">Sincronización BLE y Localización...</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Footnote / Versioning -->
+<footer class="absolute bottom-12 text-center">
+<div class="flex items-center justify-center space-x-2 text-on-surface-variant/40">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">sensors</span>
+<span class="text-[10px] font-label uppercase tracking-widest font-bold">Connecting to Curated Space</span>
+</div>
+</footer>
+</main>
+<!-- Navigation Shell Logic: Suppressed as per instructions for Splash/Bootstrap screens -->
+</body></html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#1f4c5b",
+                        "on-error-container": "#93000a",
+                        "inverse-on-surface": "#edf1f5",
+                        "surface-variant": "#dfe3e7",
+                        "on-primary": "#ffffff",
+                        "secondary": "#396474",
+                        "on-surface-variant": "#404753",
+                        "on-secondary-fixed": "#001f28",
+                        "secondary-container": "#bae6f9",
+                        "on-tertiary-fixed-variant": "#604100",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#3d6878",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#fffbff",
+                        "outline-variant": "#c0c7d5",
+                        "surface-container-low": "#f0f4f8",
+                        "on-primary-container": "#fdfcff",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#dfe3e7",
+                        "secondary-fixed": "#bde9fc",
+                        "on-background": "#171c1f",
+                        "primary-fixed": "#d3e3ff",
+                        "inverse-primary": "#a3c9ff",
+                        "surface-tint": "#0060ab",
+                        "surface-container": "#eaeef2",
+                        "primary-fixed-dim": "#a3c9ff",
+                        "on-primary-fixed-variant": "#004883",
+                        "tertiary": "#7b5500",
+                        "on-tertiary": "#ffffff",
+                        "primary": "#005da7",
+                        "tertiary-container": "#9b6b00",
+                        "surface-dim": "#d6dade",
+                        "primary-container": "#0076d1",
+                        "on-primary-fixed": "#001c39",
+                        "error-container": "#ffdad6",
+                        "surface-container-high": "#e4e9ed",
+                        "on-error": "#ffffff",
+                        "on-surface": "#171c1f",
+                        "background": "#f6fafe",
+                        "surface-bright": "#f6fafe",
+                        "on-tertiary-fixed": "#281900",
+                        "surface": "#f6fafe",
+                        "inverse-surface": "#2c3134",
+                        "tertiary-fixed": "#ffdeac",
+                        "tertiary-fixed-dim": "#ffba38",
+                        "secondary-fixed-dim": "#a1cddf",
+                        "outline": "#707785"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background font-body text-on-surface antialiased overflow-hidden">
+<!-- Backdrop Overlay -->
+<div class="fixed inset-0 bg-on-background/20 backdrop-blur-sm z-40"></div>
+<!-- Navigation Drawer (SideNav) -->
+<aside class="fixed left-0 top-0 bottom-0 w-[80%] max-w-sm z-50 flex flex-col bg-slate-50 dark:bg-slate-900 rounded-r-2xl h-full shadow-2xl overflow-hidden transition-transform duration-300 ease-in-out">
+<!-- Header Section -->
+<header class="flex flex-col pt-10 pb-8 px-6 bg-surface-container-low border-b-0">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-10 h-10 rounded-xl overflow-hidden bg-primary p-1 shadow-md">
+<img alt="MuseIQ Logo" class="w-full h-full object-contain" data-alt="Stylized minimalist owl logo icon for a museum technology app, using electric blue and white colors, vector art style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz_rL9PxbOwDe7EVx34Ztq9fxz7jTHrKW3szFdlU12Ivo0v9CBE3Ai784Q62mMQwfB3O8xLXFVNJcdzjb7uacsSRGowhrKZRzuJaI-vyE7kfjuypwXc6gKaa7IILy7oe0tNgmks_W6052gsoDHDlMlW4EFTSdR7vnX_mW2-NPYUFfoSuiTeAN3zInafDP6xg35-6ed8o8hpLkUZNC1Sx9rhijmq9_40qmmwho4Hw7cZzcZcsNujHIUFKkVuASWbcbX56SN70VxrXA"/>
+</div>
+<h1 class="font-headline font-black text-blue-700 text-2xl tracking-tight">MuseIQ</h1>
+</div>
+<div class="space-y-1">
+<h2 class="font-headline font-bold text-on-surface text-lg leading-tight">Sala 3 - Arte Precolombino</h2>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="font-label text-xs uppercase tracking-wider text-primary font-semibold">Estado: Conectado</span>
+</div>
+</div>
+</header>
+<!-- Primary Navigation List -->
+<nav class="flex-1 px-4 py-6 overflow-y-auto">
+<div class="space-y-2">
+<!-- Recorrido (Active Context) -->
+<a class="flex items-center gap-4 px-4 py-3.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-bold transition-all hover:bg-blue-100/50" href="#">
+<span class="material-symbols-outlined text-blue-600" data-icon="map">map</span>
+<span class="font-['Manrope'] text-base">Inicio del Recorrido</span>
+</a>
+<!-- Obras -->
+<a class="flex items-center gap-4 px-4 py-3.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="museum">museum</span>
+<span class="font-['Manrope'] text-base">Obras</span>
+</a>
+<!-- Mi Visita -->
+<a class="flex items-center gap-4 px-4 py-3.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="font-['Manrope'] text-base">Mi Visita</span>
+</a>
+<!-- Divider Alternative (Tonal Layering) -->
+<div class="h-px bg-slate-200 dark:bg-slate-800 my-4 mx-4"></div>
+<!-- Secondary Options -->
+<a class="flex items-center gap-4 px-4 py-3.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-['Manrope'] text-base">Ajustes</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-['Manrope'] text-base">Ayuda</span>
+</a>
+</div>
+</nav>
+<!-- Footer / BLE Signal Strength (Design System Element) -->
+<footer class="p-6 bg-surface-container-low">
+<div class="flex items-center justify-between p-4 rounded-2xl bg-surface-container-lowest shadow-sm border border-outline-variant/15">
+<div class="flex flex-col">
+<span class="font-label text-[10px] uppercase tracking-[0.05em] text-on-surface-variant font-bold">BLE Signal Strength</span>
+<span class="font-headline text-sm font-bold text-on-surface">Excellent</span>
+</div>
+<div class="flex gap-1 items-end h-4">
+<div class="w-1 h-1 bg-primary rounded-full"></div>
+<div class="w-1 h-2 bg-primary rounded-full"></div>
+<div class="w-1 h-3 bg-primary rounded-full"></div>
+<div class="w-1 h-4 bg-primary rounded-full"></div>
+</div>
+</div>
+</footer>
+</aside>
+<!-- Background Content Canvas (Simulated) -->
+<main class="ml-0 p-8 flex flex-col gap-8 opacity-40 grayscale pointer-events-none">
+<header class="flex justify-between items-center">
+<div class="h-8 w-32 bg-slate-200 rounded-full"></div>
+<div class="h-10 w-10 bg-slate-200 rounded-full"></div>
+</header>
+<div class="grid grid-cols-2 gap-4">
+<div class="h-64 col-span-2 rounded-3xl bg-slate-100"></div>
+<div class="h-32 rounded-3xl bg-slate-100"></div>
+<div class="h-32 rounded-3xl bg-slate-100"></div>
+</div>
+</main>
+<!-- Floating Audio Control (Design System Critical Component) -->
+<div class="fixed bottom-8 right-8 z-30">
+<button class="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">headphones</span>
+</button>
+</div>
+</body></html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ajustes - MuseIQ</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#9b6b00",
+                        "surface-dim": "#d6dade",
+                        "surface-container-low": "#f0f4f8",
+                        "background": "#f6fafe",
+                        "tertiary-fixed-dim": "#ffba38",
+                        "on-background": "#171c1f",
+                        "outline": "#707785",
+                        "tertiary-fixed": "#ffdeac",
+                        "surface-container": "#eaeef2",
+                        "on-primary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#604100",
+                        "primary-fixed-dim": "#a3c9ff",
+                        "primary-fixed": "#d3e3ff",
+                        "surface-container-highest": "#dfe3e7",
+                        "on-surface-variant": "#404753",
+                        "on-tertiary-fixed": "#281900",
+                        "tertiary": "#7b5500",
+                        "surface-container-high": "#e4e9ed",
+                        "inverse-primary": "#a3c9ff",
+                        "secondary-container": "#bae6f9",
+                        "on-primary-fixed-variant": "#004883",
+                        "on-error-container": "#93000a",
+                        "outline-variant": "#c0c7d5",
+                        "inverse-surface": "#2c3134",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "primary": "#005da7",
+                        "on-primary-fixed": "#001c39",
+                        "surface-variant": "#dfe3e7",
+                        "on-tertiary-container": "#fffbff",
+                        "surface-bright": "#f6fafe",
+                        "secondary": "#396474",
+                        "secondary-fixed-dim": "#a1cddf",
+                        "secondary-fixed": "#bde9fc",
+                        "surface-tint": "#0060ab",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#fdfcff",
+                        "on-secondary-fixed-variant": "#1f4c5b",
+                        "on-secondary-container": "#3d6878",
+                        "surface": "#f6fafe",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "primary-container": "#0076d1",
+                        "inverse-on-surface": "#edf1f5",
+                        "on-secondary-fixed": "#001f28",
+                        "on-surface": "#171c1f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-signature-gradient {
+            background: linear-gradient(135deg, #005da7 0%, #0076d1 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-slate-50 dark:bg-slate-900 flex justify-between items-center px-6 h-16 w-full fixed top-0 z-40">
+<div class="flex items-center gap-4">
+<button class="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-['Manrope'] font-bold text-lg text-blue-700 dark:text-blue-300 tracking-tight">MuseIQ</h1>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-2xl mx-auto">
+<!-- Title Anchor -->
+<div class="mb-10">
+<h2 class="text-on-surface font-headline font-extrabold text-4xl tracking-tight mb-2">Ajustes</h2>
+<p class="text-on-surface-variant font-medium">Personaliza tu experiencia de curaduría digital</p>
+</div>
+<!-- Bento Section: Narración -->
+<section class="mb-12">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary text-2xl">volume_up</span>
+<h3 class="font-headline font-bold text-xl">Narración</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Velocity Card -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] border-l-4 border-primary">
+<label class="font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant block mb-4">Velocidad</label>
+<div class="flex items-center justify-between gap-4">
+<span class="material-symbols-outlined text-on-surface-variant">slow_motion_video</span>
+<input class="w-full accent-primary h-1.5 bg-surface-container rounded-full" max="2" min="0.5" step="0.1" type="range" value="1"/>
+<span class="font-bold text-primary">1.0x</span>
+</div>
+</div>
+<!-- Auto-play Card -->
+<div class="bg-surface-container-low p-6 rounded-xl flex items-center justify-between">
+<div>
+<p class="font-bold text-on-surface">Auto-play</p>
+<p class="text-xs text-on-surface-variant">Reproducción al detectar obra</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Volume Card (Full width on grid) -->
+<div class="md:col-span-2 bg-surface-container-lowest p-6 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+<label class="font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant block mb-4">Volumen Maestro</label>
+<div class="flex items-center gap-6">
+<span class="material-symbols-outlined text-on-surface-variant">volume_down</span>
+<div class="flex-grow h-12 bg-surface-container rounded-xl flex items-center px-4 relative overflow-hidden">
+<div class="absolute inset-y-0 left-0 bg-signature-gradient w-3/4 opacity-20"></div>
+<input class="w-full accent-primary z-10 relative" type="range" value="75"/>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">volume_up</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Bento Section: Visual -->
+<section class="mb-12">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary text-2xl">visibility</span>
+<h3 class="font-headline font-bold text-xl">Visual</h3>
+</div>
+<div class="space-y-4">
+<!-- Text Size & Contrast Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<button class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 text-left hover:bg-surface-container transition-colors group">
+<div class="flex justify-between items-center mb-2">
+<span class="material-symbols-outlined text-primary">text_fields</span>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</div>
+<p class="font-bold text-on-surface">Tamaño del texto</p>
+<p class="text-xs text-on-surface-variant">Ajustar legibilidad de descripciones</p>
+</button>
+<button class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 text-left hover:bg-surface-container transition-colors group">
+<div class="flex justify-between items-center mb-2">
+<span class="material-symbols-outlined text-primary">contrast</span>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</div>
+<p class="font-bold text-on-surface">Contraste</p>
+<p class="text-xs text-on-surface-variant">Modo alto contraste para exteriores</p>
+</button>
+</div>
+<!-- Subtitles Toggle -->
+<div class="bg-surface-variant/30 backdrop-blur-sm p-6 rounded-xl flex items-center justify-between border border-white/40">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-white rounded-lg shadow-sm">
+<span class="material-symbols-outlined text-primary">closed_caption</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Subtítulos</p>
+<p class="text-xs text-on-surface-variant">Mostrar transcripción en tiempo real</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Bento Section: Permisos -->
+<section>
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary text-2xl">lock_open</span>
+<h3 class="font-headline font-bold text-xl">Permisos</h3>
+</div>
+<div class="bg-surface-container-low rounded-2xl overflow-hidden">
+<!-- BT Item -->
+<div class="p-5 flex items-center justify-between border-b border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="bg-secondary-container p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container text-xl">bluetooth</span>
+</div>
+<div>
+<p class="font-bold text-sm">Bluetooth</p>
+<span class="inline-flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest">
+<span class="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                                OK
+                            </span>
+</div>
+</div>
+<button class="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-primary hover:text-white transition-all active:scale-95">Configurar</button>
+</div>
+<!-- Mic Item -->
+<div class="p-5 flex items-center justify-between border-b border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="bg-secondary-container p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container text-xl">mic</span>
+</div>
+<div>
+<p class="font-bold text-sm">Micrófono</p>
+<span class="inline-flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest">
+<span class="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                                OK
+                            </span>
+</div>
+</div>
+<button class="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-primary hover:text-white transition-all active:scale-95">Configurar</button>
+</div>
+<!-- Loc Item -->
+<div class="p-5 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="bg-secondary-container p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container text-xl">location_on</span>
+</div>
+<div>
+<p class="font-bold text-sm">Localización</p>
+<span class="inline-flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest">
+<span class="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                                OK
+                            </span>
+</div>
+</div>
+<button class="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-primary hover:text-white transition-all active:scale-95">Configurar</button>
+</div>
+</div>
+</section>
+<!-- Support Aesthetic Card -->
+<div class="mt-12 bg-signature-gradient p-8 rounded-3xl text-white relative overflow-hidden group">
+<div class="relative z-10">
+<h4 class="font-headline font-extrabold text-2xl mb-2">¿Necesitas ayuda?</h4>
+<p class="text-white/80 mb-6 max-w-xs">Nuestros curadores digitales están disponibles para asistirte en tu recorrido.</p>
+<button class="bg-white text-primary px-6 py-3 rounded-2xl font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined">help</span>
+                    Contactar soporte
+                </button>
+</div>
+<!-- Decorative Artifact Overlay -->
+<div class="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
+<span class="material-symbols-outlined text-[160px]" style="font-variation-settings: 'wght' 200;">museum</span>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-2xl">
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-blue-500 transition-all" href="#">
+<span class="material-symbols-outlined">map</span>
+<span class="font-['Manrope'] text-[11px] font-semibold tracking-wide uppercase mt-1">Recorrido</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-blue-500 transition-all" href="#">
+<span class="material-symbols-outlined">museum</span>
+<span class="font-['Manrope'] text-[11px] font-semibold tracking-wide uppercase mt-1">Obras</span>
+</a>
+<a class="flex flex-col items-center justify-center text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 rounded-xl px-3 py-1 scale-110" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+<span class="font-['Manrope'] text-[11px] font-semibold tracking-wide uppercase mt-1">Mi Visita</span>
+</a>
+</nav>
+<!-- Overlay Navigation Drawer (Hidden State Placeholder) -->
+<div class="fixed inset-0 bg-black/40 z-[60] opacity-0 pointer-events-none transition-opacity duration-300 flex" id="drawer">
+<div class="bg-slate-50 dark:bg-slate-900 rounded-r-2xl h-full w-80 shadow-2xl flex flex-col h-full py-8 px-4 -translate-x-full transition-transform duration-300">
+<div class="mb-10 px-4">
+<h2 class="font-['Manrope'] font-black text-blue-700 text-2xl">MuseIQ Menu</h2>
+</div>
+<nav class="flex-grow space-y-2">
+<a class="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-bold flex items-center gap-4 p-4 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-['Manrope'] text-base">Ajustes</span>
+</a>
+<a class="text-slate-600 dark:text-slate-400 flex items-center gap-4 p-4 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-['Manrope'] text-base">Ayuda</span>
+</a>
+</nav>
+<div class="px-4 mt-auto">
+<p class="text-xs text-slate-400 font-medium">Versión 2.4.1 • The Digital Curator</p>
+</div>
+</div>
+</div>
+</body></html>
