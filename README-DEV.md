@@ -1,90 +1,124 @@
 # README-DEV
 
-Guia rapida para retomar desarrollo de MuseIQ en WSL2 + Development Build (sin ngrok/tunnel).
+Guia rapida para levantar MuseIQ en desarrollo con WSL2 y validar el MVP BLE actual.
 
-## Objetivo
+## Contexto actual
 
-Levantar la app en el celular usando **Expo Development Build** de forma estable en red local.
+El proyecto esta siendo probado con este alcance:
+
+- una sola sala operativa en la app: `SALA_1`
+- tres mini ESP32 de prueba:
+  - `S1-M1`
+  - `S1-M2`
+  - `S1-M3`
+- deteccion visible directamente en la pantalla `Recorrido`
+
+La app puede detectar los beacons de prueba aunque solo publiquen nombre BLE, porque existe un fallback temporal:
+
+- `S1-M1` -> `SALA_1-B01`
+- `S1-M2` -> `SALA_1-B02`
+- `S1-M3` -> `SALA_1-B03`
 
 ## Requisitos
 
-- Windows + WSL2 (Ubuntu)
-- Mismo Wi-Fi para PC y celular
-- Dev client instalado en el telefono (APK/Build de desarrollo)
-- Dependencias del proyecto instaladas (`npm install`)
+- Windows + WSL2
+- mismo Wi-Fi para PC y celular
+- Android con Development Build instalado
+- dependencias instaladas con `npm install`
 
-## Flujo Diario (desde cero)
+## Arranque recomendado
 
-### 1. Configurar bridge WSL -> Windows (PowerShell Admin)
+### Opcion 1. Tunnel
 
-Abre **PowerShell como Administrador** y ejecuta:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\proyectos\museiq\scripts\expo-wsl-portproxy.ps1"
-```
-
-Que hace este script:
-- Detecta IP de WSL
-- Crea `portproxy` para puertos `8081`, `19000`, `19001`
-- Crea reglas de firewall necesarias
-
-### 2. Levantar Expo en WSL (LAN + dev client)
-
-En WSL, dentro del proyecto:
+Es la opcion mas simple para salir del paso:
 
 ```bash
-cd /home/eduardo/proyectos/museiq
-npm run dev:client:lan
-```
-
-Este comando:
-- Detecta la IP LAN de Windows
-- Exporta `REACT_NATIVE_PACKAGER_HOSTNAME`
-- Inicia Expo con `--dev-client --lan --port 8081`
-
-### 3. Abrir en el celular
-
-- Abre la app **Development Build**
-- Escanea el QR de la terminal
-- Verifica que la URL use `192.168.x.x:8081` (no `172.26.x.x`)
-
-## Comandos Utiles
-
-```bash
-# Desde WSL: correr script de portproxy de Windows
-npm run wsl:portproxy
-
-# Iniciar dev client LAN (recomendado)
-npm run dev:client:lan
-
-# Iniciar con tunnel (fallback)
+cd /home/eduardo/proyectos/iot/museiq/museiqApp
 npm run dev:client
 ```
 
-## Troubleshooting
+Usa tunnel y normalmente evita parte de la configuracion LAN manual.
 
-### Error: `failed to connect to /172.26.x.x:8081`
+### Opcion 2. LAN en WSL2
 
-Causa: el celular no puede llegar a la red interna de WSL.
+Si quieres trabajar sin tunnel, usa el bridge WSL -> Windows.
 
-Solucion:
-1. Ejecutar script de portproxy en PowerShell Admin
-2. Iniciar con `npm run dev:client:lan`
-3. Confirmar que Expo publique `192.168.x.x`
+1. En PowerShell como administrador:
 
-### No abre en celular aunque escaneo QR
+```powershell
+powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\proyectos\iot\museiq\museiqApp\scripts\expo-wsl-portproxy.ps1"
+```
 
-- Verifica que PC y celular esten en la misma red
-- Revisa firewall de Windows
-- Ejecuta nuevamente el script de portproxy (la IP de WSL puede cambiar)
-- Reinicia Expo (`Ctrl+C` y vuelve a correr `npm run dev:client:lan`)
+2. En WSL:
 
-### Quiero parar todo
+```bash
+cd /home/eduardo/proyectos/iot/museiq/museiqApp
+npm run dev:client:lan
+```
 
-- En WSL: `Ctrl + C` para detener Expo
-- (Opcional) volver a ejecutar el script de portproxy con limpieza si luego agregamos modo `remove`
+## Flujo de prueba BLE
 
-## Notas
+1. Abre la app en el telefono.
+2. Entra a `Recorrido`.
+3. Pulsa `Buscar sala`.
+4. Revisa la tarjeta `Beacons escaneados`.
+5. Acerca o aleja los ESP32 para ver cambios en:
+   - beacon dominante
+   - RSSI
+   - estado activo/reposo
+   - orden relativo entre `M1`, `M2` y `M3`
 
-- Evitamos `tunnel` por dependencia de ngrok y posibles caidas.
-- Este flujo es el recomendado para desarrollo diario en este proyecto.
+## Error comun: ENOSPC
+
+Si Expo arranca y luego falla con algo como:
+
+```text
+Error: ENOSPC: System limit for number of file watchers reached
+```
+
+sube temporalmente los limites de `inotify`:
+
+```bash
+sudo sysctl -w fs.inotify.max_user_watches=524288
+sudo sysctl -w fs.inotify.max_user_instances=1024
+```
+
+Si quieres dejarlo persistente:
+
+```bash
+echo "fs.inotify.max_user_watches=524288" | sudo tee /etc/sysctl.d/99-museiq-inotify.conf
+echo "fs.inotify.max_user_instances=1024" | sudo tee -a /etc/sysctl.d/99-museiq-inotify.conf
+sudo sysctl --system
+```
+
+Verifica los valores:
+
+```bash
+cat /proc/sys/fs/inotify/max_user_watches
+cat /proc/sys/fs/inotify/max_user_instances
+```
+
+## Comandos utiles
+
+```bash
+# Dev client con tunnel
+npm run dev:client
+
+# Dev client LAN
+npm run dev:client:lan
+
+# Script de portproxy desde WSL
+npm run wsl:portproxy
+
+# Web
+npm run web
+
+# Verificacion TypeScript
+npx tsc --noEmit
+```
+
+## Lo importante del MVP
+
+- La app ya no depende solo de `serviceData`; tambien acepta los nombres BLE `S1-M1`, `S1-M2`, `S1-M3`.
+- La pantalla `Recorrido` ya muestra los datos escaneados para validar el comportamiento real en sala.
+- El enfoque actual es validar estabilidad de deteccion antes de endurecer el protocolo BLE definitivo.
