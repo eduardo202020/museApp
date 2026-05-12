@@ -13,6 +13,12 @@ interface BleScannerOptions {
     emaAlpha?: number;
 }
 
+interface ParsedBeaconIdentity {
+    roomId: string;
+    beaconNode: number;
+    id: string;
+}
+
 export function useBleScanner(options: BleScannerOptions = {}) {
     const defaultTxPowerDbm = options.defaultTxPowerDbm ?? -8;
     const rssiWindowSize = options.rssiWindowSize ?? 5;
@@ -23,6 +29,43 @@ export function useBleScanner(options: BleScannerOptions = {}) {
     const [error, setError] = useState<string | null>(null);
     const rssiHistoryRef = useRef<Map<string, number[]>>(new Map());
     const emaRssiRef = useRef<Map<string, number>>(new Map());
+
+    const normalizeRoomId = useCallback((rawRoomId?: string) => {
+        const value = (rawRoomId ?? '').trim().toUpperCase();
+
+        if (!value) {
+            return '';
+        }
+
+        if (/^SALA_\d+$/.test(value)) {
+            return value;
+        }
+
+        const shortRoomMatch = value.match(/^S(\d+)$/);
+        if (shortRoomMatch) {
+            return `SALA_${shortRoomMatch[1]}`;
+        }
+
+        return value;
+    }, []);
+
+    const parseBeaconName = useCallback((name?: string | null): ParsedBeaconIdentity | null => {
+        const value = (name ?? '').trim().toUpperCase();
+        const match = value.match(/^S(\d+)-M(\d+)$/);
+
+        if (!match) {
+            return null;
+        }
+
+        const roomId = `SALA_${match[1]}`;
+        const beaconNode = Number(match[2]);
+
+        return {
+            roomId,
+            beaconNode,
+            id: `${roomId}-B${beaconNode.toString().padStart(2, '0')}`,
+        };
+    }, []);
 
     // Parsear Service Data del beacon
     const parseServiceData = useCallback((serviceData: string): Partial<BeaconData> | null => {
@@ -46,7 +89,7 @@ export function useBleScanner(options: BleScannerOptions = {}) {
             const batteryMv = buffer.readUInt16LE(buffer.length - 2);
 
             // Room ID es todo lo que queda al principio
-            const roomId = buffer.slice(0, buffer.length - 6).toString('utf-8');
+            const roomId = normalizeRoomId(buffer.slice(0, buffer.length - 6).toString('utf-8'));
 
             return {
                 roomId,
@@ -62,23 +105,43 @@ export function useBleScanner(options: BleScannerOptions = {}) {
             console.error('Error parseando Service Data:', err);
             return null;
         }
-    }, []);
+    }, [normalizeRoomId]);
 
     // Procesar dispositivo BLE detectado
     const processDevice = useCallback((device: Device) => {
-        if (!device.serviceData) return;
+        let parsedData: Partial<BeaconData> | null = null;
 
-        // Buscar el Service Data con nuestro UUID
-        const serviceDataEntry = Object.entries(device.serviceData).find(
-            ([uuid]) => uuid.toLowerCase() === BEACON_SERVICE_UUID.toLowerCase()
-        );
+        if (device.serviceData) {
+            const serviceDataEntry = Object.entries(device.serviceData).find(
+                ([uuid]) => uuid.toLowerCase() === BEACON_SERVICE_UUID.toLowerCase()
+            );
 
-        if (!serviceDataEntry) return;
+            if (serviceDataEntry) {
+                const [_, serviceData] = serviceDataEntry;
+                parsedData = parseServiceData(serviceData);
+            }
+        }
 
-        const [_, serviceData] = serviceDataEntry;
-        const parsedData = parseServiceData(serviceData);
+        if (!parsedData?.id) {
+            const fallbackIdentity =
+                parseBeaconName(device.name) ??
+                parseBeaconName(device.localName);
 
-        if (!parsedData || !parsedData.id) return;
+            if (fallbackIdentity) {
+                parsedData = {
+                    roomId: fallbackIdentity.roomId,
+                    beaconNode: fallbackIdentity.beaconNode,
+                    firmwareMajor: 1,
+                    firmwareMinor: 0,
+                    firmwareVersion: '1.0',
+                    txPower: defaultTxPowerDbm,
+                    battery: 0,
+                    id: fallbackIdentity.id,
+                };
+            }
+        }
+
+        if (!parsedData?.id) return;
 
         const rawRssi = device.rssi ?? -100;
         const history = rssiHistoryRef.current.get(parsedData.id) ?? [];
@@ -118,7 +181,7 @@ export function useBleScanner(options: BleScannerOptions = {}) {
             updated.set(beaconData.id, beaconData);
             return updated;
         });
-    }, [defaultTxPowerDbm, emaAlpha, parseServiceData, rssiWindowSize]);
+    }, [defaultTxPowerDbm, emaAlpha, parseBeaconName, parseServiceData, rssiWindowSize]);
 
     // Solicitar permisos en Android
     const requestAndroidPermissions = async (): Promise<boolean> => {

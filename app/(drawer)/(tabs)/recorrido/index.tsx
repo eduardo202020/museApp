@@ -9,6 +9,7 @@ import {
   StatusPill,
   TopBar,
 } from '@/components/museiq/ui';
+import { BeaconList } from '@/components/beacon-list';
 import { useBleScanner } from '@/hooks/use-ble-scanner';
 import { useMuseIQ } from '@/providers/museiq-provider';
 import { Ionicons } from '@expo/vector-icons';
@@ -155,6 +156,21 @@ export default function RecorridoHomeScreen() {
             <PrimaryButton icon="scan" label="Buscar sala" onPress={startScanning} />
           )}
         </SectionCard>
+
+        <SectionCard style={styles.beaconSection}>
+          <SectionEyebrow>Beacons escaneados</SectionEyebrow>
+          <Text style={styles.infoLine}>
+            Beacon dominante:{' '}
+            {beacons[0]
+              ? `${beacons[0].roomId} · M${beacons[0].beaconNode} · ${beacons[0].rssi} dBm`
+              : 'sin lecturas'}
+          </Text>
+          <Text style={styles.infoLine}>
+            IDs detectados:{' '}
+            {beacons.length > 0 ? beacons.map((beacon) => `M${beacon.beaconNode}`).join(', ') : 'ninguno'}
+          </Text>
+          <BeaconList beacons={beacons} distanceN={2} isScanning={isScanning} scrollEnabled={false} />
+        </SectionCard>
       </AppScreen>
 
       <FloatingVoiceButton
@@ -244,6 +260,10 @@ const styles = StyleSheet.create({
     color: musePalette.text,
     fontSize: 14,
     lineHeight: 21,
+  },
+  beaconSection: {
+    paddingHorizontal: 0,
+    paddingVertical: 18,
   },
   sequenceRow: {
     alignItems: 'center',
