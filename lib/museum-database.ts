@@ -296,7 +296,12 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
     tags_json: string;
     location_hint: string;
     suggested_questions_json: string;
-  }>('SELECT * FROM artworks ORDER BY room_id ASC, artwork_order ASC');
+  }>(`
+    SELECT artworks.*
+    FROM artworks
+    INNER JOIN rooms ON rooms.id = artworks.room_id
+    ORDER BY rooms.room_order ASC, artworks.artwork_order ASC
+  `);
 
   const faqRows = await db.getAllAsync<FAQItem>('SELECT question, answer FROM faq ORDER BY id ASC');
   const voicePromptRows = await db.getAllAsync<{ prompt: string }>(

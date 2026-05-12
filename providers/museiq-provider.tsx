@@ -114,9 +114,8 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       setPermissionCatalog(snapshot.permissionCatalog);
 
       const firstRoom = snapshot.rooms[0];
-      const initialRoom = snapshot.rooms.find((room) => room.id === 'SALA_2') ?? firstRoom;
+      const initialRoom = firstRoom;
       const initialArtwork =
-        snapshot.artworks.find((artwork) => artwork.id === 'obra-2-1') ??
         snapshot.artworks.find((artwork) => artwork.roomId === initialRoom?.id) ??
         snapshot.artworks[0];
 

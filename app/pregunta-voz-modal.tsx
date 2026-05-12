@@ -1,5 +1,6 @@
 import { musePalette } from '@/components/museiq/theme';
 import { PrimaryButton, SecondaryButton } from '@/components/museiq/ui';
+import { askMuseRag } from '@/lib/muserag-api';
 import { useMuseIQ } from '@/providers/museiq-provider';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
@@ -19,21 +20,54 @@ export default function PreguntaVozModal() {
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const simulateQuestion = (question: string) => {
+  const askQuestion = (question: string) => {
     setVoiceState('listening');
     setTranscript(question);
+    setResponse('');
+    setErrorMessage('');
 
     setTimeout(() => {
       setVoiceState('processing');
     }, 500);
 
-    setTimeout(() => {
-      const answer = `${artwork?.title ?? 'La obra'} pertenece a ${artwork?.period ?? 'un periodo destacado'}. ${artwork?.summary ?? ''}`;
-      setResponse(answer);
-      setVoiceState('responding');
-      Speech.stop();
-      Speech.speak(answer, { language: 'es-ES', rate: 0.95 });
+    setTimeout(async () => {
+      try {
+        const result = await askMuseRag({
+          question,
+          roomId: artwork?.roomId,
+          artworkId: artwork?.id,
+          artwork: artwork
+            ? {
+                id: artwork.id,
+                title: artwork.title,
+                author: artwork.author,
+                year: artwork.year,
+                period: artwork.period,
+                technique: artwork.technique,
+                summary: artwork.summary,
+                context: artwork.context,
+                roomRelation: artwork.roomRelation,
+                locationHint: artwork.locationHint,
+                suggestedQuestions: artwork.suggestedQuestions,
+              }
+            : undefined,
+        });
+
+        const answer = result.answer;
+        setResponse(answer);
+        setVoiceState('responding');
+        Speech.stop();
+        Speech.speak(answer, { language: 'es-ES', rate: 0.95 });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'No pude conectar con MuseRAG. Verifica que el backend y LM Studio esten activos.';
+        setErrorMessage(message);
+        setVoiceState('idle');
+      }
     }, 1300);
   };
 
@@ -54,7 +88,7 @@ export default function PreguntaVozModal() {
         <Text style={styles.subtitle}>{artwork?.title ?? 'Obra actual'}</Text>
 
         <View style={styles.micBlock}>
-          <Pressable onPress={() => simulateQuestion(voicePrompts[0] ?? '¿Quién hizo esta obra?')} style={styles.micButton}>
+          <Pressable onPress={() => askQuestion(voicePrompts[0] ?? '¿Quién hizo esta obra?')} style={styles.micButton}>
             <Ionicons color="#fff" name="mic" size={34} />
           </Pressable>
           <Text style={styles.voiceState}>{statusText}</Text>
@@ -67,7 +101,7 @@ export default function PreguntaVozModal() {
 
         <View style={styles.promptList}>
           {voicePrompts.map((prompt) => (
-            <Pressable key={prompt} onPress={() => simulateQuestion(prompt)} style={styles.promptChip}>
+            <Pressable key={prompt} onPress={() => askQuestion(prompt)} style={styles.promptChip}>
               <Text style={styles.promptText}>{prompt}</Text>
             </Pressable>
           ))}
@@ -76,13 +110,14 @@ export default function PreguntaVozModal() {
         <View style={styles.answerCard}>
           <Text style={styles.sectionTitle}>Respuesta</Text>
           <Text style={styles.bodyText}>{response || 'La respuesta aparecerá aquí en texto y se reproducirá por audio.'}</Text>
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         </View>
 
         <View style={styles.actions}>
           <PrimaryButton
             icon="refresh"
             label="Hacer otra pregunta"
-            onPress={() => simulateQuestion(voicePrompts[1] ?? voicePrompts[0] ?? '¿Qué representa?')}
+            onPress={() => askQuestion(voicePrompts[1] ?? voicePrompts[0] ?? '¿Qué representa?')}
           />
           <SecondaryButton icon="close" label="Cerrar" onPress={() => router.back()} />
         </View>
@@ -163,6 +198,12 @@ const styles = StyleSheet.create({
     color: musePalette.textMuted,
     fontSize: 14,
     lineHeight: 21,
+  },
+  errorText: {
+    color: '#A12626',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   promptList: {
     flexDirection: 'row',
