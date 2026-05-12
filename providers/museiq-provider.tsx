@@ -19,7 +19,11 @@ import {
 } from "react";
 import { PermissionsAndroid, Platform } from "react-native";
 
-type PermissionKey = "bluetooth" | "location" | "microphone";
+type PermissionKey =
+  | "bluetooth"
+  | "physicalActivity"
+  | "location"
+  | "microphone";
 
 interface SettingsState {
   voiceRate: number;
@@ -94,6 +98,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
   const [permissionCatalog, setPermissionCatalog] = useState<PermissionCatalog>(
     {
       bluetooth: { ...permissionCopy.bluetooth },
+      physicalActivity: { ...permissionCopy.physicalActivity },
       location: { ...permissionCopy.location },
       microphone: { ...permissionCopy.microphone },
     },
@@ -222,6 +227,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     if (Platform.OS !== "android") {
       setPermissions({
         bluetooth: "granted",
+        physicalActivity: "granted",
         location: "granted",
         microphone: "granted",
       });
@@ -231,6 +237,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     const granted = await PermissionsAndroid.requestMultiple([
       PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
       PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
     ]);
@@ -243,6 +250,11 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
 
     const nextPermissions = {
       bluetooth: bluetoothGranted ? "granted" : "denied",
+      physicalActivity:
+        granted["android.permission.ACTIVITY_RECOGNITION"] ===
+        PermissionsAndroid.RESULTS.GRANTED
+          ? "granted"
+          : "denied",
       location:
         granted["android.permission.ACCESS_FINE_LOCATION"] ===
         PermissionsAndroid.RESULTS.GRANTED
@@ -266,6 +278,8 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     setPermissionsAccepted(false);
     setPermissions((previous) => ({
       bluetooth: previous.bluetooth === "granted" ? "granted" : "denied",
+      physicalActivity:
+        previous.physicalActivity === "granted" ? "granted" : "denied",
       location: previous.location === "granted" ? "granted" : "denied",
       microphone: previous.microphone === "granted" ? "granted" : "denied",
     }));

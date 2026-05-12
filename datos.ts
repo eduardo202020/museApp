@@ -817,6 +817,11 @@ export const permissionCopy = {
     description:
       "Permite detectar en que sala estas y sugerir la obra mas probable.",
   },
+  physicalActivity: {
+    title: "Actividad fisica",
+    description:
+      "Permite leer el contador de pasos para enriquecer el contexto del recorrido.",
+  },
   location: {
     title: "Ubicacion",
     description:
@@ -830,10 +835,11 @@ export const permissionCopy = {
 } as const;
 
 export const defaultPermissionStatuses: Record<
-  "bluetooth" | "location" | "microphone",
+  "bluetooth" | "physicalActivity" | "location" | "microphone",
   PermissionStatus
 > = {
   bluetooth: "pending",
+  physicalActivity: "pending",
   location: "pending",
   microphone: "pending",
 };

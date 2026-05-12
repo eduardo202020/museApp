@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 const permissionItems = [
   { key: 'bluetooth', icon: 'bluetooth' },
+  { key: 'physicalActivity', icon: 'walk' },
   { key: 'location', icon: 'location' },
   { key: 'microphone', icon: 'mic' },
 ] as const;
@@ -80,7 +81,7 @@ export default function PermissionsModal() {
             {accepted ? <Ionicons color="#fff" name="checkmark" size={16} /> : null}
           </View>
           <Text style={styles.checkboxText}>
-            He leído y acepto otorgar permisos de Bluetooth, micrófono y ubicación para usar MuseIQ.
+            He leído y acepto otorgar permisos de Bluetooth, actividad física, micrófono y ubicación para usar MuseIQ.
           </Text>
         </Pressable>
 

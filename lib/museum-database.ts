@@ -39,6 +39,7 @@ function buildMockSnapshot(): MuseumDatabaseSnapshot {
     voicePrompts: museumMock.voicePrompts,
     permissionCatalog: {
       bluetooth: { ...permissionCopy.bluetooth },
+      physicalActivity: { ...permissionCopy.physicalActivity },
       location: { ...permissionCopy.location },
       microphone: { ...permissionCopy.microphone },
     },
@@ -424,6 +425,7 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
       },
       {
         bluetooth: { ...permissionCopy.bluetooth },
+        physicalActivity: { ...permissionCopy.physicalActivity },
         location: { ...permissionCopy.location },
         microphone: { ...permissionCopy.microphone },
       }

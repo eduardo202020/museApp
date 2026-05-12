@@ -7,12 +7,19 @@ import {
     StatusPill,
     TopBar,
 } from "@/components/museiq/ui";
+import { useBleScanner } from "@/hooks/use-ble-scanner";
 import { getArtworkImageSource } from "@/lib/artwork-images";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 export default function IndexScreen() {
   const {
@@ -34,15 +41,20 @@ export default function IndexScreen() {
   const currentIndex = roomArtworks.findIndex(
     (artwork) => artwork.id === currentArtworkId,
   );
+  const { beacons, isScanning, error: bleError, startScanning, stopScanning } =
+    useBleScanner();
 
   const [isSensorPanelOpen, setIsSensorPanelOpen] = useState(false);
-  const [bleStatus] = useState("lectura de contexto activa");
   const [accelerometerStatus, setAccelerometerStatus] = useState("cargando");
   const [compassStatus, setCompassStatus] = useState("cargando");
   const [stepCountStatus, setStepCountStatus] = useState("cargando");
   const [stepCount, setStepCount] = useState<number | null>(null);
   const [movementState, setMovementState] = useState("--");
   const [headingState, setHeadingState] = useState<string | null>(null);
+  const fallbackStepCountRef = useRef(0);
+  const nativeStepSeenRef = useRef(false);
+  const lastEstimatedStepAtRef = useRef(0);
+  const smoothedMagnitudeRef = useRef<number | null>(null);
 
   const previousArtwork =
     currentIndex > 0 ? roomArtworks[currentIndex - 1] : undefined;
@@ -52,6 +64,22 @@ export default function IndexScreen() {
       : undefined;
 
   const imageSource = getArtworkImageSource(currentArtwork?.image);
+  const dominantBeacon = beacons[0];
+  const bleStatus = dominantBeacon
+    ? `${dominantBeacon.roomId} · M${dominantBeacon.beaconNode}`
+    : bleError
+      ? `error · ${bleError}`
+      : isScanning
+        ? "buscando sala..."
+        : "sin lectura";
+
+  useEffect(() => {
+    startScanning().catch(() => undefined);
+
+    return () => {
+      stopScanning();
+    };
+  }, [startScanning, stopScanning]);
 
   useEffect(() => {
     let isMounted = true;
@@ -77,7 +105,6 @@ export default function IndexScreen() {
         setCompassStatus(magnetometerAvailable ? "activo" : "no disponible");
 
         if (accelerometerAvailable) {
-          let prevMagnitude: number | null = null;
           let smoothedDelta = 0;
 
           Accelerometer.setUpdateInterval(250);
@@ -86,20 +113,37 @@ export default function IndexScreen() {
             const y = reading.y ?? 0;
             const z = reading.z ?? 0;
             const magnitude = Math.sqrt(x * x + y * y + z * z);
+            const previousSmoothedMagnitude = smoothedMagnitudeRef.current;
+            const nextSmoothedMagnitude =
+              previousSmoothedMagnitude === null
+                ? magnitude
+                : previousSmoothedMagnitude * 0.75 + magnitude * 0.25;
+            smoothedMagnitudeRef.current = nextSmoothedMagnitude;
 
-            if (prevMagnitude === null) {
-              prevMagnitude = magnitude;
+            if (previousSmoothedMagnitude === null) {
               return;
             }
 
-            const delta = Math.abs(magnitude - prevMagnitude);
-            prevMagnitude = magnitude;
+            const delta = Math.abs(magnitude - previousSmoothedMagnitude);
             smoothedDelta = smoothedDelta * 0.8 + delta * 0.2;
 
             if (isMounted) {
               setMovementState(
                 smoothedDelta > 0.06 ? "en movimiento" : "quieto",
               );
+
+              const now = Date.now();
+              const canEstimateFallbackStep =
+                !nativeStepSeenRef.current &&
+                smoothedDelta > 0.09 &&
+                now - lastEstimatedStepAtRef.current > 450;
+
+              if (canEstimateFallbackStep) {
+                fallbackStepCountRef.current += 1;
+                lastEstimatedStepAtRef.current = now;
+                setStepCount(fallbackStepCountRef.current);
+                setStepCountStatus("estimado por movimiento");
+              }
             }
           });
         }
@@ -152,6 +196,16 @@ export default function IndexScreen() {
       try {
         const sensorsModule = await import("expo-sensors");
         const Pedometer = sensorsModule.Pedometer;
+        const permissionResponse = await Pedometer.requestPermissionsAsync();
+
+        if (!permissionResponse.granted) {
+          if (isMounted) {
+            setStepCountStatus("permiso requerido");
+            setStepCount(null);
+          }
+          return;
+        }
+
         const pedometerAvailable = await Pedometer.isAvailableAsync();
 
         if (!isMounted) {
@@ -164,27 +218,38 @@ export default function IndexScreen() {
           return;
         }
 
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
+        const runningOnIos = Platform.OS === "ios";
 
-        try {
-          const initialCount = await Pedometer.getStepCountAsync(
-            startOfDay,
-            new Date(),
-          );
+        if (runningOnIos) {
+          const startOfDay = new Date();
+          startOfDay.setHours(0, 0, 0, 0);
 
-          if (isMounted) {
-            setStepCount(initialCount.steps);
+          try {
+            const initialCount = await Pedometer.getStepCountAsync(
+              startOfDay,
+              new Date(),
+            );
+
+            if (isMounted) {
+              setStepCount(initialCount.steps);
+              setStepCountStatus("activo");
+            }
+          } catch {
+            if (isMounted) {
+              setStepCount(null);
+              setStepCountStatus("esperando lectura");
+            }
           }
-        } catch {
-          if (isMounted) {
-            setStepCount(0);
-          }
+        } else if (isMounted) {
+          setStepCount(null);
+          setStepCountStatus("activo · esperando pasos");
         }
 
         pedometerSubscription = Pedometer.watchStepCount((result) => {
           if (isMounted) {
+            nativeStepSeenRef.current = true;
             setStepCount(result.steps);
+            setStepCountStatus("activo");
           }
         });
       } catch {
