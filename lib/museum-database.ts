@@ -6,10 +6,12 @@ import {
   type FAQItem,
   type MuseumInfo,
   type RoomMock,
-} from '@/datos';
+} from "@/datos";
 
 type PermissionKey = keyof typeof defaultPermissionStatuses;
-type SQLiteDatabase = Awaited<ReturnType<typeof import('expo-sqlite')['openDatabaseAsync']>>;
+type SQLiteDatabase = Awaited<
+  ReturnType<typeof import("expo-sqlite")["openDatabaseAsync"]>
+>;
 
 export interface MuseumDatabaseSnapshot {
   museumProfile: MuseumInfo | null;
@@ -17,11 +19,14 @@ export interface MuseumDatabaseSnapshot {
   artworks: ArtworkMock[];
   helpFaq: FAQItem[];
   voicePrompts: string[];
-  permissionCatalog: Record<PermissionKey, { title: string; description: string }>;
+  permissionCatalog: Record<
+    PermissionKey,
+    { title: string; description: string }
+  >;
 }
 
-const DATABASE_NAME = 'museiq.db';
-const DATABASE_VERSION = 1;
+const DATABASE_NAME = "museiq.db";
+const DATABASE_VERSION = 3;
 
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
@@ -59,7 +64,7 @@ function fromJsonArray<T>(value: string | null | undefined): T[] {
 async function getDatabase() {
   if (!databasePromise) {
     databasePromise = (async () => {
-      const sqlite = await import('expo-sqlite');
+      const sqlite = await import("expo-sqlite");
       return sqlite.openDatabaseAsync(DATABASE_NAME);
     })();
   }
@@ -67,9 +72,19 @@ async function getDatabase() {
   return databasePromise;
 }
 
-export async function initializeMuseumDatabase() {
-  const db = await getDatabase();
+async function resetMuseumTables(db: SQLiteDatabase) {
+  await db.execAsync(`
+    DROP TABLE IF EXISTS permissions_catalog;
+    DROP TABLE IF EXISTS voice_prompts;
+    DROP TABLE IF EXISTS faq;
+    DROP TABLE IF EXISTS route_steps;
+    DROP TABLE IF EXISTS artworks;
+    DROP TABLE IF EXISTS rooms;
+    DROP TABLE IF EXISTS museum_profile;
+  `);
+}
 
+async function ensureMuseumSchema(db: SQLiteDatabase) {
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS museum_profile (
@@ -97,6 +112,10 @@ export async function initializeMuseumDatabase() {
       id TEXT PRIMARY KEY NOT NULL,
       room_id TEXT NOT NULL,
       artwork_order INTEGER NOT NULL,
+      row_number INTEGER,
+      col_number INTEGER,
+      col_name TEXT,
+      zone_label TEXT,
       title TEXT NOT NULL,
       author TEXT NOT NULL,
       year TEXT NOT NULL,
@@ -134,22 +153,9 @@ export async function initializeMuseumDatabase() {
       description TEXT NOT NULL
     );
   `);
+}
 
-  const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  const currentVersion = versionRow?.user_version ?? 0;
-
-  if (currentVersion < DATABASE_VERSION) {
-    await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
-  }
-
-  const museumCount = await db.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) as count FROM museum_profile'
-  );
-
-  if ((museumCount?.count ?? 0) > 0) {
-    return db;
-  }
-
+async function seedMuseumDatabase(db: SQLiteDatabase) {
   await db.withExclusiveTransactionAsync(async (txn) => {
     const museum = museumMock.museum;
 
@@ -187,12 +193,17 @@ export async function initializeMuseumDatabase() {
     for (const artwork of museumMock.artworks) {
       await txn.runAsync(
         `INSERT INTO artworks (
-          id, room_id, artwork_order, title, author, year, period, technique, duration_minutes, image,
-          summary, context, room_relation, audio_text, tags_json, location_hint, suggested_questions_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, room_id, artwork_order, row_number, col_number, col_name, zone_label, title, author, year,
+          period, technique, duration_minutes, image, summary, context, room_relation, audio_text,
+          tags_json, location_hint, suggested_questions_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         artwork.id,
         artwork.roomId,
         artwork.order,
+        artwork.row ?? null,
+        artwork.col ?? null,
+        artwork.colName ?? null,
+        artwork.zone ?? null,
         artwork.title,
         artwork.author,
         artwork.year,
@@ -212,7 +223,7 @@ export async function initializeMuseumDatabase() {
 
     for (const step of museumMock.route) {
       await txn.runAsync(
-        'INSERT INTO route_steps (sequence, artwork_id, room_id, hint) VALUES (?, ?, ?, ?)',
+        "INSERT INTO route_steps (sequence, artwork_id, room_id, hint) VALUES (?, ?, ?, ?)",
         step.sequence,
         step.artworkId,
         step.roomId,
@@ -221,12 +232,16 @@ export async function initializeMuseumDatabase() {
     }
 
     for (const item of museumMock.faq) {
-      await txn.runAsync('INSERT INTO faq (question, answer) VALUES (?, ?)', item.question, item.answer);
+      await txn.runAsync(
+        "INSERT INTO faq (question, answer) VALUES (?, ?)",
+        item.question,
+        item.answer
+      );
     }
 
     for (const [index, prompt] of museumMock.voicePrompts.entries()) {
       await txn.runAsync(
-        'INSERT INTO voice_prompts (prompt_order, prompt) VALUES (?, ?)',
+        "INSERT INTO voice_prompts (prompt_order, prompt) VALUES (?, ?)",
         index + 1,
         prompt
       );
@@ -234,13 +249,39 @@ export async function initializeMuseumDatabase() {
 
     for (const [permissionKey, copy] of Object.entries(permissionCopy)) {
       await txn.runAsync(
-        'INSERT INTO permissions_catalog (permission_key, title, description) VALUES (?, ?, ?)',
+        "INSERT INTO permissions_catalog (permission_key, title, description) VALUES (?, ?, ?)",
         permissionKey,
         copy.title,
         copy.description
       );
     }
   });
+}
+
+export async function initializeMuseumDatabase() {
+  const db = await getDatabase();
+  const versionRow = await db.getFirstAsync<{ user_version: number }>(
+    "PRAGMA user_version"
+  );
+  const currentVersion = versionRow?.user_version ?? 0;
+
+  if (currentVersion !== DATABASE_VERSION) {
+    await resetMuseumTables(db);
+    await ensureMuseumSchema(db);
+    await seedMuseumDatabase(db);
+    await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+    return db;
+  }
+
+  await ensureMuseumSchema(db);
+
+  const museumCount = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM museum_profile"
+  );
+
+  if ((museumCount?.count ?? 0) === 0) {
+    await seedMuseumDatabase(db);
+  }
 
   return db;
 }
@@ -251,7 +292,10 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
   try {
     db = await initializeMuseumDatabase();
   } catch (error) {
-    console.warn('SQLite no disponible; usando seed TypeScript como fallback.', error);
+    console.warn(
+      "SQLite no disponible; usando seed TypeScript como fallback.",
+      error
+    );
     return buildMockSnapshot();
   }
 
@@ -264,7 +308,7 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
     city: string;
     country: string;
     estimated_duration_minutes: number;
-  }>('SELECT * FROM museum_profile LIMIT 1');
+  }>("SELECT * FROM museum_profile LIMIT 1");
 
   const roomRows = await db.getAllAsync<{
     id: string;
@@ -276,12 +320,16 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
     sequence_label: string;
     status_label: string;
     zones_json: string;
-  }>('SELECT * FROM rooms ORDER BY room_order ASC');
+  }>("SELECT * FROM rooms ORDER BY room_order ASC");
 
   const artworkRows = await db.getAllAsync<{
     id: string;
     room_id: string;
     artwork_order: number;
+    row_number: number | null;
+    col_number: number | null;
+    col_name: ArtworkMock["colName"] | null;
+    zone_label: string | null;
     title: string;
     author: string;
     year: string;
@@ -303,15 +351,17 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
     ORDER BY rooms.room_order ASC, artworks.artwork_order ASC
   `);
 
-  const faqRows = await db.getAllAsync<FAQItem>('SELECT question, answer FROM faq ORDER BY id ASC');
+  const faqRows = await db.getAllAsync<FAQItem>(
+    "SELECT question, answer FROM faq ORDER BY id ASC"
+  );
   const voicePromptRows = await db.getAllAsync<{ prompt: string }>(
-    'SELECT prompt FROM voice_prompts ORDER BY prompt_order ASC'
+    "SELECT prompt FROM voice_prompts ORDER BY prompt_order ASC"
   );
   const permissionRows = await db.getAllAsync<{
     permission_key: PermissionKey;
     title: string;
     description: string;
-  }>('SELECT * FROM permissions_catalog ORDER BY permission_key ASC');
+  }>("SELECT * FROM permissions_catalog ORDER BY permission_key ASC");
 
   return {
     museumProfile: museumRow
@@ -341,6 +391,10 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
       id: row.id,
       roomId: row.room_id,
       order: row.artwork_order,
+      row: row.row_number ?? undefined,
+      col: row.col_number ?? undefined,
+      colName: row.col_name ?? undefined,
+      zone: row.zone_label ?? undefined,
       title: row.title,
       author: row.author,
       year: row.year,
@@ -358,7 +412,9 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
     })),
     helpFaq: faqRows,
     voicePrompts: voicePromptRows.map((row) => row.prompt),
-    permissionCatalog: permissionRows.reduce<Record<PermissionKey, { title: string; description: string }>>(
+    permissionCatalog: permissionRows.reduce<
+      Record<PermissionKey, { title: string; description: string }>
+    >(
       (accumulator, row) => {
         accumulator[row.permission_key] = {
           title: row.title,
