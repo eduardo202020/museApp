@@ -1,14 +1,24 @@
-import { musePalette } from '@/components/museiq/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { PropsWithChildren, ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { musePalette } from "@/components/museiq/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { PropsWithChildren, ReactNode } from "react";
+import {
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    type ScrollViewProps,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export function AppScreen({
   children,
   scroll = true,
   contentContainerStyle,
-}: PropsWithChildren<{ scroll?: boolean; contentContainerStyle?: ScrollViewProps['contentContainerStyle'] }>) {
+}: PropsWithChildren<{
+  scroll?: boolean;
+  contentContainerStyle?: ScrollViewProps["contentContainerStyle"];
+}>) {
   if (!scroll) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -21,7 +31,8 @@ export function AppScreen({
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={[styles.content, contentContainerStyle]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {children}
       </ScrollView>
     </SafeAreaView>
@@ -44,17 +55,34 @@ export function TopBar({
       <View style={styles.topBarSide}>{left}</View>
       <View style={styles.topBarCenter}>
         <Text style={styles.brand}>{title}</Text>
-        {subtitle ? <Text style={styles.topBarSubtitle}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={styles.topBarSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
       <View style={[styles.topBarSide, styles.topBarRight]}>{right}</View>
     </View>
   );
 }
 
-export function StatusPill({ label, tone = 'primary' }: { label: string; tone?: 'primary' | 'success' | 'warning' }) {
+export function StatusPill({
+  label,
+  tone = "primary",
+}: {
+  label: string;
+  tone?: "primary" | "success" | "warning";
+}) {
   const backgroundColor =
-    tone === 'success' ? '#DCF7E8' : tone === 'warning' ? '#FFF0CC' : musePalette.primarySoft;
-  const color = tone === 'success' ? musePalette.success : tone === 'warning' ? '#9B6500' : musePalette.primary;
+    tone === "success"
+      ? "#DCF7E8"
+      : tone === "warning"
+        ? "#FFF0CC"
+        : musePalette.primarySoft;
+  const color =
+    tone === "success"
+      ? musePalette.success
+      : tone === "warning"
+        ? "#9B6500"
+        : musePalette.primary;
 
   return (
     <View style={[styles.pill, { backgroundColor }]}>
@@ -68,7 +96,10 @@ export function SectionEyebrow({ children }: PropsWithChildren) {
   return <Text style={styles.eyebrow}>{children}</Text>;
 }
 
-export function SectionCard({ children, style }: PropsWithChildren<{ style?: object }>) {
+export function SectionCard({
+  children,
+  style,
+}: PropsWithChildren<{ style?: object }>) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
@@ -91,7 +122,8 @@ export function PrimaryButton({
         styles.primaryButton,
         pressed && !disabled ? styles.pressed : null,
         disabled ? styles.buttonDisabled : null,
-      ]}>
+      ]}
+    >
       {icon ? <Ionicons color="#fff" name={icon} size={20} /> : null}
       <Text style={styles.primaryButtonText}>{label}</Text>
     </Pressable>
@@ -102,14 +134,26 @@ export function SecondaryButton({
   label,
   icon,
   onPress,
+  disabled,
 }: {
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.secondaryButton, pressed ? styles.pressed : null]}>
-      {icon ? <Ionicons color={musePalette.textMuted} name={icon} size={18} /> : null}
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.secondaryButton,
+        pressed && !disabled ? styles.pressed : null,
+        disabled ? styles.buttonDisabled : null,
+      ]}
+    >
+      {icon ? (
+        <Ionicons color={musePalette.textMuted} name={icon} size={18} />
+      ) : null}
       <Text style={styles.secondaryButtonText}>{label}</Text>
     </Pressable>
   );
@@ -117,7 +161,13 @@ export function SecondaryButton({
 
 export function FloatingVoiceButton({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.voiceButton, pressed ? styles.pressed : null]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.voiceButton,
+        pressed ? styles.pressed : null,
+      ]}
+    >
       <Ionicons color="#fff" name="mic" size={26} />
     </Pressable>
   );
@@ -155,15 +205,15 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   topBar: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     marginBottom: 8,
   },
   topBarSide: {
     minWidth: 52,
   },
   topBarRight: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   topBarCenter: {
     flex: 1,
@@ -172,19 +222,19 @@ const styles = StyleSheet.create({
   brand: {
     color: musePalette.primary,
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: -0.8,
   },
   topBarSubtitle: {
     color: musePalette.textMuted,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pill: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignItems: "center",
+    alignSelf: "flex-start",
     borderRadius: 999,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -196,14 +246,14 @@ const styles = StyleSheet.create({
   },
   pillText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   eyebrow: {
     color: musePalette.primary,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 1.3,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   card: {
     backgroundColor: musePalette.surface,
@@ -212,50 +262,50 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 14,
     padding: 18,
-    shadowColor: '#0E243B',
+    shadowColor: "#0E243B",
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
   },
   primaryButton: {
-    alignItems: 'center',
+    alignItems: "center",
     backgroundColor: musePalette.primaryStrong,
     borderRadius: 18,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
-    justifyContent: 'center',
+    justifyContent: "center",
     minHeight: 54,
     paddingHorizontal: 18,
   },
   primaryButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   secondaryButton: {
-    alignItems: 'center',
+    alignItems: "center",
     backgroundColor: musePalette.surfaceMuted,
     borderRadius: 16,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
     minHeight: 50,
     paddingHorizontal: 14,
   },
   secondaryButtonText: {
     color: musePalette.text,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   voiceButton: {
-    alignItems: 'center',
+    alignItems: "center",
     backgroundColor: musePalette.primaryStrong,
     borderRadius: 999,
     bottom: 28,
     elevation: 6,
     height: 62,
-    justifyContent: 'center',
-    position: 'absolute',
+    justifyContent: "center",
+    position: "absolute",
     right: 22,
     shadowColor: musePalette.primary,
     shadowOffset: { width: 0, height: 12 },
@@ -271,12 +321,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   settingRow: {
-    alignItems: 'center',
+    alignItems: "center",
     borderBottomColor: musePalette.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     paddingVertical: 14,
   },
   settingText: {
@@ -286,7 +336,7 @@ const styles = StyleSheet.create({
   settingTitle: {
     color: musePalette.text,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   settingDescription: {
     color: musePalette.textMuted,
