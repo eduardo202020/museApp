@@ -20,7 +20,6 @@
     "@react-navigation/drawer": "^7.9.8",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
-    "@reactvision/react-viro": "^2.53.1",
     "buffer": "^6.0.3",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.13",
