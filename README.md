@@ -7,7 +7,7 @@ El estado actual del proyecto esta enfocado en un MVP de pruebas:
 - 1 sala activa en la app: `SALA_1`
 - 3 mini ESP32 emitiendo como beacons de prueba
 - deteccion BLE basada en RSSI para inferir la referencia mas cercana
-- UI de recorrido mostrando lecturas BLE en tiempo real
+- home principal con panel de sensores y lecturas BLE en tiempo real
 
 ## Estado actual del MVP
 
@@ -34,15 +34,29 @@ Esto permite validar el flujo del MVP aunque los ESP32 todavia no esten enviando
 
 ## Que muestra hoy la app
 
-En la pantalla `Recorrido` la app ya muestra:
+En la pantalla principal `app/index.tsx` la app ya muestra:
 
-- sala actual detectada
-- zona estimada segun RSSI
-- beacon dominante
-- lista de beacons escaneados
-- `roomId`, nodo beacon, RSSI, bateria, firmware y estado activo/reposo
+- obra actual y navegacion entre piezas de la sala
+- chat por voz para consultar sobre la obra activa
+- panel de sensores con acelerometro, brujula, pasos y BLE
+- beacon dominante en formato `SALA_x · M1/M2/M3`
 
-La deteccion de sala toma el beacon con mejor RSSI y usa su `roomId` como referencia para actualizar el recorrido.
+Cuando el scanner BLE detecta varios beacons, la app toma el de mejor RSSI como referencia dominante y lo muestra en el panel de sensores.
+
+## Sensores y pasos
+
+La home integra varias fuentes de contexto fisico:
+
+- `Accelerometer`: estado de movimiento (`quieto` o `en movimiento`)
+- `Magnetometer`: orientacion aproximada en grados
+- `Pedometer`: pasos nativos cuando el dispositivo y el build los entregan
+- fallback por acelerometro para estimar pasos si el pedometro nativo no emite eventos
+
+Notas importantes sobre pasos:
+
+- En `iOS`, la app intenta leer el acumulado del dia y luego escuchar pasos nuevos.
+- En `Android`, `expo-sensors` es mas confiable para pasos en vivo que para historial; por eso la UI puede arrancar en espera y comenzar a subir al caminar.
+- Si el pedometro nativo no responde en algunos dispositivos Android, MuseIQ usa una estimacion por movimiento para no dejar el contador bloqueado en `0`.
 
 ## Formato BLE esperado
 
@@ -67,13 +81,11 @@ Tambien se normaliza `S1` a `SALA_1` para el contexto actual de pruebas.
 ## Flujo de prueba recomendado
 
 1. Arranca la app en un dispositivo Android con Development Build.
-2. Entra a la pestaña `Recorrido`.
-3. Pulsa `Buscar sala`.
+2. Abre la pantalla principal.
+3. Expande el panel `Sensores`.
 4. Enciende o acerca los ESP32 `S1-M1`, `S1-M2` y `S1-M3`.
-5. Verifica en la tarjeta `Beacons escaneados`:
-   - cuantos beacons estan entrando
-   - cual queda como dominante
-   - como cambia el RSSI al moverte
+5. Verifica que el campo `BLE` muestre algo como `SALA_1 · M1`.
+6. Camina algunos pasos con el telefono en mano y revisa que el contador de pasos cambie.
 
 ## Scripts utiles
 
@@ -87,10 +99,11 @@ npx tsc --noEmit
 
 ## Estructura clave
 
-- `app/(drawer)/(tabs)/recorrido/index.tsx`: pantalla principal del MVP y panel BLE
+- `app/index.tsx`: home principal, obra actual y panel de sensores
 - `hooks/use-ble-scanner.ts`: escaneo BLE, parseo de payload y fallback por nombre
-- `components/beacon-list.tsx`: lista visual de beacons detectados
+- `components/beacon-list.tsx`: lista visual de beacons detectados para vistas de diagnostico
 - `providers/museiq-provider.tsx`: estado general del recorrido
+- `lib/artwork-images.ts`: registro de assets de obras para Expo
 - `datos.ts`: seed de salas, obras y textos del museo
 - `README-DEV.md`: arranque en WSL2 / Development Build
 
@@ -98,4 +111,5 @@ npx tsc --noEmit
 
 - El foco actual no es multi-sala; el MVP esta optimizado para una sola sala real de prueba.
 - Si mas adelante el firmware envia `serviceData` consistente, el fallback por nombre puede retirarse o quedar solo para debug.
+- La lectura de pasos depende bastante del dispositivo Android y del soporte del build nativo; por eso existe un fallback por acelerometro.
 - Si Expo falla al iniciar con `ENOSPC`, revisa `README-DEV.md`.
