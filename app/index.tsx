@@ -306,7 +306,7 @@ export default function IndexScreen() {
             )}
           </View>
 
-          <PrimaryButton icon="mic" label="Chat" onPress={openVoiceModal} />
+          <PrimaryButton icon="chatbubble-ellipses" label="Chat" onPress={openVoiceModal} />
 
           <View style={styles.navRow}>
             <SecondaryButton
