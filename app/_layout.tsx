@@ -5,16 +5,19 @@ import "react-native-gesture-handler";
 import "react-native-reanimated";
 
 import { MuseIQProvider } from "@/providers/museiq-provider";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
   return (
-    <MuseIQProvider>
-      <ThemeProvider value={DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-        </Stack>
-        <StatusBar style="dark" />
-      </ThemeProvider>
-    </MuseIQProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <MuseIQProvider>
+        <ThemeProvider value={DefaultTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+          </Stack>
+          <StatusBar style="dark" />
+        </ThemeProvider>
+      </MuseIQProvider>
+    </GestureHandlerRootView>
   );
 }

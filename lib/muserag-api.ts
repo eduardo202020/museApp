@@ -23,14 +23,25 @@ export interface MuseRagQueryParams {
   artworkContext?: MuseRagArtworkContext;
 }
 
+export interface SourceSnippet {
+  id: string;
+  source: string;
+  kind: string;
+  score: number;
+  text: string;
+  image_url?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface MuseRagResponse {
   respuesta: string;
+  fuentes?: SourceSnippet[];
 }
 
 const HEALTH_TIMEOUT_MS = 4000;
 const QUERY_TIMEOUT_MS = 20000;
 
-function resolveMuseRagUrl() {
+export function resolveMuseRagUrl() {
   const envUrl = process.env.EXPO_PUBLIC_MUSERAG_URL;
   if (envUrl) {
     return envUrl.replace(/\/$/, '');
