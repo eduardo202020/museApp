@@ -54,7 +54,10 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": true,
-          "modes": ["peripheral", "central"],
+          "modes": [
+            "peripheral",
+            "central"
+          ],
           "bluetoothAlwaysPermission": "MuseIQ necesita Bluetooth para detectar beacons de salas cercanas."
         }
       ],
@@ -70,8 +73,14 @@
           }
         }
       ],
-
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "MuseIQ necesita usar el microfono para convertir tu voz en preguntas para el guia.",
+          "speechRecognitionPermission": "MuseIQ necesita permiso de reconocimiento de voz para transcribir tus preguntas habladas."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

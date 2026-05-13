@@ -7,13 +7,18 @@ import {
     type SourceSnippet,
 } from "@/lib/muserag-api";
 import { useMuseIQ } from "@/providers/museiq-provider";
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import { router, useLocalSearchParams } from "expo-router";
+import * as Speech from "expo-speech";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+const RECOGNITION_LANGUAGE = "es-ES";
+const SPEECH_LANGUAGE = "es-PE";
+
 export default function PreguntaVozModal() {
   const params = useLocalSearchParams<{ artworkId?: string }>();
-  const { currentArtwork, findArtworkById, voicePrompts } = useMuseIQ();
+  const { currentArtwork, findArtworkById, settings, voicePrompts } = useMuseIQ();
   const artwork = useMemo(
     () =>
       findArtworkById(
@@ -39,7 +44,10 @@ export default function PreguntaVozModal() {
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
+  const [voiceStatusMessage, setVoiceStatusMessage] = useState("");
   const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const suggestedQuestions = useMemo(() => {
@@ -67,10 +75,142 @@ export default function PreguntaVozModal() {
     setZoomImage(null);
   };
 
+  const stopSpeaking = async () => {
+    try {
+      await Speech.stop();
+    } finally {
+      setIsSpeaking(false);
+    }
+  };
+
+  const speakResponse = async (text = response) => {
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      return;
+    }
+
+    setErrorMessage("");
+    await stopSpeaking();
+    setIsSpeaking(true);
+    Speech.speak(trimmedText, {
+      language: SPEECH_LANGUAGE,
+      rate: settings.voiceRate,
+      pitch: 1,
+      onDone: () => setIsSpeaking(false),
+      onStopped: () => setIsSpeaking(false),
+      onError: () => {
+        setIsSpeaking(false);
+        setErrorMessage("No pude reproducir la respuesta en voz alta.");
+      },
+    });
+  };
+
+  const stopListening = () => {
+    setVoiceStatusMessage("Procesando lo que acabas de decir...");
+    ExpoSpeechRecognitionModule.stop();
+  };
+
+  const startListening = async () => {
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      setErrorMessage(
+        "El dictado por voz no esta disponible en este dispositivo o servicio de reconocimiento.",
+      );
+      return;
+    }
+
+    const permissions = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permissions.granted) {
+      setErrorMessage(
+        "Necesito permiso de microfono y reconocimiento de voz para dictar preguntas.",
+      );
+      return;
+    }
+
+    await stopSpeaking();
+    setErrorMessage("");
+    setVoiceStatusMessage("Activando el microfono del guia...");
+    ExpoSpeechRecognitionModule.start({
+      lang: RECOGNITION_LANGUAGE,
+      interimResults: true,
+      continuous: false,
+      requiresOnDeviceRecognition: false,
+      addsPunctuation: true,
+      iosTaskHint: "dictation",
+      iosCategory: {
+        category: "playAndRecord",
+        categoryOptions: ["defaultToSpeaker", "allowBluetooth"],
+        mode: "measurement",
+      },
+      iosVoiceProcessingEnabled: true,
+      contextualStrings: [
+        artwork?.title ?? "",
+        ...(artwork?.suggestedQuestions ?? []),
+        ...voicePrompts,
+      ].filter(Boolean),
+    });
+  };
+
+  const toggleListening = async () => {
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    await startListening();
+  };
+
+  useSpeechRecognitionEvent("start", () => {
+    setIsListening(true);
+    setVoiceStatusMessage("Te escucho. Habla con naturalidad.");
+  });
+
+  useSpeechRecognitionEvent("end", () => {
+    setIsListening(false);
+    setVoiceStatusMessage((current) =>
+      current.startsWith("Procesando")
+        ? "Dictado listo. Revisa la pregunta o enviala."
+        : current,
+    );
+  });
+
+  useSpeechRecognitionEvent("result", (event) => {
+    const transcript = event.results?.[0]?.transcript?.trim();
+    if (!transcript) {
+      return;
+    }
+
+    setQuestionText(transcript);
+    setVoiceStatusMessage(
+      event.isFinal
+        ? "Dictado listo. Revisa la pregunta o enviala."
+        : "Escuchando tu pregunta...",
+    );
+  });
+
+  useSpeechRecognitionEvent("error", (event) => {
+    setIsListening(false);
+
+    if (event.error === "aborted") {
+      setVoiceStatusMessage("");
+      return;
+    }
+
+    const message =
+      event.error === "no-speech"
+        ? "No detecte voz con claridad. Intenta hablar un poco mas cerca del microfono."
+        : event.message ||
+          "No pude transcribir tu voz en este momento. Intenta de nuevo.";
+
+    setVoiceStatusMessage("");
+    setErrorMessage(message);
+  });
+
   useEffect(() => {
     return () => {
       loadingTimersRef.current.forEach((timerId) => clearTimeout(timerId));
       loadingTimersRef.current = [];
+      ExpoSpeechRecognitionModule.abort();
+      Speech.stop();
     };
   }, []);
 
@@ -104,7 +244,13 @@ export default function PreguntaVozModal() {
     setResponseMeta(null);
     setErrorMessage("");
     setLastSubmittedQuestion(trimmedQuestion);
+    setVoiceStatusMessage("");
     setIsLoading(true);
+    if (isListening) {
+      ExpoSpeechRecognitionModule.abort();
+      setIsListening(false);
+    }
+    await stopSpeaking();
     scheduleLoadingMessages();
 
     try {
@@ -134,6 +280,9 @@ export default function PreguntaVozModal() {
       setSources(result.fuentes ?? []);
       setResponseMeta(result.meta ?? null);
       setStatusMessage("");
+      if (settings.autoPlay && result.respuesta.trim()) {
+        await speakResponse(result.respuesta);
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -162,12 +311,19 @@ export default function PreguntaVozModal() {
             ? () => askQuestion(lastSubmittedQuestion)
             : undefined
         }
+        isListening={isListening}
         onSubmit={() => askQuestion(questionText)}
+        onSpeakResponse={() => speakResponse()}
+        onStopListening={stopListening}
+        onStopSpeaking={stopSpeaking}
+        onToggleListening={toggleListening}
         questionText={questionText}
         response={response}
         responseMeta={responseMeta}
         statusMessage={statusMessage}
         suggestedQuestions={suggestedQuestions}
+        voiceStatusMessage={voiceStatusMessage}
+        isSpeaking={isSpeaking}
         sources={sources}
       />
 

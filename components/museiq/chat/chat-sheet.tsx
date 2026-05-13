@@ -17,7 +17,9 @@ import {
 type ChatSheetProps = {
   artworkTitle: string;
   errorMessage: string;
+  isListening: boolean;
   isLoading: boolean;
+  isSpeaking: boolean;
   onClose: () => void;
   onOpenImage: (
     images: { id: string; uri: string; label?: string }[],
@@ -25,7 +27,11 @@ type ChatSheetProps = {
   ) => void;
   onQuestionTextChange: (value: string) => void;
   onRetry?: () => void;
+  onSpeakResponse: () => void;
+  onStopListening: () => void;
+  onStopSpeaking: () => void;
   onSubmit: () => void;
+  onToggleListening: () => void;
   questionText: string;
   response: string;
   responseMeta: {
@@ -37,23 +43,31 @@ type ChatSheetProps = {
   statusMessage: string;
   suggestedQuestions: string[];
   sources: SourceSnippet[];
+  voiceStatusMessage: string;
 };
 
 export function ChatSheet({
   artworkTitle,
   errorMessage,
+  isListening,
   isLoading,
+  isSpeaking,
   onClose,
   onOpenImage,
   onQuestionTextChange,
   onRetry,
+  onSpeakResponse,
+  onStopListening,
+  onStopSpeaking,
   onSubmit,
+  onToggleListening,
   questionText,
   response,
   responseMeta,
   statusMessage,
   suggestedQuestions,
   sources,
+  voiceStatusMessage,
 }: ChatSheetProps) {
   const hasAnswer = response.trim().length > 0;
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
@@ -77,6 +91,19 @@ export function ChatSheet({
           multiline
           style={styles.input}
         />
+
+        <View style={styles.voiceControlRow}>
+          <SecondaryButton
+            icon={isListening ? "stop-circle-outline" : "mic-outline"}
+            label={isListening ? "Detener dictado" : "Hablar"}
+            onPress={isListening ? onStopListening : onToggleListening}
+            style={styles.voiceControlButton}
+          />
+          <Text style={styles.voiceStatusText}>
+            {voiceStatusMessage ||
+              "Puedes dictar la pregunta y luego corregirla antes de enviarla."}
+          </Text>
+        </View>
 
         {suggestedQuestions.length ? (
           <View style={styles.suggestionsPanel}>
@@ -160,6 +187,17 @@ export function ChatSheet({
             </View>
           ) : null}
 
+          {hasAnswer ? (
+            <View style={styles.answerAudioRow}>
+              <SecondaryButton
+                icon={isSpeaking ? "volume-mute-outline" : "volume-high-outline"}
+                label={isSpeaking ? "Detener audio" : "Escuchar respuesta"}
+                onPress={isSpeaking ? onStopSpeaking : onSpeakResponse}
+                style={styles.answerAudioButton}
+              />
+            </View>
+          ) : null}
+
           <SourceImageCarousel sources={sources} onOpenImage={onOpenImage} />
 
           {errorMessage ? (
@@ -186,7 +224,7 @@ export function ChatSheet({
           icon="send"
           label={isLoading ? "Consultando..." : "Enviar"}
           onPress={onSubmit}
-          disabled={isLoading}
+          disabled={isLoading || isListening}
           style={styles.actionButton}
         />
       </View>
@@ -281,6 +319,23 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     minHeight: 72,
     textAlignVertical: "top",
+  },
+  voiceControlRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  voiceControlButton: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  voiceStatusText: {
+    color: "#7C624B",
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 18,
   },
   suggestionsPanel: {
     marginTop: 10,
@@ -400,6 +455,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 18,
+  },
+  answerAudioRow: {
+    marginBottom: 10,
+  },
+  answerAudioButton: {
+    alignSelf: "flex-start",
+    minHeight: 44,
+    paddingHorizontal: 14,
   },
   retryButton: {
     alignSelf: "flex-start",
