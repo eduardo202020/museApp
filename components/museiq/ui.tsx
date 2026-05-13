@@ -7,6 +7,8 @@ import {
     StyleSheet,
     Text,
     View,
+    type StyleProp,
+    type ViewStyle,
     type ScrollViewProps,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -108,11 +110,13 @@ export function PrimaryButton({
   icon,
   onPress,
   disabled,
+  style,
 }: {
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <Pressable
@@ -120,6 +124,7 @@ export function PrimaryButton({
       disabled={disabled}
       style={({ pressed }) => [
         styles.primaryButton,
+        style,
         pressed && !disabled ? styles.pressed : null,
         disabled ? styles.buttonDisabled : null,
       ]}
@@ -135,11 +140,13 @@ export function SecondaryButton({
   icon,
   onPress,
   disabled,
+  style,
 }: {
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <Pressable
@@ -147,6 +154,7 @@ export function SecondaryButton({
       disabled={disabled}
       style={({ pressed }) => [
         styles.secondaryButton,
+        style,
         pressed && !disabled ? styles.pressed : null,
         disabled ? styles.buttonDisabled : null,
       ]}

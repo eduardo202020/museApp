@@ -11,6 +11,9 @@ import { StyleSheet, Text, View } from "react-native";
 
 type ArtworkCardProps = {
   roomName: string;
+  artworkTitle: string;
+  artworkSummary: string;
+  artworkLocation?: string;
   imageSource: ReturnType<typeof getArtworkImageSource>;
   onOpenChat: () => void;
   onSelectPrevious: () => void;
@@ -21,6 +24,9 @@ type ArtworkCardProps = {
 
 export function ArtworkCard({
   roomName,
+  artworkTitle,
+  artworkSummary,
+  artworkLocation,
   imageSource,
   onOpenChat,
   onSelectPrevious,
@@ -33,6 +39,14 @@ export function ArtworkCard({
       <View style={styles.headerRow}>
         <StatusPill label={roomName} />
         <Text style={styles.helper}>Guia curatorial</Text>
+      </View>
+
+      <View style={styles.copyBlock}>
+        <Text style={styles.title}>{artworkTitle}</Text>
+        <Text style={styles.summary}>{artworkSummary}</Text>
+        {artworkLocation ? (
+          <Text style={styles.location}>{`Ubicacion sugerida: ${artworkLocation}`}</Text>
+        ) : null}
       </View>
 
       <View style={styles.imageWrap}>
@@ -62,12 +76,14 @@ export function ArtworkCard({
           label="Anterior"
           onPress={onSelectPrevious}
           disabled={previousDisabled}
+          style={styles.navButton}
         />
         <SecondaryButton
           icon="chevron-forward"
           label="Siguiente"
           onPress={onSelectNext}
           disabled={nextDisabled}
+          style={styles.navButton}
         />
       </View>
     </SectionCard>
@@ -87,6 +103,26 @@ const styles = StyleSheet.create({
     color: musePalette.textMuted,
     fontSize: 12,
     fontWeight: "700",
+  },
+  copyBlock: {
+    gap: 6,
+  },
+  title: {
+    color: musePalette.text,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.4,
+  },
+  summary: {
+    color: musePalette.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 21,
+  },
+  location: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
   },
   imageWrap: {
     borderRadius: 22,
@@ -109,5 +145,8 @@ const styles = StyleSheet.create({
   navRow: {
     flexDirection: "row",
     gap: 10,
+  },
+  navButton: {
+    flex: 1,
   },
 });

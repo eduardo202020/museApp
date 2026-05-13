@@ -28,8 +28,14 @@ function resolveImageUrl(imageUrl?: string) {
   return `${resolveMuseRagUrl()}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
 }
 
+export type SourceImageItem = {
+  id: string;
+  label?: string;
+  uri: string;
+};
+
 type SourceImageCarouselProps = {
-  onOpenImage: (uri: string, label?: string) => void;
+  onOpenImage: (images: SourceImageItem[], initialIndex: number) => void;
   sources: SourceSnippet[];
 };
 
@@ -50,6 +56,23 @@ export function SourceImageCarousel({
           source.image_url.trim().length > 0,
       ),
     [sources],
+  );
+
+  const zoomImages = useMemo<SourceImageItem[]>(
+    () =>
+      imageSources.map((source, index) => {
+        const figureRef =
+          source.metadata && typeof source.metadata.figure_ref === "string"
+            ? source.metadata.figure_ref
+            : undefined;
+
+        return {
+          id: source.id || `${source.source}-${index}`,
+          label: figureRef,
+          uri: resolveImageUrl(source.image_url),
+        };
+      }),
+    [imageSources],
   );
 
   useEffect(() => {
@@ -88,19 +111,16 @@ export function SourceImageCarousel({
         onMomentumScrollEnd={handleCarouselMomentumEnd}
       >
         {imageSources.map((source, index) => {
-          const imageKey = source.id || `${source.source}-${index}`;
-          const figureRef =
-            source.metadata && typeof source.metadata.figure_ref === "string"
-              ? source.metadata.figure_ref
-              : undefined;
-
-          const imageUri = resolveImageUrl(source.image_url);
+          const imageItem = zoomImages[index];
+          const imageKey = imageItem.id;
+          const figureRef = imageItem.label;
+          const imageUri = imageItem.uri;
 
           return (
             <View key={imageKey} style={styles.imageCard}>
               <Pressable
                 style={styles.sourceImagePressable}
-                onPress={() => onOpenImage(imageUri, figureRef)}
+                onPress={() => onOpenImage(zoomImages, index)}
               >
                 <Image
                   source={{ uri: imageUri }}

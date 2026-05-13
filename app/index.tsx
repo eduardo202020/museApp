@@ -81,6 +81,12 @@ export default function IndexScreen() {
         <TopBar title="MuseIQ" subtitle={currentRoom?.name ?? "Sala 1"} />
         <ArtworkCard
           roomName={currentRoom?.name ?? "Sala 1"}
+          artworkTitle={currentArtwork?.title ?? "Obra actual"}
+          artworkSummary={
+            currentArtwork?.summary ??
+            "Selecciona una obra para ver su contexto y conversar con la guia."
+          }
+          artworkLocation={currentArtwork?.locationHint}
           imageSource={imageSource}
           onOpenChat={openVoiceModal}
           onSelectPrevious={() =>

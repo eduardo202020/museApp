@@ -33,13 +33,20 @@ export interface SourceSnippet {
   metadata?: Record<string, unknown>;
 }
 
+export interface MuseRagResponseMeta {
+  total_ms: number;
+  retrieval_ms: number;
+  generation_ms: number;
+  source_count: number;
+}
+
 export interface MuseRagResponse {
   respuesta: string;
   fuentes?: SourceSnippet[];
+  meta?: MuseRagResponseMeta;
 }
 
-const HEALTH_TIMEOUT_MS = 4000;
-const QUERY_TIMEOUT_MS = 20000;
+const MUSERAG_TIMEOUT_MS = 45000;
 
 export function resolveMuseRagUrl() {
   const envUrl = process.env.EXPO_PUBLIC_MUSERAG_URL;
@@ -70,20 +77,6 @@ export function resolveMuseRagUrl() {
   return 'http://127.0.0.1:8000';
 }
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagResponse> {
   const baseUrl = resolveMuseRagUrl();
   const payload = {
@@ -94,49 +87,34 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
     artwork_context: params.artworkContext,
   };
 
-  console.log('MuseRAG baseUrl:', baseUrl);
-  console.log('MuseRAG payload:', payload);
-
-  try {
-    const healthResponse = await fetchWithTimeout(
-      `${baseUrl}/health`,
-      {
-        method: 'GET',
-      },
-      HEALTH_TIMEOUT_MS
-    );
-    console.log('MuseRAG health status:', healthResponse.status);
-  } catch (error) {
-    console.log('MuseRAG health error:', error);
-    throw new Error(
-      `No se pudo conectar con MuseRAG en ${baseUrl}. Verifica que la API esté corriendo y que el celular pueda acceder a esa IP.`
-    );
-  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), MUSERAG_TIMEOUT_MS);
 
   let response: Response;
   try {
-    response = await fetchWithTimeout(
-      `${baseUrl}/api/preguntar`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+    response = await fetch(`${baseUrl}/api/preguntar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      QUERY_TIMEOUT_MS
-    );
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
   } catch (error) {
-    console.log('MuseRAG query error:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        'La consulta supero el tiempo de espera. Puedes intentarlo de nuevo o hacer una pregunta mas puntual.'
+      );
+    }
+
     throw new Error(
-      `MuseRAG tardó demasiado o no respondió desde ${baseUrl}. Revisa la consola del backend y LM Studio.`
+      `No pude completar la consulta con MuseRAG en ${baseUrl}. Verifica que la API este corriendo y que el celular pueda acceder a esa IP.`
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const rawBody = await response.text();
-
-  console.log('MuseRAG response status:', response.status);
-  console.log('MuseRAG response body:', rawBody);
 
   if (!response.ok) {
     throw new Error(rawBody || `No se pudo consultar MuseRAG. HTTP ${response.status}`);
