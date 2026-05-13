@@ -48,13 +48,37 @@ export interface MuseRagResponse {
 
 const MUSERAG_TIMEOUT_MS = 45000;
 
-export function resolveMuseRagUrl() {
-  const envUrl = process.env.EXPO_PUBLIC_MUSERAG_URL;
-  if (envUrl) {
-    return envUrl.replace(/\/$/, '');
+function normalizeMuseRagUrl(url: string, fallbackHost?: string) {
+  const trimmedUrl = url.trim().replace(/\/$/, '');
+
+  if (!fallbackHost) {
+    return trimmedUrl;
   }
 
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    if (
+      parsedUrl.hostname === 'localhost' ||
+      parsedUrl.hostname === '127.0.0.1' ||
+      parsedUrl.hostname === '0.0.0.0'
+    ) {
+      parsedUrl.hostname = fallbackHost;
+      return parsedUrl.toString().replace(/\/$/, '');
+    }
+  } catch {
+    return trimmedUrl;
+  }
+
+  return trimmedUrl;
+}
+
+export function resolveMuseRagUrl() {
   const constantsWithExtras = Constants as typeof Constants & {
+    expoConfig?: {
+      extra?: {
+        museRagUrl?: string;
+      };
+    };
     manifest2?: {
       extra?: {
         expoClient?: {
@@ -70,15 +94,32 @@ export function resolveMuseRagUrl() {
     constantsWithExtras.manifest2?.extra?.expoClient?.hostUri ??
     '';
   const host = hostUri.split(':')[0];
+
+  const configExtraUrl = constantsWithExtras.expoConfig?.extra?.museRagUrl;
+  if (configExtraUrl) {
+    return normalizeMuseRagUrl(configExtraUrl, host || undefined);
+  }
+
+  const envUrl = process.env.EXPO_PUBLIC_MUSERAG_URL;
+  if (envUrl) {
+    return normalizeMuseRagUrl(envUrl, host || undefined);
+  }
+
   if (host) {
     return `http://${host}:8000`;
   }
 
-  return 'http://127.0.0.1:8000';
+  return '';
 }
 
 export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagResponse> {
   const baseUrl = resolveMuseRagUrl();
+  if (!baseUrl) {
+    throw new Error(
+      'No encontre la URL de MuseRAG. Reinicia Expo para que lea el archivo .env o define EXPO_PUBLIC_MUSERAG_URL con una IP accesible desde tu celular.'
+    );
+  }
+
   const payload = {
     pregunta: params.question,
     museo: params.museumSlug ?? 'tumbas-reales-de-sipan',
@@ -108,7 +149,7 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
     }
 
     throw new Error(
-      `No pude completar la consulta con MuseRAG en ${baseUrl}. Verifica que la API este corriendo y que el celular pueda acceder a esa IP.`
+      `No pude completar la consulta con MuseRAG en ${baseUrl}. Verifica que Expo haya recargado el .env, que la API este corriendo y que esa IP sea accesible desde tu celular.`
     );
   } finally {
     clearTimeout(timeoutId);
