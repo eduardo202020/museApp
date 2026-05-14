@@ -58,6 +58,7 @@ type ChatSheetProps = {
   statusMessage: string;
   suggestedQuestions: string[];
   sources: SourceSnippet[];
+  voiceMode: "idle" | "listening" | "review";
   voiceStatusMessage: string;
 };
 
@@ -141,11 +142,20 @@ export function ChatSheet({
   statusMessage,
   suggestedQuestions,
   sources,
+  voiceMode,
   voiceStatusMessage,
 }: ChatSheetProps) {
   const hasAnswer = response.trim().length > 0;
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [isMetaOpen, setIsMetaOpen] = useState(false);
+  const [isMoreContextOpen, setIsMoreContextOpen] = useState(false);
   const structuredResponse = parseStructuredResponse(response);
+  const primarySections = structuredResponse?.filter(
+    (section) => section.key === "summary" || section.key === "next",
+  );
+  const secondarySections = structuredResponse?.filter(
+    (section) => section.key === "fact" || section.key === "image",
+  );
 
   return (
     <View style={styles.sheet}>
@@ -157,30 +167,68 @@ export function ChatSheet({
       </View>
 
       <View style={styles.inputCard}>
-        <Text style={styles.inputLabel}>Pregunta al mediador virtual</Text>
-        <TextInput
-          value={questionText}
-          onChangeText={onQuestionTextChange}
-          placeholder="Ejemplo: Que revela esta obra sobre el poder moche?"
-          placeholderTextColor={musePalette.textMuted}
-          multiline
-          style={styles.input}
-        />
+        <Text style={styles.inputLabel}>Haz una pregunta o dicta una idea</Text>
 
-        <View style={styles.voiceControlRow}>
-          <SecondaryButton
-            icon={isListening ? "stop-circle-outline" : "mic-outline"}
-            label={isListening ? "Detener dictado" : "Hablar"}
-            onPress={isListening ? onStopListening : onToggleListening}
-            style={styles.voiceControlButton}
-          />
-          <Text style={styles.voiceStatusText}>
-            {voiceStatusMessage ||
-              "Puedes dictar la pregunta y luego corregirla antes de enviarla."}
-          </Text>
-        </View>
+        {voiceMode === "listening" ? (
+          <View style={styles.listeningCard}>
+            <View style={styles.listeningIconWrap}>
+              <Ionicons color="#FFFFFF" name="mic" size={22} />
+            </View>
+            <Text style={styles.listeningTitle}>Te escucho</Text>
+            <Text style={styles.listeningHint}>
+              Habla con naturalidad. Cuando termines, detenemos y revisas el texto.
+            </Text>
+            <View style={styles.liveTranscriptCard}>
+              <Text style={styles.liveTranscriptText}>
+                {questionText.trim() || "Tu pregunta aparecera aqui en vivo..."}
+              </Text>
+            </View>
+            <PrimaryButton
+              icon="stop"
+              label="Detener dictado"
+              onPress={onStopListening}
+              style={styles.listeningStopButton}
+            />
+          </View>
+        ) : (
+          <>
+            <TextInput
+              value={questionText}
+              onChangeText={onQuestionTextChange}
+              placeholder="Ejemplo: Que revela esta obra sobre el poder moche?"
+              placeholderTextColor={musePalette.textMuted}
+              multiline
+              style={styles.input}
+            />
 
-        {suggestedQuestions.length ? (
+            <View style={styles.voiceControlRow}>
+              <Pressable
+                onPress={onToggleListening}
+                style={({ pressed }) => [
+                  styles.micLauncher,
+                  pressed ? styles.suggestionChipPressed : null,
+                ]}
+              >
+                <Ionicons
+                  color={musePalette.primary}
+                  name="mic-outline"
+                  size={18}
+                />
+                <Text style={styles.micLauncherText}>
+                  {voiceMode === "review" ? "Hablar de nuevo" : "Dictar pregunta"}
+                </Text>
+              </Pressable>
+              <Text style={styles.voiceStatusText}>
+                {voiceMode === "review"
+                  ? "Revisa el texto, ajustalo si quieres y luego envialo."
+                  : voiceStatusMessage ||
+                    "Si prefieres, dicta tu pregunta y luego la revisas antes de enviarla."}
+              </Text>
+            </View>
+          </>
+        )}
+
+        {voiceMode !== "listening" && suggestedQuestions.length ? (
           <View style={styles.suggestionsPanel}>
             <Pressable
               onPress={() => setIsSuggestionsOpen((value) => !value)}
@@ -273,9 +321,9 @@ export function ChatSheet({
           ) : null}
 
           {!isLoading ? (
-            structuredResponse?.length ? (
+            primarySections?.length ? (
               <View style={styles.responseSections}>
-                {structuredResponse.map((section) => (
+                {primarySections.map((section) => (
                   <View key={section.key} style={styles.responseSectionCard}>
                     <Text style={styles.responseSectionTitle}>
                       {section.title}
@@ -285,6 +333,45 @@ export function ChatSheet({
                     </Text>
                   </View>
                 ))}
+
+                {secondarySections?.length ? (
+                  <Pressable
+                    onPress={() => setIsMoreContextOpen((value) => !value)}
+                    style={({ pressed }) => [
+                      styles.disclosureButton,
+                      pressed ? styles.suggestionChipPressed : null,
+                    ]}
+                  >
+                    <Text style={styles.disclosureTitle}>
+                      {isMoreContextOpen
+                        ? "Ocultar mas contexto"
+                        : "Ver mas contexto"}
+                    </Text>
+                    <Ionicons
+                      color={musePalette.primary}
+                      name={isMoreContextOpen ? "chevron-up" : "chevron-down"}
+                      size={18}
+                    />
+                  </Pressable>
+                ) : null}
+
+                {isMoreContextOpen && secondarySections?.length ? (
+                  <View style={styles.responseSections}>
+                    {secondarySections.map((section) => (
+                      <View
+                        key={section.key}
+                        style={styles.responseSectionCardSecondary}
+                      >
+                        <Text style={styles.responseSectionTitle}>
+                          {section.title}
+                        </Text>
+                        <Text style={styles.responseSectionText}>
+                          {section.content}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             ) : (
               <Text style={styles.answerText}>
@@ -295,14 +382,31 @@ export function ChatSheet({
 
           {hasAnswer && responseMeta ? (
             <View style={styles.metaCard}>
-              <Text style={styles.metaTitle}>Resumen de respuesta</Text>
-              <Text style={styles.metaText}>
-                {`Respondio en ${(responseMeta.total_ms / 1000).toFixed(1)} s con ${responseMeta.source_count} fuente${responseMeta.source_count === 1 ? "" : "s"} recuperada${responseMeta.source_count === 1 ? "" : "s"} y un sustento ${responseMeta.support_level ?? "no especificado"}.`}
-              </Text>
-              {responseMeta.applied_filters?.length ? (
-                <Text style={styles.metaFilters}>
-                  {`Filtros usados: ${responseMeta.applied_filters.join(" · ")}`}
-                </Text>
+              <Pressable
+                onPress={() => setIsMetaOpen((value) => !value)}
+                style={({ pressed }) => [
+                  styles.metaToggle,
+                  pressed ? styles.suggestionChipPressed : null,
+                ]}
+              >
+                <Text style={styles.metaTitle}>Ver por que respondio esto</Text>
+                <Ionicons
+                  color={musePalette.primary}
+                  name={isMetaOpen ? "chevron-up" : "chevron-down"}
+                  size={18}
+                />
+              </Pressable>
+              {isMetaOpen ? (
+                <View style={styles.metaBody}>
+                  <Text style={styles.metaText}>
+                    {`Respondio en ${(responseMeta.total_ms / 1000).toFixed(1)} s con ${responseMeta.source_count} fuente${responseMeta.source_count === 1 ? "" : "s"} recuperada${responseMeta.source_count === 1 ? "" : "s"} y un sustento ${responseMeta.support_level ?? "no especificado"}.`}
+                  </Text>
+                  {responseMeta.applied_filters?.length ? (
+                    <Text style={styles.metaFilters}>
+                      {`Filtros usados: ${responseMeta.applied_filters.join(" · ")}`}
+                    </Text>
+                  ) : null}
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -318,7 +422,9 @@ export function ChatSheet({
             </View>
           ) : null}
 
-          <SourceImageCarousel sources={sources} onOpenImage={onOpenImage} />
+          {sources.length ? (
+            <SourceImageCarousel sources={sources} onOpenImage={onOpenImage} />
+          ) : null}
 
           {errorMessage ? (
             <View style={styles.errorCard}>
@@ -445,6 +551,14 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 12,
   },
+  responseSectionCardSecondary: {
+    backgroundColor: "#F8FBFE",
+    borderColor: "#E0EAF4",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 6,
+    padding: 12,
+  },
   responseSectionTitle: {
     color: musePalette.primary,
     fontSize: 12,
@@ -464,15 +578,73 @@ const styles = StyleSheet.create({
     minHeight: 72,
     textAlignVertical: "top",
   },
+  listeningCard: {
+    alignItems: "center",
+    backgroundColor: "#FFFDFC",
+    borderColor: "#E4D7C4",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  listeningIconWrap: {
+    alignItems: "center",
+    backgroundColor: musePalette.primary,
+    borderRadius: 999,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  listeningTitle: {
+    color: musePalette.text,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  listeningHint: {
+    color: musePalette.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  liveTranscriptCard: {
+    alignSelf: "stretch",
+    backgroundColor: "#F7FBFF",
+    borderColor: "#D8E8F8",
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 88,
+    padding: 12,
+  },
+  liveTranscriptText: {
+    color: musePalette.text,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  listeningStopButton: {
+    alignSelf: "stretch",
+  },
   voiceControlRow: {
     alignItems: "center",
     flexDirection: "row",
     gap: 10,
     marginTop: 10,
   },
-  voiceControlButton: {
-    minHeight: 44,
+  micLauncher: {
+    alignItems: "center",
+    backgroundColor: "#E4F0FF",
+    borderColor: "#B9D6F5",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 42,
     paddingHorizontal: 12,
+  },
+  micLauncherText: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
   },
   voiceStatusText: {
     color: "#7C624B",
@@ -616,8 +788,20 @@ const styles = StyleSheet.create({
     borderColor: musePalette.border,
     borderRadius: 14,
     borderWidth: 1,
-    gap: 4,
     marginBottom: 10,
+    overflow: "hidden",
+  },
+  metaToggle: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  metaBody: {
+    borderTopColor: musePalette.border,
+    borderTopWidth: 1,
+    gap: 4,
     padding: 12,
   },
   metaTitle: {
@@ -636,6 +820,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     lineHeight: 16,
+  },
+  disclosureButton: {
+    alignItems: "center",
+    backgroundColor: "#EFF5FB",
+    borderColor: "#D6E4F2",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  disclosureTitle: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
   },
   answerAudioRow: {
     marginBottom: 10,

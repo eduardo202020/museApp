@@ -2,6 +2,7 @@ import { ChatSheet } from "@/components/museiq/chat/chat-sheet";
 import { ZoomImageViewer } from "@/components/museiq/chat/zoom-image-viewer";
 import type { SourceImageItem } from "@/components/museiq/chat/source-image-carousel";
 import { musePalette } from "@/components/museiq/theme";
+import * as Haptics from "expo-haptics";
 import {
     askMuseRag,
     type SourceSnippet,
@@ -113,6 +114,12 @@ export default function PreguntaVozModal() {
     ];
   }, [artwork?.title]);
 
+  const voiceMode = isListening
+    ? "listening"
+    : voiceStatusMessage.startsWith("Dictado listo")
+      ? "review"
+      : "idle";
+
   useEffect(() => {
     if (questionText.trim().length > 0) {
       return;
@@ -183,6 +190,7 @@ export default function PreguntaVozModal() {
     await stopSpeaking();
     setErrorMessage("");
     setVoiceStatusMessage("Activando el microfono del guia...");
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     ExpoSpeechRecognitionModule.start({
       lang: RECOGNITION_LANGUAGE,
       interimResults: true,
@@ -220,6 +228,9 @@ export default function PreguntaVozModal() {
 
   useSpeechRecognitionEvent("end", () => {
     setIsListening(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => undefined,
+    );
     setVoiceStatusMessage((current) =>
       current.startsWith("Procesando")
         ? "Dictado listo. Revisa la pregunta o enviala."
@@ -255,6 +266,9 @@ export default function PreguntaVozModal() {
         : event.message ||
           "No pude transcribir tu voz en este momento. Intenta de nuevo.";
 
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
+      () => undefined,
+    );
     setVoiceStatusMessage("");
     setErrorMessage(message);
   });
@@ -391,6 +405,7 @@ export default function PreguntaVozModal() {
         statusMessage={statusMessage}
         suggestedQuestions={suggestedQuestions}
         voiceStatusMessage={voiceStatusMessage}
+        voiceMode={voiceMode}
         isSpeaking={isSpeaking}
         sources={sources}
       />
