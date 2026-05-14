@@ -15,6 +15,25 @@ import { StyleSheet, View } from "react-native";
 
 const RECOGNITION_LANGUAGE = "es-ES";
 const SPEECH_LANGUAGE = "es-PE";
+const MAX_CHAT_HISTORY_TURNS = 3;
+
+type ChatHistoryTurn = {
+  id: string;
+  question: string;
+  response: string;
+  sourceCount: number;
+};
+
+type IntentShortcut = {
+  id: string;
+  label: string;
+  prompt: string;
+};
+
+function createChatSessionId(artworkId?: string) {
+  const seed = artworkId?.trim() || "chat";
+  return `${seed}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export default function PreguntaVozModal() {
   const params = useLocalSearchParams<{ artworkId?: string }>();
@@ -36,7 +55,10 @@ export default function PreguntaVozModal() {
     retrieval_ms: number;
     generation_ms: number;
     source_count: number;
+    support_level?: string;
+    applied_filters?: string[];
   } | null>(null);
+  const [historyTurns, setHistoryTurns] = useState<ChatHistoryTurn[]>([]);
   const [zoomImage, setZoomImage] = useState<{
     images: SourceImageItem[];
     initialIndex: number;
@@ -49,6 +71,11 @@ export default function PreguntaVozModal() {
   const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
   const [voiceStatusMessage, setVoiceStatusMessage] = useState("");
   const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const sessionIdRef = useRef<string>(
+    createChatSessionId(
+      typeof params.artworkId === "string" ? params.artworkId : currentArtwork?.id,
+    ),
+  );
 
   const suggestedQuestions = useMemo(() => {
     const candidates = [
@@ -58,6 +85,33 @@ export default function PreguntaVozModal() {
 
     return [...new Set(candidates)].slice(0, 4);
   }, [artwork?.suggestedQuestions, voicePrompts]);
+
+  const intentShortcuts = useMemo<IntentShortcut[]>(() => {
+    const artworkTitle = artwork?.title?.trim() || "esta obra";
+
+    return [
+      {
+        id: "who",
+        label: "Quien fue",
+        prompt: `Quien fue ${artworkTitle} y por que es importante en el recorrido?`,
+      },
+      {
+        id: "meaning",
+        label: "Que representa",
+        prompt: `Que representa ${artworkTitle} dentro de la sala y que idea principal comunica?`,
+      },
+      {
+        id: "importance",
+        label: "Por que importa",
+        prompt: `Por que importa ${artworkTitle} para entender el poder y la cultura de este museo?`,
+      },
+      {
+        id: "making",
+        label: "Como se hizo",
+        prompt: `Como se hizo ${artworkTitle} o que tecnica y materiales destacan en esta obra?`,
+      },
+    ];
+  }, [artwork?.title]);
 
   useEffect(() => {
     if (questionText.trim().length > 0) {
@@ -239,6 +293,18 @@ export default function PreguntaVozModal() {
       return;
     }
 
+    if (response.trim() && lastSubmittedQuestion.trim()) {
+      setHistoryTurns((previous) => [
+        ...previous,
+        {
+          id: `${Date.now()}-${previous.length}`,
+          question: lastSubmittedQuestion,
+          response,
+          sourceCount: responseMeta?.source_count ?? sources.length,
+        },
+      ].slice(-MAX_CHAT_HISTORY_TURNS));
+    }
+
     setResponse("");
     setSources([]);
     setResponseMeta(null);
@@ -259,6 +325,7 @@ export default function PreguntaVozModal() {
         roomId: artwork?.roomId,
         artworkName: artwork?.title,
         artworkId: artwork?.id,
+        sessionId: sessionIdRef.current,
         artworkContext: artwork
           ? {
               id: artwork.id,
@@ -302,6 +369,7 @@ export default function PreguntaVozModal() {
       <ChatSheet
         artworkTitle={artwork?.title ?? "Obra actual"}
         errorMessage={errorMessage}
+        intentShortcuts={intentShortcuts}
         isLoading={isLoading}
         onClose={() => router.back()}
         onOpenImage={openZoomViewer}

@@ -115,6 +115,7 @@ export function SourceImageCarousel({
           const imageKey = imageItem.id;
           const figureRef = imageItem.label;
           const imageUri = imageItem.uri;
+          const sourceLabel = source.source_label;
 
           return (
             <View key={imageKey} style={styles.imageCard}>
@@ -134,6 +135,11 @@ export function SourceImageCarousel({
                   }
                 />
               </Pressable>
+              {sourceLabel ? (
+                <View style={styles.sourceBadge}>
+                  <Text style={styles.sourceBadgeText}>{sourceLabel}</Text>
+                </View>
+              ) : null}
               {figureRef ? (
                 <Text style={styles.figureLabel}>{figureRef}</Text>
               ) : null}
@@ -198,6 +204,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     fontStyle: "italic",
+  },
+  sourceBadge: {
+    backgroundColor: "#E8F2FC",
+    borderColor: "#C8DCF2",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  sourceBadgeText: {
+    color: musePalette.primary,
+    fontSize: 11,
+    fontWeight: "800",
   },
   zoomHint: {
     color: musePalette.textMuted,

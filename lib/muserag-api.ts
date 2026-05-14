@@ -20,6 +20,7 @@ export interface MuseRagQueryParams {
   artworkName?: string;
   museumSlug?: string;
   artworkId?: string;
+  sessionId?: string;
   artworkContext?: MuseRagArtworkContext;
 }
 
@@ -30,6 +31,7 @@ export interface SourceSnippet {
   score: number;
   text: string;
   image_url?: string;
+  source_label?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -38,6 +40,8 @@ export interface MuseRagResponseMeta {
   retrieval_ms: number;
   generation_ms: number;
   source_count: number;
+  support_level?: string;
+  applied_filters?: string[];
 }
 
 export interface MuseRagResponse {
@@ -125,6 +129,7 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
     museo: params.museumSlug ?? 'tumbas-reales-de-sipan',
     sala: params.roomId,
     obra: params.artworkName ?? params.artworkId,
+    session_id: params.sessionId,
     artwork_context: params.artworkContext,
   };
 

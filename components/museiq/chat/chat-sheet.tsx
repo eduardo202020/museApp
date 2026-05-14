@@ -14,9 +14,22 @@ import {
   View,
 } from "react-native";
 
+type ResponseSection = {
+  key: "summary" | "fact" | "image" | "next";
+  title: string;
+  content: string;
+};
+
+type IntentShortcut = {
+  id: string;
+  label: string;
+  prompt: string;
+};
+
 type ChatSheetProps = {
   artworkTitle: string;
   errorMessage: string;
+  intentShortcuts: IntentShortcut[];
   isListening: boolean;
   isLoading: boolean;
   isSpeaking: boolean;
@@ -39,6 +52,8 @@ type ChatSheetProps = {
     retrieval_ms: number;
     generation_ms: number;
     source_count: number;
+    support_level?: string;
+    applied_filters?: string[];
   } | null;
   statusMessage: string;
   suggestedQuestions: string[];
@@ -46,9 +61,68 @@ type ChatSheetProps = {
   voiceStatusMessage: string;
 };
 
+function cleanSectionContent(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function parseStructuredResponse(response: string): ResponseSection[] | null {
+  const trimmed = response.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const summaryMatch = trimmed.match(
+    /Respuesta breve:\s*([\s\S]*?)(?=\n?\s*Dato clave:|$)/i,
+  );
+  const factMatch = trimmed.match(
+    /Dato clave:\s*([\s\S]*?)(?=\n?\s*Imagen relacionada:|$)/i,
+  );
+  const imageMatch = trimmed.match(
+    /Imagen relacionada:\s*([\s\S]*?)(?=\n?\s*Siguiente mirada:|$)/i,
+  );
+  const nextMatch = trimmed.match(/Siguiente mirada:\s*([\s\S]*)$/i);
+
+  const sections: ResponseSection[] = [];
+
+  if (summaryMatch?.[1]) {
+    sections.push({
+      key: "summary",
+      title: "Respuesta breve",
+      content: cleanSectionContent(summaryMatch[1]),
+    });
+  }
+
+  if (factMatch?.[1]) {
+    sections.push({
+      key: "fact",
+      title: "Dato clave",
+      content: cleanSectionContent(factMatch[1]),
+    });
+  }
+
+  if (imageMatch?.[1]) {
+    sections.push({
+      key: "image",
+      title: "Imagen relacionada",
+      content: cleanSectionContent(imageMatch[1]),
+    });
+  }
+
+  if (nextMatch?.[1]) {
+    sections.push({
+      key: "next",
+      title: "Siguiente mirada",
+      content: cleanSectionContent(nextMatch[1]),
+    });
+  }
+
+  return sections.length ? sections : null;
+}
+
 export function ChatSheet({
   artworkTitle,
   errorMessage,
+  intentShortcuts,
   isListening,
   isLoading,
   isSpeaking,
@@ -71,6 +145,7 @@ export function ChatSheet({
 }: ChatSheetProps) {
   const hasAnswer = response.trim().length > 0;
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const structuredResponse = parseStructuredResponse(response);
 
   return (
     <View style={styles.sheet}>
@@ -133,6 +208,31 @@ export function ChatSheet({
 
             {isSuggestionsOpen ? (
               <View style={styles.suggestionsList}>
+                {intentShortcuts.length ? (
+                  <View style={styles.intentSection}>
+                    <Text style={styles.intentTitle}>Atajos rapidos</Text>
+                    <View style={styles.intentChips}>
+                      {intentShortcuts.map((shortcut) => (
+                        <Pressable
+                          key={shortcut.id}
+                          onPress={() => {
+                            onQuestionTextChange(shortcut.prompt);
+                            setIsSuggestionsOpen(false);
+                          }}
+                          style={({ pressed }) => [
+                            styles.intentChip,
+                            pressed ? styles.suggestionChipPressed : null,
+                          ]}
+                        >
+                          <Text style={styles.intentChipText}>
+                            {shortcut.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+
                 {suggestedQuestions.map((item, index) => (
                   <Pressable
                     key={item}
@@ -173,17 +273,37 @@ export function ChatSheet({
           ) : null}
 
           {!isLoading ? (
-            <Text style={styles.answerText}>
-              {response || "La respuesta aparecera aqui."}
-            </Text>
+            structuredResponse?.length ? (
+              <View style={styles.responseSections}>
+                {structuredResponse.map((section) => (
+                  <View key={section.key} style={styles.responseSectionCard}>
+                    <Text style={styles.responseSectionTitle}>
+                      {section.title}
+                    </Text>
+                    <Text style={styles.responseSectionText}>
+                      {section.content}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.answerText}>
+                {response || "La respuesta aparecera aqui."}
+              </Text>
+            )
           ) : null}
 
           {hasAnswer && responseMeta ? (
             <View style={styles.metaCard}>
               <Text style={styles.metaTitle}>Resumen de respuesta</Text>
               <Text style={styles.metaText}>
-                {`Respondio en ${(responseMeta.total_ms / 1000).toFixed(1)} s con ${responseMeta.source_count} fuente${responseMeta.source_count === 1 ? "" : "s"} recuperada${responseMeta.source_count === 1 ? "" : "s"}.`}
+                {`Respondio en ${(responseMeta.total_ms / 1000).toFixed(1)} s con ${responseMeta.source_count} fuente${responseMeta.source_count === 1 ? "" : "s"} recuperada${responseMeta.source_count === 1 ? "" : "s"} y un sustento ${responseMeta.support_level ?? "no especificado"}.`}
               </Text>
+              {responseMeta.applied_filters?.length ? (
+                <Text style={styles.metaFilters}>
+                  {`Filtros usados: ${responseMeta.applied_filters.join(" · ")}`}
+                </Text>
+              ) : null}
             </View>
           ) : null}
 
@@ -313,6 +433,30 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginBottom: 8,
   },
+  responseSections: {
+    gap: 10,
+    marginBottom: 8,
+  },
+  responseSectionCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9E6F2",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 6,
+    padding: 12,
+  },
+  responseSectionTitle: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  responseSectionText: {
+    color: musePalette.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   input: {
     color: musePalette.text,
     fontSize: 15,
@@ -336,6 +480,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 18,
+  },
+  intentSection: {
+    backgroundColor: "#F7FBFF",
+    borderColor: "#D8E8F8",
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+    padding: 12,
+  },
+  intentTitle: {
+    color: "#6D4D2E",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  intentChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  intentChip: {
+    backgroundColor: "#E4F0FF",
+    borderColor: "#B9D6F5",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  intentChipText: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
   },
   suggestionsPanel: {
     marginTop: 10,
@@ -455,6 +630,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 18,
+  },
+  metaFilters: {
+    color: musePalette.primary,
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 16,
   },
   answerAudioRow: {
     marginBottom: 10,
