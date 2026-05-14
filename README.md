@@ -9,6 +9,7 @@ El proyecto esta enfocado en un MVP de pruebas con estas capacidades:
 - deteccion BLE para inferir la referencia mas cercana en sala
 - obra actual y navegacion entre piezas del recorrido
 - chat por texto sobre la obra activa
+- captura de voz nativa para dictar preguntas
 - consumo de respuestas de MuseRAG con texto e imagenes de apoyo
 - visor de imagen ampliable con pinch-to-zoom y arrastre
 - panel de sensores con acelerometro, brujula, pasos y BLE
@@ -18,8 +19,16 @@ El proyecto esta enfocado en un MVP de pruebas con estas capacidades:
 La pantalla de chat envia preguntas por `POST` a:
 
 ```text
-${EXPO_PUBLIC_MUSERAG_URL}/api/preguntar
+${museRagUrl}/api/preguntar
 ```
+
+La URL final se resuelve asi:
+
+1. `EXPO_PUBLIC_MUSERAG_URL` se lee en [app.config.js](./app.config.js)
+2. se expone en `expo.extra.museRagUrl`
+3. la app la consume desde `Constants.expoConfig.extra`
+
+Si la variable apunta a `localhost`, `127.0.0.1` o `0.0.0.0`, la app intenta reemplazarla por el host actual de Expo cuando es posible.
 
 Payload actual:
 
@@ -46,6 +55,7 @@ Notas:
 
 - la URL debe ser accesible desde el telefono o emulador
 - si cambias el `.env`, reinicia Expo para que tome la nueva variable
+- si ya existe un Development Build instalado, no hace falta rebuild por este cambio solo si modificaste la URL; si cambias plugins nativos o permisos, si hace falta reconstruir el build
 
 ## BLE y pruebas en sala
 
@@ -80,9 +90,33 @@ En la pantalla principal `app/index.tsx` la app muestra:
 En el modal `app/pregunta-voz-modal.tsx` la app muestra:
 
 - caja de texto para escribir la pregunta
+- boton de microfono para dictado por voz
 - respuesta textual del backend
 - carrusel de imagenes devueltas por las fuentes
 - visor ampliado de imagen con zoom y arrastre
+
+Durante consultas lentas la app mantiene una espera amigable antes de mostrar un error. Si MuseRAG tarda mas de lo normal, el usuario ve un mensaje de espera extendida en lugar de cortar la consulta inmediatamente.
+
+## Development Build
+
+El proyecto usa `expo-dev-client` con `launchMode: "launcher"`.
+
+Esto evita que el celular reabra automaticamente una sesion vieja de Metro y ayuda a recuperar la conexion visible con la terminal cuando se reinstala el dev build o se cambia de sesion.
+
+Si haces cambios nativos como:
+
+- agregar o quitar plugins Expo
+- agregar librerias nativas
+- cambiar permisos nativos
+- cambiar el comportamiento del dev client
+
+debes reconstruir e instalar un nuevo Development Build.
+
+Build remoto recomendado:
+
+```bash
+npx eas build --platform android --profile development
+```
 
 ## Sensores y pasos
 
@@ -138,6 +172,7 @@ Tambien se normaliza `S1` a `SALA_1` para el contexto actual de pruebas.
 npm install
 npm run dev:client
 npm run dev:client:lan
+npx eas build --platform android --profile development
 npm run web
 npx tsc --noEmit
 ```
@@ -150,11 +185,12 @@ npx tsc --noEmit
 - `providers/museiq-provider.tsx`: estado general del recorrido
 - `lib/muserag-api.ts`: cliente HTTP hacia MuseRAG
 - `lib/artwork-images.ts`: registro de assets locales de obras
+- `app.config.js`: expone `museRagUrl` a `expo.extra`
 - `datos.ts`: seed de salas, obras y textos del museo
 - `README-DEV.md`: arranque en WSL2 / Development Build
 
 ## Notas de desarrollo
 
-- el flujo actual de preguntas es por texto; no hay captura de voz activa en el chat
+- el chat ya incluye captura de voz nativa para dictado de preguntas
 - el backend debe devolver una estructura compatible con `respuesta` y opcionalmente `fuentes`
 - si Expo falla al iniciar con `ENOSPC`, revisa `README-DEV.md`

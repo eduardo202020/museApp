@@ -25,6 +25,7 @@ La app puede detectar los beacons de prueba aunque solo publiquen nombre BLE, po
 - mismo Wi-Fi para PC y celular
 - Android con Development Build instalado
 - dependencias instaladas con `npm install`
+- si cambias plugins nativos o permisos, necesitas reinstalar un nuevo Development Build
 
 ## Arranque recomendado
 
@@ -38,6 +39,7 @@ npm run dev:client
 ```
 
 Usa tunnel y normalmente evita parte de la configuracion LAN manual.
+Con la configuracion actual, el Development Build abre el `launcher` del dev client en vez de reconectarse automaticamente a la ultima sesion.
 
 ### Opcion 2. LAN en WSL2
 
@@ -55,6 +57,36 @@ powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\pr
 cd /home/eduardo/proyectos/iot/museiq/museiqApp
 npm run dev:client:lan
 ```
+
+## MuseRAG y `.env`
+
+La URL del backend se define en `.env`:
+
+```env
+EXPO_PUBLIC_MUSERAG_URL=http://192.168.18.84:8000
+```
+
+La app no lee esta variable directamente desde `process.env` en runtime del telefono. En su lugar:
+
+1. `app.config.js` la copia a `expo.extra.museRagUrl`
+2. `lib/muserag-api.ts` la lee desde `Constants.expoConfig.extra`
+
+Si cambias `.env`, reinicia Expo.
+Si ademas cambias plugins o configuracion nativa, reconstruye el Development Build.
+
+## Rebuild del Development Build
+
+Si agregas dependencias nativas, como reconocimiento de voz, o cambias `launchMode` del dev client, reconstruye el APK con EAS:
+
+```bash
+npx eas build --platform android --profile development
+```
+
+Ese perfil genera un APK de Development Build con:
+
+- `developmentClient: true`
+- `distribution: internal`
+- `android.buildType: apk`
 
 ## Flujo de prueba BLE
 
@@ -109,6 +141,9 @@ npm run dev:client:lan
 
 # Script de portproxy desde WSL
 npm run wsl:portproxy
+
+# Rebuild del dev build en EAS
+npx eas build --platform android --profile development
 
 # Web
 npm run web
