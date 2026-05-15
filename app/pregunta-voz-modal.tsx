@@ -7,6 +7,10 @@ import {
     askMuseRag,
     type SourceSnippet,
 } from "@/lib/muserag-api";
+import {
+  getPersistedChatHistory,
+  persistChatTurn,
+} from "@/lib/museum-database";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import { router, useLocalSearchParams } from "expo-router";
@@ -25,15 +29,21 @@ type ChatHistoryTurn = {
   sourceCount: number;
 };
 
-type IntentShortcut = {
-  id: string;
-  label: string;
-  prompt: string;
-};
+type QuestionInputMode = "suggested" | "manual" | "voice";
 
 function createChatSessionId(artworkId?: string) {
   const seed = artworkId?.trim() || "chat";
   return `${seed}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function markdownToSpeechText(markdown: string) {
+  return markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[*_`~]/g, "")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
 }
 
 export default function PreguntaVozModal() {
@@ -49,6 +59,8 @@ export default function PreguntaVozModal() {
   const [questionText, setQuestionText] = useState(
     artwork?.suggestedQuestions[0] ?? voicePrompts[0] ?? "",
   );
+  const [questionInputMode, setQuestionInputMode] =
+    useState<QuestionInputMode>("suggested");
   const [response, setResponse] = useState("");
   const [sources, setSources] = useState<SourceSnippet[]>([]);
   const [responseMeta, setResponseMeta] = useState<{
@@ -70,13 +82,34 @@ export default function PreguntaVozModal() {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
+  const [pendingQuestion, setPendingQuestion] = useState("");
   const [voiceStatusMessage, setVoiceStatusMessage] = useState("");
   const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const activeRequestAbortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string>(
     createChatSessionId(
       typeof params.artworkId === "string" ? params.artworkId : currentArtwork?.id,
     ),
   );
+  const suggestedQuestionFallback =
+    artwork?.suggestedQuestions[0] ?? voicePrompts[0] ?? "";
+
+  const resetQuestionComposer = () => {
+    setQuestionText(suggestedQuestionFallback);
+    setQuestionInputMode("suggested");
+    setVoiceStatusMessage("");
+  };
+
+  const cancelPendingQuestion = () => {
+    activeRequestAbortRef.current?.abort();
+    activeRequestAbortRef.current = null;
+    setPendingQuestion("");
+    setStatusMessage("");
+    setIsLoading(false);
+    resetQuestionComposer();
+    loadingTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+    loadingTimersRef.current = [];
+  };
 
   const suggestedQuestions = useMemo(() => {
     const candidates = [
@@ -87,46 +120,77 @@ export default function PreguntaVozModal() {
     return [...new Set(candidates)].slice(0, 4);
   }, [artwork?.suggestedQuestions, voicePrompts]);
 
-  const intentShortcuts = useMemo<IntentShortcut[]>(() => {
-    const artworkTitle = artwork?.title?.trim() || "esta obra";
-
-    return [
-      {
-        id: "who",
-        label: "Quien fue",
-        prompt: `Quien fue ${artworkTitle} y por que es importante en el recorrido?`,
-      },
-      {
-        id: "meaning",
-        label: "Que representa",
-        prompt: `Que representa ${artworkTitle} dentro de la sala y que idea principal comunica?`,
-      },
-      {
-        id: "importance",
-        label: "Por que importa",
-        prompt: `Por que importa ${artworkTitle} para entender el poder y la cultura de este museo?`,
-      },
-      {
-        id: "making",
-        label: "Como se hizo",
-        prompt: `Como se hizo ${artworkTitle} o que tecnica y materiales destacan en esta obra?`,
-      },
-    ];
-  }, [artwork?.title]);
-
   const voiceMode = isListening
     ? "listening"
     : voiceStatusMessage.startsWith("Dictado listo")
       ? "review"
       : "idle";
+  const isQuestionReady =
+    questionInputMode !== "suggested" && questionText.trim().length > 0;
+
+  const setSuggestedQuestion = (value: string) => {
+    setQuestionText(value);
+    setQuestionInputMode("manual");
+  };
+
+  const updateQuestionText = (value: string) => {
+    setQuestionText(value);
+    setQuestionInputMode(value.trim().length > 0 ? "manual" : "suggested");
+  };
 
   useEffect(() => {
     if (questionText.trim().length > 0) {
       return;
     }
 
-    setQuestionText(artwork?.suggestedQuestions[0] ?? voicePrompts[0] ?? "");
-  }, [artwork?.suggestedQuestions, questionText, voicePrompts]);
+    setQuestionText(suggestedQuestionFallback);
+    setQuestionInputMode("suggested");
+  }, [questionText, suggestedQuestionFallback]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateHistory = async () => {
+      if (!artwork?.id) {
+        if (isMounted) {
+          setHistoryTurns([]);
+        }
+        return;
+      }
+
+      const persistedTurns = await getPersistedChatHistory(artwork.id);
+      if (!isMounted) {
+        return;
+      }
+
+      setHistoryTurns(
+        persistedTurns.map((turn) => ({
+          id: turn.id,
+          question: turn.question,
+          response: turn.response,
+          sourceCount: turn.sourceCount,
+        })),
+      );
+
+      const latestTurn = persistedTurns[0];
+      sessionIdRef.current =
+        latestTurn?.sessionId ?? createChatSessionId(artwork.id);
+
+      if (latestTurn) {
+        setResponse(latestTurn.response);
+        setLastSubmittedQuestion(latestTurn.question);
+      } else {
+        setResponse("");
+        setLastSubmittedQuestion("");
+      }
+    };
+
+    hydrateHistory().catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [artwork?.id]);
 
   const openZoomViewer = (images: SourceImageItem[], initialIndex: number) => {
     setZoomImage({ images, initialIndex });
@@ -145,7 +209,7 @@ export default function PreguntaVozModal() {
   };
 
   const speakResponse = async (text = response) => {
-    const trimmedText = text.trim();
+    const trimmedText = markdownToSpeechText(text);
     if (!trimmedText) {
       return;
     }
@@ -232,8 +296,10 @@ export default function PreguntaVozModal() {
       () => undefined,
     );
     setVoiceStatusMessage((current) =>
-      current.startsWith("Procesando")
-        ? "Dictado listo. Revisa la pregunta o enviala."
+      current.startsWith("Dictado listo. Enviando")
+        ? current
+        : current.startsWith("Procesando")
+          ? "Analizando tu dictado..."
         : current,
     );
   });
@@ -245,11 +311,15 @@ export default function PreguntaVozModal() {
     }
 
     setQuestionText(transcript);
-    setVoiceStatusMessage(
-      event.isFinal
-        ? "Dictado listo. Revisa la pregunta o enviala."
-        : "Escuchando tu pregunta...",
-    );
+    setQuestionInputMode("voice");
+
+    if (event.isFinal) {
+      setVoiceStatusMessage("Enviando tu pregunta...");
+      askQuestion(transcript).catch(() => undefined);
+      return;
+    }
+
+    setVoiceStatusMessage("Escuchando tu pregunta...");
   });
 
   useSpeechRecognitionEvent("error", (event) => {
@@ -277,6 +347,7 @@ export default function PreguntaVozModal() {
     return () => {
       loadingTimersRef.current.forEach((timerId) => clearTimeout(timerId));
       loadingTimersRef.current = [];
+      activeRequestAbortRef.current?.abort();
       ExpoSpeechRecognitionModule.abort();
       Speech.stop();
     };
@@ -324,6 +395,7 @@ export default function PreguntaVozModal() {
     setResponseMeta(null);
     setErrorMessage("");
     setLastSubmittedQuestion(trimmedQuestion);
+    setPendingQuestion(trimmedQuestion);
     setVoiceStatusMessage("");
     setIsLoading(true);
     if (isListening) {
@@ -332,6 +404,8 @@ export default function PreguntaVozModal() {
     }
     await stopSpeaking();
     scheduleLoadingMessages();
+    const requestAbortController = new AbortController();
+    activeRequestAbortRef.current = requestAbortController;
 
     try {
       const result = await askMuseRag({
@@ -355,16 +429,48 @@ export default function PreguntaVozModal() {
               suggested_questions: artwork.suggestedQuestions,
             }
           : undefined,
+        signal: requestAbortController.signal,
       });
 
-      setResponse(result.respuesta);
+      const markdownResponse = (result.markdown ?? result.respuesta).trim();
+
+      setResponse(markdownResponse);
       setSources(result.fuentes ?? []);
       setResponseMeta(result.meta ?? null);
       setStatusMessage("");
-      if (settings.autoPlay && result.respuesta.trim()) {
-        await speakResponse(result.respuesta);
+      resetQuestionComposer();
+      if (artwork?.id) {
+        const nextTurn = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          sessionId: sessionIdRef.current,
+          artworkId: artwork.id,
+          question: trimmedQuestion,
+          response: markdownResponse,
+          sourceCount: result.meta?.source_count ?? result.fuentes?.length ?? 0,
+          createdAt: Date.now(),
+        };
+        setHistoryTurns((previous) =>
+          [nextTurn, ...previous].slice(0, MAX_CHAT_HISTORY_TURNS).map((turn) => ({
+            id: turn.id,
+            question: turn.question,
+            response: turn.response,
+            sourceCount: turn.sourceCount,
+          })),
+        );
+        persistChatTurn(nextTurn).catch(() => undefined);
+      }
+      if (settings.autoPlay && markdownResponse) {
+        await speakResponse(markdownResponse);
       }
     } catch (error) {
+      if (
+        requestAbortController.signal.aborted ||
+        (error instanceof Error && error.message === "Consulta cancelada.")
+      ) {
+        resetQuestionComposer();
+        return;
+      }
+
       const message =
         error instanceof Error
           ? error.message
@@ -372,8 +478,12 @@ export default function PreguntaVozModal() {
       setErrorMessage(message);
       setStatusMessage("");
     } finally {
+      if (activeRequestAbortRef.current === requestAbortController) {
+        activeRequestAbortRef.current = null;
+      }
       loadingTimersRef.current.forEach((timerId) => clearTimeout(timerId));
       loadingTimersRef.current = [];
+      setPendingQuestion("");
       setIsLoading(false);
     }
   };
@@ -383,25 +493,34 @@ export default function PreguntaVozModal() {
       <ChatSheet
         artworkTitle={artwork?.title ?? "Obra actual"}
         errorMessage={errorMessage}
-        intentShortcuts={intentShortcuts}
+        isQuestionReady={isQuestionReady}
         isLoading={isLoading}
+        onCancelPendingQuestion={cancelPendingQuestion}
         onClose={() => router.back()}
         onOpenImage={openZoomViewer}
-        onQuestionTextChange={setQuestionText}
+        pendingQuestion={pendingQuestion}
+        onQuestionTextChange={updateQuestionText}
+        onSuggestedQuestionPress={setSuggestedQuestion}
         onRetry={
           lastSubmittedQuestion
             ? () => askQuestion(lastSubmittedQuestion)
             : undefined
         }
         isListening={isListening}
-        onSubmit={() => askQuestion(questionText)}
+        onSubmit={() => {
+          if (isQuestionReady) {
+            askQuestion(questionText);
+            return;
+          }
+
+          toggleListening().catch(() => undefined);
+        }}
         onSpeakResponse={() => speakResponse()}
         onStopListening={stopListening}
         onStopSpeaking={stopSpeaking}
         onToggleListening={toggleListening}
         questionText={questionText}
         response={response}
-        responseMeta={responseMeta}
         statusMessage={statusMessage}
         suggestedQuestions={suggestedQuestions}
         voiceStatusMessage={voiceStatusMessage}

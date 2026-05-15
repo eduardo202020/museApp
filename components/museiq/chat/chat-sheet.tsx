@@ -1,11 +1,12 @@
 import { SourceImageCarousel } from "@/components/museiq/chat/source-image-carousel";
 import { musePalette } from "@/components/museiq/theme";
-import { PrimaryButton, SecondaryButton } from "@/components/museiq/ui";
 import type { SourceSnippet } from "@/lib/muserag-api";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import Markdown from "react-native-markdown-display";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,47 +15,30 @@ import {
   View,
 } from "react-native";
 
-type ResponseSection = {
-  key: "summary" | "fact" | "image" | "next";
-  title: string;
-  content: string;
-};
-
-type IntentShortcut = {
-  id: string;
-  label: string;
-  prompt: string;
-};
-
 type ChatSheetProps = {
   artworkTitle: string;
   errorMessage: string;
-  intentShortcuts: IntentShortcut[];
+  isQuestionReady: boolean;
   isListening: boolean;
   isLoading: boolean;
   isSpeaking: boolean;
+  onCancelPendingQuestion: () => void;
   onClose: () => void;
   onOpenImage: (
     images: { id: string; uri: string; label?: string }[],
     initialIndex: number,
   ) => void;
   onQuestionTextChange: (value: string) => void;
+  onSuggestedQuestionPress: (value: string) => void;
   onRetry?: () => void;
   onSpeakResponse: () => void;
   onStopListening: () => void;
   onStopSpeaking: () => void;
   onSubmit: () => void;
   onToggleListening: () => void;
+  pendingQuestion: string;
   questionText: string;
   response: string;
-  responseMeta: {
-    total_ms: number;
-    retrieval_ms: number;
-    generation_ms: number;
-    source_count: number;
-    support_level?: string;
-    applied_filters?: string[];
-  } | null;
   statusMessage: string;
   suggestedQuestions: string[];
   sources: SourceSnippet[];
@@ -62,83 +46,33 @@ type ChatSheetProps = {
   voiceStatusMessage: string;
 };
 
-function cleanSectionContent(value: string) {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-function parseStructuredResponse(response: string): ResponseSection[] | null {
-  const trimmed = response.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const summaryMatch = trimmed.match(
-    /Respuesta breve:\s*([\s\S]*?)(?=\n?\s*Dato clave:|$)/i,
-  );
-  const factMatch = trimmed.match(
-    /Dato clave:\s*([\s\S]*?)(?=\n?\s*Imagen relacionada:|$)/i,
-  );
-  const imageMatch = trimmed.match(
-    /Imagen relacionada:\s*([\s\S]*?)(?=\n?\s*Siguiente mirada:|$)/i,
-  );
-  const nextMatch = trimmed.match(/Siguiente mirada:\s*([\s\S]*)$/i);
-
-  const sections: ResponseSection[] = [];
-
-  if (summaryMatch?.[1]) {
-    sections.push({
-      key: "summary",
-      title: "Respuesta breve",
-      content: cleanSectionContent(summaryMatch[1]),
-    });
-  }
-
-  if (factMatch?.[1]) {
-    sections.push({
-      key: "fact",
-      title: "Dato clave",
-      content: cleanSectionContent(factMatch[1]),
-    });
-  }
-
-  if (imageMatch?.[1]) {
-    sections.push({
-      key: "image",
-      title: "Imagen relacionada",
-      content: cleanSectionContent(imageMatch[1]),
-    });
-  }
-
-  if (nextMatch?.[1]) {
-    sections.push({
-      key: "next",
-      title: "Siguiente mirada",
-      content: cleanSectionContent(nextMatch[1]),
-    });
-  }
-
-  return sections.length ? sections : null;
-}
+const owlThinkingFrames = [
+  require("@/assets/images/logo-2.png"),
+  require("@/assets/images/logo-3.png"),
+  require("@/assets/images/logo-4.png"),
+];
 
 export function ChatSheet({
   artworkTitle,
   errorMessage,
-  intentShortcuts,
+  isQuestionReady,
   isListening,
   isLoading,
   isSpeaking,
+  onCancelPendingQuestion,
   onClose,
   onOpenImage,
   onQuestionTextChange,
+  onSuggestedQuestionPress,
   onRetry,
   onSpeakResponse,
   onStopListening,
   onStopSpeaking,
   onSubmit,
   onToggleListening,
+  pendingQuestion,
   questionText,
   response,
-  responseMeta,
   statusMessage,
   suggestedQuestions,
   sources,
@@ -146,24 +80,48 @@ export function ChatSheet({
   voiceStatusMessage,
 }: ChatSheetProps) {
   const hasAnswer = response.trim().length > 0;
+  const canSubmit = isQuestionReady && questionText.trim().length > 0;
+  const isActionBlocked = isLoading;
+  const isWaiting = isLoading;
+  const fabIconName = isListening ? "stop" : canSubmit ? "send" : "mic";
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
-  const [isMetaOpen, setIsMetaOpen] = useState(false);
-  const [isMoreContextOpen, setIsMoreContextOpen] = useState(false);
-  const structuredResponse = parseStructuredResponse(response);
-  const primarySections = structuredResponse?.filter(
-    (section) => section.key === "summary" || section.key === "next",
-  );
-  const secondarySections = structuredResponse?.filter(
-    (section) => section.key === "fact" || section.key === "image",
-  );
+  const [owlFrameIndex, setOwlFrameIndex] = useState(0);
+  const [thinkingDots, setThinkingDots] = useState(".");
+  const markdownRules = {
+    image: () => null,
+  };
+
+  useEffect(() => {
+    if (!isWaiting) {
+      setOwlFrameIndex(0);
+      setThinkingDots(".");
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setOwlFrameIndex((current) => (current + 1) % owlThinkingFrames.length);
+      setThinkingDots((current) => (current.length >= 3 ? "." : `${current}.`));
+    }, 260);
+
+    return () => clearInterval(intervalId);
+  }, [isWaiting]);
 
   return (
     <View style={styles.sheet}>
       <View style={styles.header}>
         <View style={styles.handle} />
-        <Text style={styles.eyebrow}>Guia del Recorrido</Text>
-        <Text style={styles.title}>Conversa con la sala</Text>
-        <Text style={styles.subtitle}>{artworkTitle}</Text>
+        <View style={styles.headerMainRow}>
+          <Text numberOfLines={2} style={styles.title}>{artworkTitle}</Text>
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.headerCloseButton,
+              pressed ? styles.suggestionChipPressed : null,
+            ]}
+          >
+            <Ionicons color={musePalette.primary} name="close" size={18} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.inputCard}>
@@ -175,20 +133,11 @@ export function ChatSheet({
               <Ionicons color="#FFFFFF" name="mic" size={22} />
             </View>
             <Text style={styles.listeningTitle}>Te escucho</Text>
-            <Text style={styles.listeningHint}>
-              Habla con naturalidad. Cuando termines, detenemos y revisas el texto.
-            </Text>
             <View style={styles.liveTranscriptCard}>
               <Text style={styles.liveTranscriptText}>
                 {questionText.trim() || "Tu pregunta aparecera aqui en vivo..."}
               </Text>
             </View>
-            <PrimaryButton
-              icon="stop"
-              label="Detener dictado"
-              onPress={onStopListening}
-              style={styles.listeningStopButton}
-            />
           </View>
         ) : (
           <>
@@ -201,34 +150,13 @@ export function ChatSheet({
               style={styles.input}
             />
 
-            <View style={styles.voiceControlRow}>
-              <Pressable
-                onPress={onToggleListening}
-                style={({ pressed }) => [
-                  styles.micLauncher,
-                  pressed ? styles.suggestionChipPressed : null,
-                ]}
-              >
-                <Ionicons
-                  color={musePalette.primary}
-                  name="mic-outline"
-                  size={18}
-                />
-                <Text style={styles.micLauncherText}>
-                  {voiceMode === "review" ? "Hablar de nuevo" : "Dictar pregunta"}
-                </Text>
-              </Pressable>
-              <Text style={styles.voiceStatusText}>
-                {voiceMode === "review"
-                  ? "Revisa el texto, ajustalo si quieres y luego envialo."
-                  : voiceStatusMessage ||
-                    "Si prefieres, dicta tu pregunta y luego la revisas antes de enviarla."}
-              </Text>
-            </View>
+            {voiceStatusMessage ? (
+              <Text style={styles.voiceStatusText}>{voiceStatusMessage}</Text>
+            ) : null}
           </>
         )}
 
-        {voiceMode !== "listening" && suggestedQuestions.length ? (
+        {voiceMode !== "listening" && !isLoading && suggestedQuestions.length ? (
           <View style={styles.suggestionsPanel}>
             <Pressable
               onPress={() => setIsSuggestionsOpen((value) => !value)}
@@ -237,16 +165,7 @@ export function ChatSheet({
                 pressed ? styles.suggestionChipPressed : null,
               ]}
             >
-              <View style={styles.suggestionsToggleText}>
-                <Text style={styles.suggestionsToggleTitle}>
-                  Preguntas para inspirarte
-                </Text>
-                <Text style={styles.suggestionsToggleHint}>
-                  {isSuggestionsOpen
-                    ? "Ocultar sugerencias"
-                    : "Ver ideas de preguntas"}
-                </Text>
-              </View>
+              <Text style={styles.suggestionsTitle}>Ideas rapidas</Text>
               <Ionicons
                 color={musePalette.primary}
                 name={isSuggestionsOpen ? "chevron-up" : "chevron-down"}
@@ -255,46 +174,20 @@ export function ChatSheet({
             </Pressable>
 
             {isSuggestionsOpen ? (
-              <View style={styles.suggestionsList}>
-                {intentShortcuts.length ? (
-                  <View style={styles.intentSection}>
-                    <Text style={styles.intentTitle}>Atajos rapidos</Text>
-                    <View style={styles.intentChips}>
-                      {intentShortcuts.map((shortcut) => (
-                        <Pressable
-                          key={shortcut.id}
-                          onPress={() => {
-                            onQuestionTextChange(shortcut.prompt);
-                            setIsSuggestionsOpen(false);
-                          }}
-                          style={({ pressed }) => [
-                            styles.intentChip,
-                            pressed ? styles.suggestionChipPressed : null,
-                          ]}
-                        >
-                          <Text style={styles.intentChipText}>
-                            {shortcut.label}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-                ) : null}
-
-                {suggestedQuestions.map((item, index) => (
+              <View style={styles.quickSuggestionList}>
+                {suggestedQuestions.slice(0, 3).map((item) => (
                   <Pressable
-                    key={item}
-                    onPress={() => {
-                      onQuestionTextChange(item);
+                  key={item}
+                  onPress={() => {
+                      onSuggestedQuestionPress(item);
                       setIsSuggestionsOpen(false);
                     }}
                     style={({ pressed }) => [
-                      styles.suggestionRow,
+                      styles.quickSuggestionChip,
                       pressed ? styles.suggestionChipPressed : null,
                     ]}
                   >
-                    <Text style={styles.suggestionIndex}>{index + 1}</Text>
-                    <Text style={styles.suggestionText}>{item}</Text>
+                    <Text style={styles.quickSuggestionText}>{item}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -310,120 +203,47 @@ export function ChatSheet({
           scrollEnabled
           contentContainerStyle={styles.scrollContent}
         >
-          {isLoading ? (
-            <View style={styles.loadingBlock}>
-              <ActivityIndicator color={musePalette.primaryStrong} size="small" />
-              <Text style={styles.loadingTitle}>Consultando MuseRAG</Text>
-              <Text style={styles.statusText}>
-                {statusMessage || "Preparando la consulta..."}
-              </Text>
-            </View>
-          ) : null}
-
-          {!isLoading ? (
-            primarySections?.length ? (
-              <View style={styles.responseSections}>
-                {primarySections.map((section) => (
-                  <View key={section.key} style={styles.responseSectionCard}>
-                    <Text style={styles.responseSectionTitle}>
-                      {section.title}
-                    </Text>
-                    <Text style={styles.responseSectionText}>
-                      {section.content}
-                    </Text>
-                  </View>
-                ))}
-
-                {secondarySections?.length ? (
-                  <Pressable
-                    onPress={() => setIsMoreContextOpen((value) => !value)}
-                    style={({ pressed }) => [
-                      styles.disclosureButton,
-                      pressed ? styles.suggestionChipPressed : null,
-                    ]}
-                  >
-                    <Text style={styles.disclosureTitle}>
-                      {isMoreContextOpen
-                        ? "Ocultar mas contexto"
-                        : "Ver mas contexto"}
-                    </Text>
-                    <Ionicons
-                      color={musePalette.primary}
-                      name={isMoreContextOpen ? "chevron-up" : "chevron-down"}
-                      size={18}
-                    />
-                  </Pressable>
-                ) : null}
-
-                {isMoreContextOpen && secondarySections?.length ? (
-                  <View style={styles.responseSections}>
-                    {secondarySections.map((section) => (
-                      <View
-                        key={section.key}
-                        style={styles.responseSectionCardSecondary}
-                      >
-                        <Text style={styles.responseSectionTitle}>
-                          {section.title}
-                        </Text>
-                        <Text style={styles.responseSectionText}>
-                          {section.content}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-            ) : (
-              <Text style={styles.answerText}>
-                {response || "La respuesta aparecera aqui."}
-              </Text>
-            )
-          ) : null}
-
-          {hasAnswer && responseMeta ? (
-            <View style={styles.metaCard}>
+          <View style={styles.answerPrimaryCard}>
+            {hasAnswer ? (
               <Pressable
-                onPress={() => setIsMetaOpen((value) => !value)}
+                onPress={isSpeaking ? onStopSpeaking : onSpeakResponse}
                 style={({ pressed }) => [
-                  styles.metaToggle,
+                  styles.answerAudioFloatingButton,
                   pressed ? styles.suggestionChipPressed : null,
                 ]}
               >
-                <Text style={styles.metaTitle}>Ver por que respondio esto</Text>
                 <Ionicons
-                  color={musePalette.primary}
-                  name={isMetaOpen ? "chevron-up" : "chevron-down"}
+                  color="#FFFFFF"
+                  name={isSpeaking ? "volume-mute-outline" : "volume-high-outline"}
                   size={18}
                 />
               </Pressable>
-              {isMetaOpen ? (
-                <View style={styles.metaBody}>
-                  <Text style={styles.metaText}>
-                    {`Respondio en ${(responseMeta.total_ms / 1000).toFixed(1)} s con ${responseMeta.source_count} fuente${responseMeta.source_count === 1 ? "" : "s"} recuperada${responseMeta.source_count === 1 ? "" : "s"} y un sustento ${responseMeta.support_level ?? "no especificado"}.`}
-                  </Text>
-                  {responseMeta.applied_filters?.length ? (
-                    <Text style={styles.metaFilters}>
-                      {`Filtros usados: ${responseMeta.applied_filters.join(" · ")}`}
-                    </Text>
-                  ) : null}
+            ) : null}
+            {!isLoading ? (
+              hasAnswer ? (
+                <View style={styles.markdownWrap}>
+                  <Markdown rules={markdownRules} style={markdownStyles}>{response}</Markdown>
                 </View>
-              ) : null}
-            </View>
-          ) : null}
-
-          {hasAnswer ? (
-            <View style={styles.answerAudioRow}>
-              <SecondaryButton
-                icon={isSpeaking ? "volume-mute-outline" : "volume-high-outline"}
-                label={isSpeaking ? "Detener audio" : "Escuchar respuesta"}
-                onPress={isSpeaking ? onStopSpeaking : onSpeakResponse}
-                style={styles.answerAudioButton}
-              />
-            </View>
-          ) : null}
+              ) : (
+                <View style={styles.emptyAnswerState}>
+                  <Ionicons
+                    color={musePalette.textMuted}
+                    name="chatbubble-ellipses-outline"
+                    size={22}
+                  />
+                  <Text style={styles.answerText}>
+                    {response || "La respuesta aparecera aqui."}
+                  </Text>
+                </View>
+              )
+            ) : null}
+          </View>
 
           {sources.length ? (
-            <SourceImageCarousel sources={sources} onOpenImage={onOpenImage} />
+            <View style={styles.carouselBlock}>
+              <Text style={styles.carouselTitle}>Imagenes relacionadas</Text>
+              <SourceImageCarousel sources={sources} onOpenImage={onOpenImage} />
+            </View>
           ) : null}
 
           {errorMessage ? (
@@ -437,22 +257,62 @@ export function ChatSheet({
             </View>
           ) : null}
         </ScrollView>
-      </View>
 
-      <View style={styles.actions}>
-        <SecondaryButton
-          icon="close"
-          label="Cerrar"
-          onPress={onClose}
-          style={styles.actionButton}
-        />
-        <PrimaryButton
-          icon="send"
-          label={isLoading ? "Consultando..." : "Enviar"}
-          onPress={onSubmit}
-          disabled={isLoading || isListening}
-          style={styles.actionButton}
-        />
+        {isWaiting ? (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingModalCard}>
+              <View style={styles.loadingGuideRow}>
+                <Image
+                  source={owlThinkingFrames[owlFrameIndex]}
+                  style={styles.loadingGuideImage}
+                  resizeMode="contain"
+                />
+                <View style={styles.loadingQuestionWrap}>
+                  <View style={styles.loadingQuestionCard}>
+                    <Text style={styles.loadingQuestionText}>
+                      {`${pendingQuestion || questionText}${thinkingDots}`}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.loadingSpinnerBlock}>
+                <Text style={styles.statusText}>
+                  {statusMessage || "Preparando la consulta..."}
+                </Text>
+              </View>
+              <Pressable
+                onPress={onCancelPendingQuestion}
+                style={({ pressed }) => [
+                  styles.loadingCancelButton,
+                  pressed ? styles.suggestionChipPressed : null,
+                ]}
+              >
+                <Text style={styles.loadingCancelText}>Cancelar</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        <Pressable
+          onPress={
+            isListening ? onStopListening : canSubmit ? onSubmit : onToggleListening
+          }
+          disabled={isActionBlocked}
+          style={({ pressed }) => [
+            styles.floatingSendButton,
+            isListening ? styles.floatingSendButtonListening : null,
+            isActionBlocked
+              ? styles.floatingSendButtonDisabled
+              : null,
+            pressed ? styles.suggestionChipPressed : null,
+          ]}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : (
+          <Ionicons color="#FFFFFF" name={fabIconName} size={20} />
+          )}
+        </Pressable>
       </View>
     </View>
   );
@@ -466,21 +326,18 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "column",
     paddingHorizontal: 20,
-    paddingBottom: 28,
+    paddingBottom: 20,
     maxHeight: "95%",
   },
   header: {
     paddingTop: 14,
     paddingBottom: 12,
-    alignItems: "center",
-    gap: 4,
+    gap: 8,
   },
-  eyebrow: {
-    color: "#8A5A2B",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
+  headerMainRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
   },
   handle: {
     alignSelf: "center",
@@ -491,30 +348,35 @@ const styles = StyleSheet.create({
   },
   title: {
     color: musePalette.text,
-    fontSize: 24,
+    flex: 1,
+    fontSize: 22,
     fontWeight: "900",
-    textAlign: "center",
+    letterSpacing: -0.3,
   },
-  subtitle: {
-    color: "#7C624B",
-    fontSize: 13,
-    fontWeight: "700",
-    textAlign: "center",
+  headerCloseButton: {
+    alignItems: "center",
+    backgroundColor: "#FFFDFC",
+    borderColor: musePalette.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
   },
   inputCard: {
     backgroundColor: "#F7F1E7",
     borderColor: "#E4D7C4",
     borderRadius: 18,
     borderWidth: 1,
+    marginBottom: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 12,
+    paddingVertical: 8,
   },
   inputLabel: {
     color: "#6D4D2E",
     fontSize: 13,
     fontWeight: "800",
-    marginBottom: 10,
+    marginBottom: 6,
   },
   answerContainer: {
     flex: 1,
@@ -522,60 +384,59 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderColor: "#E7DCCA",
     borderWidth: 1,
+    overflow: "hidden",
     padding: 14,
-    marginBottom: 12,
-    minHeight: 200,
+    minHeight: 0,
+    position: "relative",
   },
   answerContent: {
     flex: 1,
   },
   scrollContent: {
-    minHeight: "100%",
-    justifyContent: "flex-start",
+    flexGrow: 1,
+    justifyContent: "space-between",
+    paddingBottom: 68,
+  },
+  answerPrimaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9E6F2",
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    marginBottom: 10,
+    minHeight: 220,
+    padding: 12,
+    position: "relative",
   },
   answerText: {
     color: musePalette.text,
     fontSize: 14,
     lineHeight: 21,
-    marginBottom: 8,
+    textAlign: "center",
   },
   responseSections: {
     gap: 10,
     marginBottom: 8,
   },
-  responseSectionCard: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D9E6F2",
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 6,
-    padding: 12,
+  markdownWrap: {
+    flexGrow: 1,
   },
-  responseSectionCardSecondary: {
-    backgroundColor: "#F8FBFE",
-    borderColor: "#E0EAF4",
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 6,
-    padding: 12,
+  carouselBlock: {
+    marginBottom: 10,
   },
-  responseSectionTitle: {
+  carouselTitle: {
     color: musePalette.primary,
     fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-  },
-  responseSectionText: {
-    color: musePalette.text,
-    fontSize: 14,
-    lineHeight: 20,
+    fontWeight: "800",
+    marginBottom: 2,
   },
   input: {
     color: musePalette.text,
-    fontSize: 15,
-    lineHeight: 22,
-    minHeight: 72,
+    fontSize: 14,
+    lineHeight: 20,
+    maxHeight: 92,
+    minHeight: 42,
+    paddingVertical: 2,
     textAlignVertical: "top",
   },
   listeningCard: {
@@ -584,8 +445,8 @@ const styles = StyleSheet.create({
     borderColor: "#E4D7C4",
     borderRadius: 18,
     borderWidth: 1,
-    gap: 10,
-    padding: 16,
+    gap: 8,
+    padding: 12,
   },
   listeningIconWrap: {
     alignItems: "center",
@@ -599,13 +460,6 @@ const styles = StyleSheet.create({
     color: musePalette.text,
     fontSize: 18,
     fontWeight: "900",
-  },
-  listeningHint: {
-    color: musePalette.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 18,
-    textAlign: "center",
   },
   liveTranscriptCard: {
     alignSelf: "stretch",
@@ -621,68 +475,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
   },
-  listeningStopButton: {
-    alignSelf: "stretch",
-  },
-  voiceControlRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
-  },
-  micLauncher: {
-    alignItems: "center",
-    backgroundColor: "#E4F0FF",
-    borderColor: "#B9D6F5",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 42,
-    paddingHorizontal: 12,
-  },
-  micLauncherText: {
-    color: musePalette.primary,
-    fontSize: 12,
-    fontWeight: "800",
-  },
   voiceStatusText: {
     color: "#7C624B",
-    flex: 1,
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 18,
-  },
-  intentSection: {
-    backgroundColor: "#F7FBFF",
-    borderColor: "#D8E8F8",
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 8,
-    padding: 12,
-  },
-  intentTitle: {
-    color: "#6D4D2E",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  intentChips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  intentChip: {
-    backgroundColor: "#E4F0FF",
-    borderColor: "#B9D6F5",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  intentChipText: {
-    color: musePalette.primary,
-    fontSize: 12,
-    fontWeight: "800",
+    marginTop: 8,
   },
   suggestionsPanel: {
     marginTop: 10,
@@ -698,20 +496,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 11,
   },
-  suggestionsToggleText: {
-    flex: 1,
-    gap: 2,
-    paddingRight: 10,
-  },
-  suggestionsToggleTitle: {
+  suggestionsTitle: {
     color: "#6D4D2E",
     fontSize: 12,
     fontWeight: "800",
   },
-  suggestionsToggleHint: {
-    color: "#927A62",
-    fontSize: 11,
-    fontWeight: "600",
+  quickSuggestionList: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  quickSuggestionChip: {
+    backgroundColor: "#FFFDFC",
+    borderColor: "#E8DCCB",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  quickSuggestionText: {
+    color: "#5B4633",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
   },
   errorText: {
     color: musePalette.danger,
@@ -730,120 +538,123 @@ const styles = StyleSheet.create({
   },
   loadingBlock: {
     alignItems: "flex-start",
-    backgroundColor: musePalette.surface,
-    borderColor: musePalette.border,
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 180,
+  },
+  loadingOverlay: {
+    alignItems: "center",
+    backgroundColor: "rgba(251, 247, 241, 0.82)",
+    bottom: 0,
+    justifyContent: "center",
+    left: 0,
+    paddingHorizontal: 18,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  loadingModalCard: {
+    alignItems: "center",
+    backgroundColor: "#FFFDF9",
+    borderColor: "#E7DCCA",
+    borderRadius: 22,
+    borderWidth: 1,
+    maxWidth: 420,
+    minHeight: 420,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    position: "relative",
+    width: "100%",
+  },
+  loadingGuideRow: {
+    alignItems: "flex-start",
+    alignSelf: "stretch",
+    marginBottom: 18,
+    minHeight: 260,
+    position: "relative",
+    width: "100%",
+  },
+  loadingGuideImage: {
+    height: 208,
+    left: -10,
+    position: "absolute",
+    bottom: -8,
+    marginTop: 0,
+    width: 208,
+  },
+  loadingQuestionWrap: {
+    maxWidth: "72%",
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "72%",
+  },
+  loadingQuestionCard: {
+    backgroundColor: "#F7F1E7",
+    borderColor: "#E4D7C4",
     borderRadius: 16,
     borderWidth: 1,
-    gap: 8,
-    marginBottom: 12,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    width: "100%",
   },
-  loadingTitle: {
+  loadingQuestionText: {
     color: musePalette.text,
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
+    lineHeight: 22,
+    textAlign: "left",
+  },
+  loadingSpinnerBlock: {
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 18,
+    marginTop: 8,
+    width: "100%",
+  },
+  emptyAnswerState: {
+    alignItems: "center",
+    flex: 1,
+    gap: 10,
+    justifyContent: "center",
+    minHeight: 180,
+    paddingHorizontal: 10,
   },
   statusText: {
     color: musePalette.textMuted,
     fontSize: 13,
     fontWeight: "600",
     lineHeight: 19,
+    textAlign: "center",
   },
-  suggestionsWrap: {
-    gap: 8,
-  },
-  suggestionsList: {
-    gap: 8,
-    marginTop: 8,
-  },
-  suggestionRow: {
-    alignItems: "flex-start",
-    backgroundColor: "#FFFDFC",
-    borderColor: "#E8DCCB",
-    borderRadius: 14,
+  loadingCancelButton: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9E6F2",
+    borderRadius: 999,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 12,
+    marginTop: 4,
+    paddingHorizontal: 16,
     paddingVertical: 10,
+  },
+  loadingCancelText: {
+    color: musePalette.primary,
+    fontSize: 13,
+    fontWeight: "800",
   },
   suggestionChipPressed: {
     opacity: 0.82,
   },
-  suggestionIndex: {
-    color: "#A66A2E",
-    fontSize: 12,
-    fontWeight: "900",
-    lineHeight: 18,
-    minWidth: 12,
-  },
-  suggestionText: {
-    color: "#5B4633",
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 16,
-  },
-  metaCard: {
-    backgroundColor: "#F6F9FC",
-    borderColor: musePalette.border,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 10,
-    overflow: "hidden",
-  },
-  metaToggle: {
+  answerAudioFloatingButton: {
     alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  metaBody: {
-    borderTopColor: musePalette.border,
-    borderTopWidth: 1,
-    gap: 4,
-    padding: 12,
-  },
-  metaTitle: {
-    color: musePalette.text,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  metaText: {
-    color: musePalette.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 18,
-  },
-  metaFilters: {
-    color: musePalette.primary,
-    fontSize: 11,
-    fontWeight: "700",
-    lineHeight: 16,
-  },
-  disclosureButton: {
-    alignItems: "center",
-    backgroundColor: "#EFF5FB",
-    borderColor: "#D6E4F2",
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-  disclosureTitle: {
-    color: musePalette.primary,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  answerAudioRow: {
-    marginBottom: 10,
-  },
-  answerAudioButton: {
-    alignSelf: "flex-start",
-    minHeight: 44,
-    paddingHorizontal: 14,
+    backgroundColor: musePalette.primary,
+    borderRadius: 999,
+    height: 36,
+    justifyContent: "center",
+    position: "absolute",
+    right: 12,
+    top: 12,
+    width: 36,
+    zIndex: 2,
   },
   retryButton: {
     alignSelf: "flex-start",
@@ -859,12 +670,58 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
-  actions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 4,
+  floatingSendButton: {
+    alignItems: "center",
+    backgroundColor: musePalette.primary,
+    borderRadius: 999,
+    bottom: 14,
+    elevation: 5,
+    height: 56,
+    justifyContent: "center",
+    position: "absolute",
+    right: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    width: 56,
   },
-  actionButton: {
-    flex: 1,
+  floatingSendButtonDisabled: {
+    backgroundColor: "#9AA3AE",
+  },
+  floatingSendButtonListening: {
+    backgroundColor: "#B13A2A",
   },
 });
+
+const markdownStyles = {
+  body: {
+    color: musePalette.text,
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  heading2: {
+    color: musePalette.primary,
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  paragraph: {
+    color: musePalette.text,
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  list_item: {
+    color: musePalette.text,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  image: {
+    borderRadius: 10,
+    height: 190,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+};

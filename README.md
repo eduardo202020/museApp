@@ -11,6 +11,8 @@ El proyecto esta enfocado en un MVP de pruebas con estas capacidades:
 - chat por texto sobre la obra activa
 - captura de voz nativa para dictar preguntas
 - consumo de respuestas de MuseRAG con texto e imagenes de apoyo
+- modal conversacional optimizado para voz con un unico FAB inteligente
+- espera conversacional con el buho animado mientras MuseRAG prepara la respuesta
 - visor de imagen ampliable con pinch-to-zoom y arrastre
 - panel de sensores con acelerometro, brujula, pasos y BLE
 
@@ -42,6 +44,15 @@ Payload actual:
 ```
 
 La app espera una respuesta JSON con `respuesta` y, si existen, `fuentes` con imagenes asociadas para mostrarlas en el carrusel del modal.
+
+En el flujo actual de chat:
+
+- el boton flotante principal cambia entre `mic`, `stop` y `send`
+- la voz tiene prioridad cuando solo hay una sugerencia precargada
+- al terminar un dictado, la consulta se envia directamente sin countdown artificial
+- durante la espera aparece un modal con la pregunta enviada y el buho de MuseIQ animado
+- el usuario puede cancelar una consulta en curso y la app aborta la peticion HTTP real
+- al terminar una respuesta, el flujo vuelve a priorizar voz para la siguiente pregunta
 
 ## Variables de entorno
 
@@ -89,13 +100,25 @@ En la pantalla principal `app/index.tsx` la app muestra:
 
 En el modal `app/pregunta-voz-modal.tsx` la app muestra:
 
-- caja de texto para escribir la pregunta
-- boton de microfono para dictado por voz
-- respuesta textual del backend
-- carrusel de imagenes devueltas por las fuentes
+- caja de texto compacta para escribir o editar la pregunta
+- un unico FAB contextual para grabar, detener o enviar
+- sugerencias rapidas plegables
+- modal de espera con pregunta visible, cancelacion y personaje animado
+- respuesta textual del backend en una tarjeta principal expandida
+- boton flotante interno para volver a escuchar la respuesta
+- carrusel de imagenes devueltas por las fuentes con tarjetas a ancho completo
 - visor ampliado de imagen con zoom y arrastre
 
 Durante consultas lentas la app mantiene una espera amigable antes de mostrar un error. Si MuseRAG tarda mas de lo normal, el usuario ve un mensaje de espera extendida en lugar de cortar la consulta inmediatamente.
+
+Detalles recientes de UX del modal:
+
+- la tarjeta de respuesta ocupa practicamente todo el alto util del sheet
+- el FAB de preguntar flota sobre la tarjeta de respuesta, no fuera de ella
+- la respuesta ya no muestra el boton `Siguiente obra`
+- el control de audio de la respuesta flota dentro del card en la esquina superior derecha
+- el carrusel de fuentes elimino textos auxiliares como `Libro del museo` y `Toca para ampliar`
+- las imagenes relacionadas se muestran mas grandes para priorizar lectura visual
 
 ## Development Build
 
@@ -164,7 +187,8 @@ Tambien se normaliza `S1` a `SALA_1` para el contexto actual de pruebas.
 5. Enciende o acerca los ESP32 `S1-M1`, `S1-M2` y `S1-M3`.
 6. Verifica que el campo `BLE` muestre algo como `SALA_1 · M1`.
 7. Abre `Chat`, escribe una pregunta y confirma la respuesta.
-8. Si el backend devuelve imagenes, toca una para ampliarla.
+8. Prueba tambien el flujo por voz usando el mismo FAB flotante.
+9. Si el backend devuelve imagenes, toca una para ampliarla.
 
 ## Scripts utiles
 
@@ -181,6 +205,8 @@ npx tsc --noEmit
 
 - `app/index.tsx`: home principal, obra actual y panel de sensores
 - `app/pregunta-voz-modal.tsx`: chat por texto, respuesta y visor de imagenes
+- `components/museiq/chat/chat-sheet.tsx`: layout del modal conversacional y UX de espera
+- `components/museiq/chat/source-image-carousel.tsx`: carrusel de fuentes visuales
 - `hooks/use-ble-scanner.ts`: escaneo BLE, parseo de payload y fallback por nombre
 - `providers/museiq-provider.tsx`: estado general del recorrido
 - `lib/muserag-api.ts`: cliente HTTP hacia MuseRAG
@@ -192,5 +218,6 @@ npx tsc --noEmit
 ## Notas de desarrollo
 
 - el chat ya incluye captura de voz nativa para dictado de preguntas
+- el cliente MuseRAG soporta cancelacion real de consultas usando `AbortController`
 - el backend debe devolver una estructura compatible con `respuesta` y opcionalmente `fuentes`
 - si Expo falla al iniciar con `ENOSPC`, revisa `README-DEV.md`

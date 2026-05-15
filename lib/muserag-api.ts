@@ -22,6 +22,7 @@ export interface MuseRagQueryParams {
   artworkId?: string;
   sessionId?: string;
   artworkContext?: MuseRagArtworkContext;
+  signal?: AbortSignal;
 }
 
 export interface SourceSnippet {
@@ -46,11 +47,44 @@ export interface MuseRagResponseMeta {
 
 export interface MuseRagResponse {
   respuesta: string;
+  markdown?: string;
   fuentes?: SourceSnippet[];
   meta?: MuseRagResponseMeta;
 }
 
 const MUSERAG_TIMEOUT_MS = 45000;
+
+function createCombinedAbortSignal(timeoutSignal: AbortSignal, externalSignal?: AbortSignal) {
+  if (!externalSignal) {
+    return {
+      signal: timeoutSignal,
+      cleanup: () => undefined,
+    };
+  }
+
+  if (externalSignal.aborted) {
+    return {
+      signal: externalSignal,
+      cleanup: () => undefined,
+    };
+  }
+
+  const controller = new AbortController();
+
+  const abortFromTimeout = () => controller.abort();
+  const abortFromExternal = () => controller.abort();
+
+  timeoutSignal.addEventListener('abort', abortFromTimeout);
+  externalSignal.addEventListener('abort', abortFromExternal);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      timeoutSignal.removeEventListener('abort', abortFromTimeout);
+      externalSignal.removeEventListener('abort', abortFromExternal);
+    },
+  };
+}
 
 function normalizeMuseRagUrl(url: string, fallbackHost?: string) {
   const trimmedUrl = url.trim().replace(/\/$/, '');
@@ -133,8 +167,16 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
     artwork_context: params.artworkContext,
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), MUSERAG_TIMEOUT_MS);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), MUSERAG_TIMEOUT_MS);
+  const externalSignal = params.signal;
+
+  if (externalSignal?.aborted) {
+    throw new Error('Consulta cancelada.');
+  }
+
+  const { signal: abortSignal, cleanup: cleanupAbortSignal } =
+    createCombinedAbortSignal(timeoutController.signal, externalSignal);
 
   let response: Response;
   try {
@@ -144,10 +186,14 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal: abortSignal,
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
+      if (externalSignal?.aborted) {
+        throw new Error('Consulta cancelada.');
+      }
+
       throw new Error(
         'La consulta supero el tiempo de espera. Puedes intentarlo de nuevo o hacer una pregunta mas puntual.'
       );
@@ -157,6 +203,7 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
       `No pude completar la consulta con MuseRAG en ${baseUrl}. Verifica que Expo haya recargado el .env, que la API este corriendo y que esa IP sea accesible desde tu celular.`
     );
   } finally {
+    cleanupAbortSignal();
     clearTimeout(timeoutId);
   }
 

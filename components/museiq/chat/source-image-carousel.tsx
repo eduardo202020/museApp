@@ -2,6 +2,7 @@ import { musePalette } from "@/components/museiq/theme";
 import { resolveMuseRagUrl, type SourceSnippet } from "@/lib/muserag-api";
 import { useEffect, useMemo, useState } from "react";
 import {
+  LayoutChangeEvent,
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -12,9 +13,8 @@ import {
   View,
 } from "react-native";
 
-const CAROUSEL_CARD_WIDTH = 260;
+const DEFAULT_CAROUSEL_CARD_WIDTH = 280;
 const CAROUSEL_GAP = 12;
-const CAROUSEL_SNAP_INTERVAL = CAROUSEL_CARD_WIDTH + CAROUSEL_GAP;
 
 function resolveImageUrl(imageUrl?: string) {
   if (!imageUrl) {
@@ -43,10 +43,14 @@ export function SourceImageCarousel({
   onOpenImage,
   sources,
 }: SourceImageCarouselProps) {
+  const [carouselWidth, setCarouselWidth] = useState(0);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>(
     {},
   );
+
+  const cardWidth = carouselWidth > 0 ? carouselWidth : DEFAULT_CAROUSEL_CARD_WIDTH;
+  const snapInterval = cardWidth + CAROUSEL_GAP;
 
   const imageSources = useMemo(
     () =>
@@ -84,12 +88,19 @@ export function SourceImageCarousel({
     event: NativeSyntheticEvent<NativeScrollEvent>,
   ) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    const nextIndex = Math.round(offsetX / CAROUSEL_SNAP_INTERVAL);
+    const nextIndex = Math.round(offsetX / snapInterval);
     const boundedIndex = Math.max(
       0,
       Math.min(nextIndex, imageSources.length - 1),
     );
     setActiveCarouselIndex(boundedIndex);
+  };
+
+  const handleCarouselLayout = (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    if (width > 0 && width !== carouselWidth) {
+      setCarouselWidth(width);
+    }
   };
 
   if (imageSources.length === 0) {
@@ -98,63 +109,56 @@ export function SourceImageCarousel({
 
   return (
     <>
-      <ScrollView
-        horizontal
-        pagingEnabled
-        style={styles.carousel}
-        contentContainerStyle={styles.carouselContent}
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToAlignment="start"
-        snapToInterval={CAROUSEL_SNAP_INTERVAL}
-        disableIntervalMomentum
-        onMomentumScrollEnd={handleCarouselMomentumEnd}
-      >
-        {imageSources.map((source, index) => {
-          const imageItem = zoomImages[index];
-          const imageKey = imageItem.id;
-          const figureRef = imageItem.label;
-          const imageUri = imageItem.uri;
-          const sourceLabel = source.source_label;
+      <View onLayout={handleCarouselLayout} style={styles.carouselLayout}> 
+        <ScrollView
+          horizontal
+          pagingEnabled
+          style={styles.carousel}
+          contentContainerStyle={styles.carouselContent}
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToAlignment="start"
+          snapToInterval={snapInterval}
+          disableIntervalMomentum
+          onMomentumScrollEnd={handleCarouselMomentumEnd}
+        >
+          {imageSources.map((source, index) => {
+            const imageItem = zoomImages[index];
+            const imageKey = imageItem.id;
+            const figureRef = imageItem.label;
+            const imageUri = imageItem.uri;
 
-          return (
-            <View key={imageKey} style={styles.imageCard}>
-              <Pressable
-                style={styles.sourceImagePressable}
-                onPress={() => onOpenImage(zoomImages, index)}
-              >
-                <Image
-                  source={{ uri: imageUri }}
-                  style={styles.sourceImage}
-                  resizeMode="contain"
-                  onError={() =>
-                    setImageLoadErrors((prev) => ({
-                      ...prev,
-                      [imageKey]: true,
-                    }))
-                  }
-                />
-              </Pressable>
-              {sourceLabel ? (
-                <View style={styles.sourceBadge}>
-                  <Text style={styles.sourceBadgeText}>{sourceLabel}</Text>
-                </View>
-              ) : null}
-              {figureRef ? (
-                <Text style={styles.figureLabel}>{figureRef}</Text>
-              ) : null}
-              {!imageLoadErrors[imageKey] ? (
-                <Text style={styles.zoomHint}>Toca para ampliar</Text>
-              ) : null}
-              {imageLoadErrors[imageKey] ? (
-                <Text style={styles.errorText}>
-                  No se pudo cargar la imagen de la fuente.
-                </Text>
-              ) : null}
-            </View>
-          );
-        })}
-      </ScrollView>
+            return (
+              <View key={imageKey} style={[styles.imageCard, { width: cardWidth }]}>
+                <Pressable
+                  style={styles.sourceImagePressable}
+                  onPress={() => onOpenImage(zoomImages, index)}
+                >
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.sourceImage}
+                    resizeMode="cover"
+                    onError={() =>
+                      setImageLoadErrors((prev) => ({
+                        ...prev,
+                        [imageKey]: true,
+                      }))
+                    }
+                  />
+                </Pressable>
+                {figureRef ? (
+                  <Text style={styles.figureLabel}>{figureRef}</Text>
+                ) : null}
+                {imageLoadErrors[imageKey] ? (
+                  <Text style={styles.errorText}>
+                    No se pudo cargar la imagen de la fuente.
+                  </Text>
+                ) : null}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       <View style={styles.carouselDots}>
         {imageSources.map((source, index) => {
@@ -177,6 +181,9 @@ export function SourceImageCarousel({
 }
 
 const styles = StyleSheet.create({
+  carouselLayout: {
+    width: "100%",
+  },
   carousel: {
     marginTop: 12,
   },
@@ -185,17 +192,17 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
   imageCard: {
-    width: CAROUSEL_CARD_WIDTH,
     alignItems: "center",
     gap: 8,
   },
   sourceImagePressable: {
+    alignSelf: "stretch",
     borderRadius: 12,
     overflow: "hidden",
   },
   sourceImage: {
-    width: CAROUSEL_CARD_WIDTH,
-    height: 220,
+    width: "100%",
+    height: 360,
     borderRadius: 12,
     backgroundColor: musePalette.surface,
   },
@@ -204,24 +211,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     fontStyle: "italic",
-  },
-  sourceBadge: {
-    backgroundColor: "#E8F2FC",
-    borderColor: "#C8DCF2",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  sourceBadgeText: {
-    color: musePalette.primary,
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  zoomHint: {
-    color: musePalette.textMuted,
-    fontSize: 11,
-    fontWeight: "600",
   },
   errorText: {
     color: "#A12626",
