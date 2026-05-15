@@ -5,6 +5,7 @@ import {
   type ArtworkMock,
   type FAQItem,
   type MuseumInfo,
+  type RouteStepMock,
   type RoomMock,
 } from "@/datos";
 
@@ -17,12 +18,23 @@ export interface MuseumDatabaseSnapshot {
   museumProfile: MuseumInfo | null;
   rooms: RoomMock[];
   artworks: ArtworkMock[];
+  route: RouteStepMock[];
   helpFaq: FAQItem[];
   voicePrompts: string[];
   permissionCatalog: Record<
     PermissionKey,
     { title: string; description: string }
   >;
+}
+
+export interface PersistedChatTurn {
+  id: string;
+  sessionId: string;
+  artworkId: string;
+  question: string;
+  response: string;
+  sourceCount: number;
+  createdAt: number;
 }
 
 const DATABASE_NAME = "museiq.db";
@@ -35,6 +47,7 @@ function buildMockSnapshot(): MuseumDatabaseSnapshot {
     museumProfile: museumMock.museum,
     rooms: museumMock.rooms,
     artworks: museumMock.artworks,
+    route: museumMock.route,
     helpFaq: museumMock.faq,
     voicePrompts: museumMock.voicePrompts,
     permissionCatalog: {
@@ -152,6 +165,19 @@ async function ensureMuseumSchema(db: SQLiteDatabase) {
       permission_key TEXT PRIMARY KEY NOT NULL,
       title TEXT NOT NULL,
       description TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS visitor_state (
+      state_key TEXT PRIMARY KEY NOT NULL,
+      state_value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_history (
+      id TEXT PRIMARY KEY NOT NULL,
+      session_id TEXT NOT NULL,
+      artwork_id TEXT NOT NULL,
+      question TEXT NOT NULL,
+      response TEXT NOT NULL,
+      source_count INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
     );
   `);
 }
@@ -355,6 +381,12 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
   const faqRows = await db.getAllAsync<FAQItem>(
     "SELECT question, answer FROM faq ORDER BY id ASC"
   );
+  const routeRows = await db.getAllAsync<{
+    artwork_id: string;
+    room_id: string;
+    sequence: number;
+    hint: string;
+  }>("SELECT * FROM route_steps ORDER BY sequence ASC");
   const voicePromptRows = await db.getAllAsync<{ prompt: string }>(
     "SELECT prompt FROM voice_prompts ORDER BY prompt_order ASC"
   );
@@ -411,6 +443,12 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
       locationHint: row.location_hint,
       suggestedQuestions: fromJsonArray<string>(row.suggested_questions_json),
     })),
+    route: routeRows.map((row) => ({
+      artworkId: row.artwork_id,
+      roomId: row.room_id,
+      sequence: row.sequence,
+      hint: row.hint,
+    })),
     helpFaq: faqRows,
     voicePrompts: voicePromptRows.map((row) => row.prompt),
     permissionCatalog: permissionRows.reduce<
@@ -431,4 +469,87 @@ export async function getMuseumSnapshot(): Promise<MuseumDatabaseSnapshot> {
       }
     ),
   };
+}
+
+export async function getVisitorPreference(
+  key: string
+): Promise<string | null> {
+  try {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<{ state_value: string }>(
+      "SELECT state_value FROM visitor_state WHERE state_key = ?",
+      key
+    );
+    return row?.state_value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setVisitorPreference(
+  key: string,
+  value: string
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT INTO visitor_state (state_key, state_value)
+     VALUES (?, ?)
+     ON CONFLICT(state_key) DO UPDATE SET state_value = excluded.state_value`,
+    key,
+    value
+  );
+}
+
+export async function getPersistedChatHistory(
+  artworkId: string
+): Promise<PersistedChatTurn[]> {
+  try {
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<{
+      id: string;
+      session_id: string;
+      artwork_id: string;
+      question: string;
+      response: string;
+      source_count: number;
+      created_at: number;
+    }>(
+      `SELECT *
+       FROM chat_history
+       WHERE artwork_id = ?
+       ORDER BY created_at DESC
+       LIMIT 6`,
+      artworkId
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      sessionId: row.session_id,
+      artworkId: row.artwork_id,
+      question: row.question,
+      response: row.response,
+      sourceCount: row.source_count,
+      createdAt: row.created_at,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function persistChatTurn(
+  turn: PersistedChatTurn
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT OR REPLACE INTO chat_history (
+      id, session_id, artwork_id, question, response, source_count, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    turn.id,
+    turn.sessionId,
+    turn.artworkId,
+    turn.question,
+    turn.response,
+    turn.sourceCount,
+    turn.createdAt
+  );
 }

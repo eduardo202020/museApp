@@ -14,6 +14,15 @@ export default function RootLayout() {
         <ThemeProvider value={DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
+            <Stack.Screen name="(drawer)" />
+            <Stack.Screen
+              name="pregunta-voz-modal"
+              options={{ presentation: "transparentModal", animation: "slide_from_bottom" }}
+            />
+            <Stack.Screen
+              name="permissions-modal"
+              options={{ presentation: "transparentModal", animation: "slide_from_bottom" }}
+            />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

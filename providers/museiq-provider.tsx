@@ -4,9 +4,14 @@ import {
     type ArtworkMock,
     type FAQItem,
     type MuseumInfo,
+    type RouteStepMock,
     type RoomMock,
 } from "@/datos";
-import { getMuseumSnapshot } from "@/lib/museum-database";
+import {
+  getMuseumSnapshot,
+  getVisitorPreference,
+  setVisitorPreference,
+} from "@/lib/museum-database";
 import { router } from "expo-router";
 import * as Speech from "expo-speech";
 import {
@@ -39,6 +44,7 @@ interface MuseIQContextValue {
   museumProfile: MuseumInfo | null;
   rooms: RoomMock[];
   artworks: ArtworkMock[];
+  route: RouteStepMock[];
   helpFaq: FAQItem[];
   voicePrompts: string[];
   permissionCatalog: Record<
@@ -48,6 +54,12 @@ interface MuseIQContextValue {
   currentArtworkId: string;
   currentRoomId: string;
   currentZoneLabel: string;
+  currentRouteStep: RouteStepMock | undefined;
+  routeProgress: number;
+  routeTotal: number;
+  routeProgressLabel: string;
+  hasCompletedWelcome: boolean;
+  debugModeEnabled: boolean;
   permissionsAccepted: boolean;
   permissions: Record<
     PermissionKey,
@@ -62,8 +74,11 @@ interface MuseIQContextValue {
   declinePermissions: () => void;
   selectArtwork: (artworkId: string) => void;
   goToNextArtwork: () => void;
+  goToPreviousArtwork: () => void;
   repeatArtworkNarration: () => void;
   continueVisit: () => void;
+  completeWelcome: () => void;
+  setDebugModeEnabled: (enabled: boolean) => void;
   updateSettings: (patch: Partial<SettingsState>) => void;
   setCurrentRoomById: (roomId: string) => void;
   setCurrentZoneLabel: (label: string) => void;
@@ -93,6 +108,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
   const [museumProfile, setMuseumProfile] = useState<MuseumInfo | null>(null);
   const [rooms, setRooms] = useState<RoomMock[]>([]);
   const [artworks, setArtworks] = useState<ArtworkMock[]>([]);
+  const [route, setRoute] = useState<RouteStepMock[]>([]);
   const [helpFaq, setHelpFaq] = useState<FAQItem[]>([]);
   const [voicePrompts, setVoicePrompts] = useState<string[]>([]);
   const [permissionCatalog, setPermissionCatalog] = useState<PermissionCatalog>(
@@ -112,6 +128,8 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     "cerca de la entrada",
   );
   const [visitedArtworkIds, setVisitedArtworkIds] = useState<string[]>([]);
+  const [hasCompletedWelcome, setHasCompletedWelcome] = useState(false);
+  const [debugModeEnabled, setDebugModeEnabledState] = useState(false);
 
   const findArtworkById = (artworkId?: string) =>
     artworks.find((artwork) => artwork.id === artworkId);
@@ -124,6 +142,16 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
 
   const currentArtwork = findArtworkById(currentArtworkId);
   const currentRoom = findRoomById(currentRoomId);
+  const currentRouteStep = useMemo(
+    () => route.find((step) => step.artworkId === currentArtworkId),
+    [currentArtworkId, route],
+  );
+  const routeProgress = currentRouteStep?.sequence ?? 0;
+  const routeTotal = route.length;
+  const routeProgressLabel =
+    routeTotal > 0
+      ? `${Math.max(1, routeProgress)} de ${routeTotal} obras`
+      : "Recorrido en preparacion";
   const allPermissionsGranted = Object.values(permissions).every(
     (status) => status === "granted",
   );
@@ -140,16 +168,27 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       setMuseumProfile(snapshot.museumProfile);
       setRooms(snapshot.rooms);
       setArtworks(snapshot.artworks);
+      setRoute(snapshot.route);
       setHelpFaq(snapshot.helpFaq);
       setVoicePrompts(snapshot.voicePrompts);
       setPermissionCatalog(snapshot.permissionCatalog);
 
+      const [welcomePreference, debugPreference] = await Promise.all([
+        getVisitorPreference("welcome_completed"),
+        getVisitorPreference("debug_mode_enabled"),
+      ]);
+      setHasCompletedWelcome(welcomePreference === "true");
+      setDebugModeEnabledState(debugPreference === "true");
+
       const firstRoom = snapshot.rooms[0];
       const initialRoom = firstRoom;
-      const initialArtwork =
-        snapshot.artworks.find(
-          (artwork) => artwork.roomId === initialRoom?.id,
-        ) ?? snapshot.artworks[0];
+      const initialArtwork = snapshot.route.length
+        ? snapshot.artworks.find(
+            (artwork) => artwork.id === snapshot.route[0]?.artworkId,
+          )
+        : snapshot.artworks.find(
+            (artwork) => artwork.roomId === initialRoom?.id,
+          ) ?? snapshot.artworks[0];
 
       if (initialArtwork) {
         setCurrentArtworkId(initialArtwork.id);
@@ -205,20 +244,43 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     markVisited(artworkId);
   };
 
-  const goToNextArtwork = () => {
+  const goToRelativeArtwork = (direction: -1 | 1) => {
     if (artworks.length === 0) {
+      return;
+    }
+
+    const routeIndex = route.findIndex((step) => step.artworkId === currentArtworkId);
+    const nextRouteStep =
+      routeIndex >= 0
+        ? route[routeIndex + direction]
+        : undefined;
+
+    if (nextRouteStep) {
+      selectArtwork(nextRouteStep.artworkId);
+      speakArtwork(nextRouteStep.artworkId);
       return;
     }
 
     const currentIndex = artworks.findIndex(
       (artwork) => artwork.id === currentArtworkId,
     );
-    const nextArtwork = artworks[currentIndex + 1] ?? artworks[0];
+    const fallbackArtwork =
+      direction === 1
+        ? artworks[currentIndex + 1] ?? artworks[0]
+        : artworks[currentIndex - 1] ?? artworks[artworks.length - 1];
 
-    if (nextArtwork) {
-      selectArtwork(nextArtwork.id);
-      speakArtwork(nextArtwork.id);
+    if (fallbackArtwork) {
+      selectArtwork(fallbackArtwork.id);
+      speakArtwork(fallbackArtwork.id);
     }
+  };
+
+  const goToNextArtwork = () => {
+    goToRelativeArtwork(1);
+  };
+
+  const goToPreviousArtwork = () => {
+    goToRelativeArtwork(-1);
   };
 
   const requestAllPermissions = async () => {
@@ -296,6 +358,18 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     router.push("/" as never);
   };
 
+  const completeWelcome = () => {
+    setHasCompletedWelcome(true);
+    setVisitorPreference("welcome_completed", "true").catch(() => undefined);
+  };
+
+  const setDebugModeEnabled = (enabled: boolean) => {
+    setDebugModeEnabledState(enabled);
+    setVisitorPreference("debug_mode_enabled", enabled ? "true" : "false").catch(
+      () => undefined,
+    );
+  };
+
   const updateSettings = (patch: Partial<SettingsState>) => {
     setSettings((previous) => ({ ...previous, ...patch }));
   };
@@ -320,12 +394,19 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       museumProfile,
       rooms,
       artworks,
+      route,
       helpFaq,
       voicePrompts,
       permissionCatalog,
       currentArtworkId,
       currentRoomId,
       currentZoneLabel,
+      currentRouteStep,
+      routeProgress,
+      routeTotal,
+      routeProgressLabel,
+      hasCompletedWelcome,
+      debugModeEnabled,
       permissionsAccepted,
       permissions,
       settings,
@@ -337,8 +418,11 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       declinePermissions,
       selectArtwork,
       goToNextArtwork,
+      goToPreviousArtwork,
       repeatArtworkNarration,
       continueVisit,
+      completeWelcome,
+      setDebugModeEnabled,
       updateSettings,
       setCurrentRoomById,
       setCurrentZoneLabel,
@@ -353,13 +437,20 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       currentArtworkId,
       currentRoom,
       currentRoomId,
+      currentRouteStep,
       currentZoneLabel,
+      debugModeEnabled,
+      hasCompletedWelcome,
       helpFaq,
       isDatabaseReady,
       museumProfile,
       permissions,
       permissionCatalog,
       permissionsAccepted,
+      route,
+      routeProgress,
+      routeProgressLabel,
+      routeTotal,
       rooms,
       settings,
       visitedArtworkIds,

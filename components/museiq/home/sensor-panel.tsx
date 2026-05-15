@@ -28,7 +28,7 @@ export function SensorPanel({
     <View style={styles.wrap}>
       {isOpen ? (
         <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Sensores</Text>
+          <Text style={styles.panelTitle}>Modo tecnico</Text>
           <Text style={styles.row}>Acelerometro: {accelerometerStatus}</Text>
           <Text style={styles.row}>Movimiento: {movementState}</Text>
           <Text style={styles.row}>
@@ -51,7 +51,7 @@ export function SensorPanel({
         ]}
       >
         <Text style={styles.toggleText}>
-          {isOpen ? "Ocultar sensores" : "Sensores"}
+          {isOpen ? "Ocultar modo tecnico" : "Modo tecnico"}
         </Text>
       </Pressable>
     </View>
