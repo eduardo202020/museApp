@@ -1,6 +1,6 @@
 # README-DEV
 
-Guia rapida para levantar MuseIQ en desarrollo con WSL2 y validar el MVP BLE actual.
+Guia rapida para levantar MuseIQ en desarrollo, tanto en Windows nativo como en WSL2, y validar el MVP BLE actual.
 
 ## Contexto actual
 
@@ -21,11 +21,126 @@ La app puede detectar los beacons de prueba aunque solo publiquen nombre BLE, po
 
 ## Requisitos
 
+- Windows 10/11
+- Node.js 20 LTS recomendado
+- npm instalado
+- Python 3.12+ para `museRAG`
+- LM Studio para el backend local
 - Windows + WSL2
 - mismo Wi-Fi para PC y celular
 - Android con Development Build instalado
 - dependencias instaladas con `npm install`
 - si cambias plugins nativos o permisos, necesitas reinstalar un nuevo Development Build
+
+## Arranque desde cero en Windows
+
+Si quieres continuar el proyecto en una PC Windows nueva y aun no tienes LM Studio ni modelos descargados, esta es la ruta mas directa.
+
+### Paso 1. Preparar MuseRAG en Windows
+
+1. Instala Python `3.12+`.
+2. Instala LM Studio.
+3. Abre LM Studio y descarga estos modelos, que son los que hoy usa el proyecto:
+   - chat: `qwen2.5-7b-instruct`
+   - embeddings: `text-embedding-nomic-embed-text-v1.5`
+4. En LM Studio:
+   - carga el modelo de chat
+   - carga el modelo de embeddings
+   - activa el servidor local OpenAI-compatible en `http://127.0.0.1:1234`
+5. Instala Poppler para Windows y agrega su carpeta `bin` al `PATH`.
+   `pdf2image` lo necesita para extraer imagenes del PDF durante la ingesta.
+
+### Paso 2. Configurar el backend
+
+En PowerShell:
+
+```powershell
+cd C:\ruta\al\repo\museRAG
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Verifica que `.env` mantenga estos valores base:
+
+```env
+LM_STUDIO_BASE_URL=http://127.0.0.1:1234/v1
+LM_STUDIO_CHAT_MODEL=qwen2.5-7b-instruct
+LM_STUDIO_EMBED_MODEL=text-embedding-nomic-embed-text-v1.5
+MUSERAG_HOST=0.0.0.0
+MUSERAG_PORT=8000
+```
+
+### Paso 3. Construir el indice
+
+Con LM Studio ya corriendo:
+
+```powershell
+cd C:\ruta\al\repo\museRAG
+.\.venv\Scripts\Activate.ps1
+python extract_images.py --rebuild
+python ingest.py --rebuild
+```
+
+### Paso 4. Levantar la API
+
+```powershell
+cd C:\ruta\al\repo\museRAG
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Prueba salud:
+
+```powershell
+curl http://127.0.0.1:8000/health
+```
+
+### Paso 5. Configurar la app Expo
+
+En `museiqApp/.env` define la IP de tu PC Windows, no `localhost`, porque el telefono debe alcanzar el backend por Wi-Fi:
+
+```env
+EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
+```
+
+Luego:
+
+```powershell
+cd C:\ruta\al\repo\museiqApp
+npm install
+npx tsc --noEmit
+```
+
+### Paso 6. Levantar la app
+
+La opcion mas simple en Windows suele ser tunnel:
+
+```powershell
+cd C:\ruta\al\repo\museiqApp
+npm run dev:client
+```
+
+Si ya tienes un Development Build instalado en Android:
+
+1. abre el launcher del dev client
+2. entra al proyecto expuesto por Expo
+3. abre el modal de chat
+4. prueba una pregunta por texto o por voz
+
+## Checklist de arranque rapido
+
+- LM Studio instalado
+- modelo de chat descargado y cargado
+- modelo de embeddings descargado y cargado
+- servidor local de LM Studio activo en `127.0.0.1:1234`
+- Poppler instalado en Windows
+- `python extract_images.py --rebuild` ejecutado
+- `python ingest.py --rebuild` ejecutado
+- `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload` corriendo
+- `EXPO_PUBLIC_MUSERAG_URL` apuntando a la IP real de la PC
+- Expo corriendo con `npm run dev:client`
 
 ## Arranque recomendado
 
