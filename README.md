@@ -8,12 +8,17 @@ El proyecto esta enfocado en un MVP de pruebas con estas capacidades:
 
 - deteccion BLE para inferir la referencia mas cercana en sala
 - obra actual y navegacion entre piezas del recorrido
+- exploracion manual por salas y obras sin depender del BLE
 - chat por texto sobre la obra activa
 - captura de voz nativa para dictar preguntas
 - consumo de respuestas de MuseRAG con texto e imagenes de apoyo
+- modos de respuesta del guia: `Breve`, `Explicada` y `Para niños`
 - modal conversacional optimizado para voz con un unico FAB inteligente
 - espera conversacional con el buho animado mientras MuseRAG prepara la respuesta
+- seguimiento visual del texto mientras la respuesta se reproduce en voz alta
 - visor de imagen ampliable con pinch-to-zoom y arrastre
+- memoria conversacional local por obra
+- analitica basica local del MVP
 - panel de sensores con acelerometro, brujula, pasos y BLE
 
 ## Chat con MuseRAG
@@ -48,10 +53,13 @@ La app espera una respuesta JSON con `respuesta` y, si existen, `fuentes` con im
 En el flujo actual de chat:
 
 - el boton flotante principal cambia entre `mic`, `stop` y `send`
+- el visitante puede elegir el modo de respuesta del guia antes de preguntar
 - la voz tiene prioridad cuando solo hay una sugerencia precargada
 - al terminar un dictado, la consulta se envia directamente sin countdown artificial
 - durante la espera aparece un modal con la pregunta enviada y el buho de MuseIQ animado
 - el usuario puede cancelar una consulta en curso y la app aborta la peticion HTTP real
+- la respuesta puede leerse en voz alta con seguimiento visual del texto en curso
+- el chat conserva memoria local por obra para retomar mejor visitas repetidas
 - al terminar una respuesta, el flujo vuelve a priorizar voz para la siguiente pregunta
 
 ## Variables de entorno
@@ -154,17 +162,20 @@ En la pantalla principal `app/index.tsx` la app muestra:
 
 - obra actual y navegacion entre piezas
 - boton `Chat` para consultar por texto sobre la obra activa
+- selector manual de salas y salto directo a obras del recorrido
 - panel de sensores con acelerometro, brujula, pasos y BLE
 - beacon dominante en formato `SALA_x · M1/M2/M3`
 
 En el modal `app/pregunta-voz-modal.tsx` la app muestra:
 
+- selector de modo de respuesta del guia
 - caja de texto compacta para escribir o editar la pregunta
 - un unico FAB contextual para grabar, detener o enviar
-- sugerencias rapidas plegables
+- preguntas rapidas plegables
 - modal de espera con pregunta visible, cancelacion y personaje animado
 - respuesta textual del backend en una tarjeta principal expandida
 - boton flotante interno para volver a escuchar la respuesta
+- seguimiento visual del texto durante la lectura en voz
 - carrusel de imagenes devueltas por las fuentes con tarjetas a ancho completo
 - visor ampliado de imagen con zoom y arrastre
 
@@ -176,8 +187,23 @@ Detalles recientes de UX del modal:
 - el FAB de preguntar flota sobre la tarjeta de respuesta, no fuera de ella
 - la respuesta ya no muestra el boton `Siguiente obra`
 - el control de audio de la respuesta flota dentro del card en la esquina superior derecha
+- el seguimiento visual de lectura cambia el color del texto en curso para no perder el hilo
 - el carrusel de fuentes elimino textos auxiliares como `Libro del museo` y `Toca para ampliar`
 - las imagenes relacionadas se muestran mas grandes para priorizar lectura visual
+
+## Memoria local y modo tecnico
+
+La app ya guarda memoria local del visitante para pruebas del MVP:
+
+- historial reciente por obra
+- memoria conversacional resumida por `artwork_id`
+- analitica basica local de uso
+
+En `Modo técnico` ahora existe una accion para:
+
+- borrar memoria conversacional
+- borrar progreso y preferencias del visitante
+- reiniciar la experiencia como si fuera un usuario nuevo
 
 ## Development Build
 
