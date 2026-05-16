@@ -1,68 +1,99 @@
 # README-DEV
 
-Guia rapida para levantar MuseIQ en desarrollo, tanto en Windows nativo como en WSL2, y validar el MVP BLE actual.
+Guía técnica de museApp para desarrollo local, pruebas de sala, integración con MuseRAG y mantenimiento del MVP.
 
-## Contexto actual
+## Alcance actual
 
-El proyecto esta siendo probado con este alcance:
+El proyecto está validado con este escenario de prueba:
 
-- una sola sala operativa en la app: `SALA_1`
-- tres mini ESP32 de prueba:
-  - `S1-M1`
-  - `S1-M2`
-  - `S1-M3`
-- deteccion visible directamente en la pantalla `Recorrido`
+- una sala operativa en la app: `SALA_1`
+- tres ESP32 de prueba: `S1-M1`, `S1-M2` y `S1-M3`
+- detección visible en la pantalla de recorrido y en el modal de consulta
 
-La app puede detectar los beacons de prueba aunque solo publiquen nombre BLE, porque existe un fallback temporal:
+Para pruebas rápidas, el scanner acepta fallback por nombre BLE:
 
 - `S1-M1` -> `SALA_1-B01`
 - `S1-M2` -> `SALA_1-B02`
 - `S1-M3` -> `SALA_1-B03`
 
-## Requisitos
+## Stack técnico
+
+- Expo 54
+- Expo Router
+- React Native 0.81
+- TypeScript
+- `react-native-ble-plx`
+- `expo-speech`
+- `expo-speech-recognition`
+- `expo-sensors`
+- `expo-sqlite`
+- `expo-dev-client`
+- MuseRAG como servicio de preguntas y respuestas
+
+## Estructura relevante
+
+- [app.config.js](app.config.js): expone `EXPO_PUBLIC_MUSERAG_URL` en `expo.extra.museRagUrl`
+- [lib/muserag-api.ts](lib/muserag-api.ts): resuelve la URL, arma el payload y maneja timeouts, cancelación y parsing JSON
+- [hooks/use-ble-scanner.ts](hooks/use-ble-scanner.ts): escaneo BLE
+- [hooks/use-guide-narrator.ts](hooks/use-guide-narrator.ts): narración y voz
+- [hooks/use-home-sensors.ts](hooks/use-home-sensors.ts): acelerómetro, brújula y pasos
+- [providers/museiq-provider.tsx](providers/museiq-provider.tsx): estado compartido y memoria local
+
+## Flujo de la app
+
+1. El usuario entra al recorrido y la app detecta contexto físico mediante BLE y sensores.
+2. Elige una obra o deja que el contexto de sala determine la referencia dominante.
+3. Abre el chat por texto o por voz.
+4. La app envía la consulta a MuseRAG con museo, sala, obra, modo de respuesta y contexto de la obra.
+5. La respuesta vuelve con texto, metadatos y, cuando hay fuentes, imágenes asociadas.
+6. El usuario puede escuchar la respuesta y seguir el texto mientras se reproduce.
+
+## Variables de entorno
+
+En la raíz del proyecto crea `.env` con la URL accesible desde el móvil:
+
+```env
+EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
+```
+
+Notas:
+
+- no uses `localhost` si el teléfono va a llamar al backend por Wi-Fi
+- si cambias `.env`, reinicia Expo para que `app.config.js` vuelva a leerlo
+- si cambias plugins nativos, permisos o dependencias nativas, reconstruye el Development Build
+
+## Setup local
+
+### Requisitos
 
 - Windows 10/11
-- Node.js 20 LTS recomendado
-- npm instalado
-- Python 3.12+ para `museRAG`
-- LM Studio para el backend local
-- Windows + WSL2
-- mismo Wi-Fi para PC y celular
+- Node.js 20 LTS
+- npm
+- Python 3.12+ para MuseRAG
+- LM Studio
 - Android con Development Build instalado
-- dependencias instaladas con `npm install`
-- si cambias plugins nativos o permisos, necesitas reinstalar un nuevo Development Build
+- misma red Wi-Fi para PC y celular cuando pruebes en dispositivo físico
 
-## Arranque desde cero en Windows
+### Backend MuseRAG
 
-Si quieres continuar el proyecto en una PC Windows nueva y aun no tienes LM Studio ni modelos descargados, esta es la ruta mas directa.
-
-### Paso 1. Preparar MuseRAG en Windows
-
-1. Instala Python `3.12+`.
-2. Instala LM Studio.
-3. Abre LM Studio y descarga estos modelos, que son los que hoy usa el proyecto:
+1. Instala Python 3.12 y LM Studio.
+2. Descarga los modelos usados por el proyecto:
    - chat: `qwen2.5-7b-instruct`
    - embeddings: `text-embedding-nomic-embed-text-v1.5`
-4. En LM Studio:
-   - carga el modelo de chat
-   - carga el modelo de embeddings
-   - activa el servidor local OpenAI-compatible en `http://127.0.0.1:1234`
-5. Instala Poppler para Windows y agrega su carpeta `bin` al `PATH`.
-   `pdf2image` lo necesita para extraer imagenes del PDF durante la ingesta.
+3. En LM Studio, levanta el servidor compatible con OpenAI en `http://127.0.0.1:1234`.
+4. Instala Poppler en Windows para que `pdf2image` pueda extraer imágenes en la ingesta.
 
-### Paso 2. Configurar el backend
-
-En PowerShell:
+### Inicialización del backend
 
 ```powershell
 cd C:\ruta\al\repo\museRAG
 py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
+..\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Verifica que `.env` mantenga estos valores base:
+Variables base esperadas en el backend:
 
 ```env
 LM_STUDIO_BASE_URL=http://127.0.0.1:1234/v1
@@ -72,9 +103,7 @@ MUSERAG_HOST=0.0.0.0
 MUSERAG_PORT=8000
 ```
 
-### Paso 3. Construir el indice
-
-Con LM Studio ya corriendo:
+### Ingesta
 
 ```powershell
 cd C:\ruta\al\repo\museRAG
@@ -83,7 +112,7 @@ python extract_images.py --rebuild
 python ingest.py --rebuild
 ```
 
-### Paso 4. Levantar la API
+### API
 
 ```powershell
 cd C:\ruta\al\repo\museRAG
@@ -91,31 +120,15 @@ cd C:\ruta\al\repo\museRAG
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Prueba salud:
+Chequeo rápido:
 
 ```powershell
 curl http://127.0.0.1:8000/health
 ```
 
-### Paso 5. Configurar la app Expo
+## Arranque de Expo
 
-En `iot/.env` define la IP de tu PC Windows, no `localhost`, porque el telefono debe alcanzar el backend por Wi-Fi:
-
-```env
-EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
-```
-
-Luego:
-
-```powershell
-cd C:\ruta\al\repo\iot
-npm install
-npx tsc --noEmit
-```
-
-### Paso 6. Levantar la app
-
-Primero intenta LAN, porque asi Expo y `museRAG` quedan en la red local correcta:
+### LAN en Windows
 
 ```powershell
 cd C:\ruta\al\repo\iot
@@ -123,186 +136,118 @@ $env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.10"
 npx expo start --dev-client --lan --port 8081
 ```
 
-Si LAN falla por restricciones de red o por un problema puntual de Expo, usa tunnel:
+### Tunnel
 
 ```powershell
 cd C:\ruta\al\repo\iot
 npm run dev:client
 ```
 
-Si ya tienes un Development Build instalado en Android:
+### WSL2
 
-1. abre el launcher del dev client
-2. entra al proyecto expuesto por Expo
-3. abre el modal de chat
-4. prueba una pregunta por texto o por voz
-
-## Checklist de arranque rapido
-
-- LM Studio instalado
-- modelo de chat descargado y cargado
-- modelo de embeddings descargado y cargado
-- servidor local de LM Studio activo en `127.0.0.1:1234`
-- Poppler instalado en Windows
-- `python extract_images.py --rebuild` ejecutado
-- `python ingest.py --rebuild` ejecutado
-- `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload` corriendo
-- `EXPO_PUBLIC_MUSERAG_URL` apuntando a la IP real de la PC
-- Expo corriendo en LAN o con `npm run dev:client`
-
-## Arranque recomendado
-
-### Opcion 1. LAN en Windows nativo
-
-Es la opcion recomendada cuando `museRAG` corre en la misma PC Windows y el telefono comparte la misma Wi-Fi:
-
-```powershell
-cd C:\ruta\al\repo\iot
-$env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.10"
-npx expo start --dev-client --lan --port 8081
-```
-
-Puntos clave:
-
-- `museRAG` debe escuchar en `0.0.0.0:8000`
-- `EXPO_PUBLIC_MUSERAG_URL` debe usar la IP real de la PC
-- si cambias `.env`, reinicia Expo
-
-### Opcion 2. Tunnel
-
-Es la opcion mas simple para salir del paso:
-
-```bash
-cd /home/eduardo/proyectos/iot/museiq/iot
-npm run dev:client
-```
-
-Usa tunnel y normalmente evita parte de la configuracion LAN manual.
-Con la configuracion actual, el Development Build abre el `launcher` del dev client en vez de reconectarse automaticamente a la ultima sesion.
-
-### Opcion 3. LAN en WSL2
-
-Si quieres trabajar sin tunnel, usa el bridge WSL -> Windows.
-
-1. En PowerShell como administrador:
+Si trabajas desde WSL2 y necesitas exponer Metro hacia Windows, usa el script incluido:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\proyectos\iot\museiq\iot\scripts\expo-wsl-portproxy.ps1"
 ```
 
-2. En WSL:
+Luego en WSL:
 
 ```bash
 cd /home/eduardo/proyectos/iot/museiq/iot
 npm run dev:client:lan
 ```
 
-## MuseRAG y `.env`
+## Development Build
 
-La URL del backend se define en `.env`:
+El proyecto usa `expo-dev-client` con `launchMode: "launcher"` para evitar que el teléfono vuelva a una sesión antigua de Metro.
 
-```env
-EXPO_PUBLIC_MUSERAG_URL=http://192.168.18.84:8000
-```
+Reconstruye el APK si haces cambios como:
 
-La app no lee esta variable directamente desde `process.env` en runtime del telefono. En su lugar:
+- agregar o quitar plugins Expo
+- agregar librerías nativas
+- cambiar permisos nativos
+- cambiar el comportamiento del dev client
 
-1. `app.config.js` la copia a `expo.extra.museRagUrl`
-2. `lib/muserag-api.ts` la lee desde `Constants.expoConfig.extra`
-
-Si cambias `.env`, reinicia Expo.
-Si ademas cambias plugins o configuracion nativa, reconstruye el Development Build.
-
-## Problemas reales que ya vimos
-
-### `No module named 'app'` al levantar `museRAG`
-
-Ese error aparece si corres `uvicorn app.main:app` desde la carpeta raiz del workspace en lugar de hacerlo dentro de `museRAG`.
-
-Correcto:
-
-```powershell
-cd C:\ruta\al\repo\museRAG
-.\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### La app intenta hablar con `*.exp.direct:8000`
-
-Si ves que la app intenta enviar preguntas a un host parecido a `xxxx.exp.direct:8000`, el backend no va a recibir nada.
-
-La solucion es:
-
-- usar `EXPO_PUBLIC_MUSERAG_URL=http://<IP_DE_TU_PC>:8000`
-- reiniciar Expo despues de cambiar `.env`
-- preferir LAN cuando trabajas con telefono fisico y backend local
-
-### Expo LAN no conecta aunque todo parezca bien
-
-En Windows vimos dos causas frecuentes:
-
-1. reglas viejas de `portproxy` de WSL ocupando puertos de Expo
-2. red Wi-Fi con perfil `Public`
-
-Revisa reglas:
-
-```powershell
-netsh interface portproxy show all
-```
-
-Si aparecen entradas para `8081`, `19000` o `19001`, borralas desde PowerShell como administrador:
-
-```powershell
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=8081
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=19000
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=19001
-```
-
-Luego reinicia Expo:
-
-```powershell
-cd C:\ruta\al\repo\iot
-$env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.10"
-npx expo start --dev-client --lan --port 8081
-```
-
-Si sigue fallando, cambia el perfil de tu red Wi-Fi a `Private`.
-
-## Rebuild del Development Build
-
-Si agregas dependencias nativas, como reconocimiento de voz, o cambias `launchMode` del dev client, reconstruye el APK con EAS:
+Build recomendado:
 
 ```bash
 npx eas build --platform android --profile development
 ```
 
-Ese perfil genera un APK de Development Build con:
+## BLE
 
-- `developmentClient: true`
-- `distribution: internal`
-- `android.buildType: apk`
+El scanner soporta dos formatos:
 
-## Flujo de prueba BLE
+1. `serviceData` con el UUID `0000A00A-0000-1000-8000-00805F9B34FB`
+2. fallback temporal por nombre BLE para pruebas
 
-1. Abre la app en el telefono.
-2. Entra a `Recorrido`.
-3. Pulsa `Buscar sala`.
-4. Revisa la tarjeta `Beacons escaneados`.
-5. Acerca o aleja los ESP32 para ver cambios en:
-   - beacon dominante
-   - RSSI
-   - estado activo/reposo
-   - orden relativo entre `M1`, `M2` y `M3`
-
-## Error comun: ENOSPC
-
-Si Expo arranca y luego falla con algo como:
+Payload esperado en `serviceData`:
 
 ```text
-Error: ENOSPC: System limit for number of file watchers reached
+Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) + TX Power (1 byte signed) + Battery mV (2 bytes little-endian)
 ```
 
-sube temporalmente los limites de `inotify`:
+## Features actuales
+
+- detección de beacon dominante por sala
+- navegación por obras del recorrido
+- chat contextual por texto
+- dictado por voz
+- modo de respuesta del guía: `Breve`, `Explicada` y `Para niños`
+- reproducción por voz de la respuesta
+- seguimiento visual del texto durante la narración
+- carrusel de fuentes con imágenes
+- visor con zoom y arrastre
+- memoria local por obra
+- panel de sensores
+
+## Roadmap técnico sugerido
+
+### Corto plazo
+
+- estabilizar la detección BLE en más salas
+- mejorar el mapeo entre beacon y obra activa
+- reducir latencia percibida de consulta y narración
+- cerrar el ciclo de pruebas con más contenido real de museo
+
+### Mediano plazo
+
+- soporte multi-sala más completo
+- memoria conversacional mejor segmentada por visita
+- métricas más claras de uso y recorrido
+- mejor recuperación de errores de red y backend
+
+### Largo plazo
+
+- soporte para más recorridos y museos
+- recomendaciones contextuales según visita
+- analítica de interacción más rica
+- endurecimiento del modo offline o degradado
+
+## Troubleshooting
+
+### `No module named 'app'`
+
+Ocurre si levantas `uvicorn app.main:app` fuera de la carpeta `museRAG`.
+
+### La app intenta usar `*.exp.direct:8000`
+
+Eso indica que la URL del backend quedó mal resuelta. Corrige `EXPO_PUBLIC_MUSERAG_URL` con la IP real de la PC y reinicia Expo.
+
+### Expo LAN no conecta
+
+Revisa reglas viejas de `portproxy`:
+
+```powershell
+netsh interface portproxy show all
+```
+
+Si hay entradas para `8081`, `19000` o `19001`, bórralas y vuelve a iniciar Expo.
+
+### `ENOSPC` en WSL
+
+Si ves el error de file watchers, sube temporalmente los límites:
 
 ```bash
 sudo sysctl -w fs.inotify.max_user_watches=524288
@@ -316,8 +261,6 @@ echo "fs.inotify.max_user_watches=524288" | sudo tee /etc/sysctl.d/99-museiq-ino
 echo "fs.inotify.max_user_instances=1024" | sudo tee -a /etc/sysctl.d/99-museiq-inotify.conf
 sudo sysctl --system
 ```
-
-Verifica los valores:
 
 ```bash
 cat /proc/sys/fs/inotify/max_user_watches
