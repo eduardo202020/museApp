@@ -1,6 +1,7 @@
 import { musePalette } from "@/components/museiq/theme";
 import {
   AppScreen,
+  PrimaryButton,
   SectionCard,
   SectionEyebrow,
   StatusPill,
@@ -9,6 +10,7 @@ import {
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 function MenuButton({ onPress }: { onPress: () => void }) {
@@ -24,19 +26,35 @@ export default function InfoRecorridoScreen() {
   const {
     artworks,
     currentArtwork,
+    currentArtworkId,
     currentRoom,
+    currentRouteStep,
+    getArtworksForRoom,
     museumProfile,
     rooms,
     routeProgress,
     routeTotal,
+    selectArtwork,
+    setCurrentRoomById,
+    visitedArtworkIds,
   } = useMuseIQ();
+
+  const visibleRoom = currentRoom ?? rooms[0];
+  const roomArtworks = visibleRoom ? getArtworksForRoom(visibleRoom.id) : [];
+
+  const openArtworkChat = (artworkId: string) => {
+    router.push({
+      pathname: "/pregunta-voz-modal",
+      params: { artworkId },
+    } as never);
+  };
 
   return (
     <View style={styles.screen}>
       <AppScreen contentContainerStyle={styles.content}>
         <TopBar
           title="MuseIQ"
-          subtitle="Info del recorrido"
+          subtitle="Explora por salas y obras"
           left={
             <MenuButton
               onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
@@ -63,45 +81,148 @@ export default function InfoRecorridoScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard>
-          <SectionEyebrow>Donde vas</SectionEyebrow>
-          <Text style={styles.sectionTitle}>Tu punto actual del recorrido</Text>
-          <View style={styles.infoList}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Sala actual</Text>
-              <Text style={styles.infoValue}>{currentRoom?.name ?? "No disponible"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Obra actual</Text>
-              <Text style={styles.infoValue}>{currentArtwork?.title ?? "No disponible"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Progreso</Text>
-              <Text style={styles.infoValue}>{`${routeProgress} de ${routeTotal}`}</Text>
-            </View>
+        <SectionCard style={styles.currentCard}>
+          <SectionEyebrow>Ahora mismo</SectionEyebrow>
+          <Text style={styles.sectionTitle}>
+            {currentArtwork?.title ?? "Obra actual"}
+          </Text>
+          <Text style={styles.currentCopy}>
+            {currentArtwork?.context ??
+              "Selecciona una obra para leer su contexto y abrir el chat del guía."}
+          </Text>
+          <View style={styles.currentMetaRow}>
+            <StatusPill label={currentRoom?.name ?? "Sala"} />
+            <StatusPill label={`${routeProgress} de ${routeTotal}`} tone="success" />
           </View>
+          {currentRouteStep?.hint ? (
+            <Text style={styles.currentHint}>{currentRouteStep.hint}</Text>
+          ) : null}
         </SectionCard>
 
-        <SectionCard>
-          <SectionEyebrow>Museo</SectionEyebrow>
-          <Text style={styles.sectionTitle}>Ficha general</Text>
-          <View style={styles.infoList}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Museo</Text>
-              <Text style={styles.infoValue}>{museumProfile?.name ?? "MuseIQ"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Ciudad</Text>
-              <Text style={styles.infoValue}>{museumProfile?.city ?? "No disponible"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Pais</Text>
-              <Text style={styles.infoValue}>{museumProfile?.country ?? "No disponible"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Soporte</Text>
-              <Text style={styles.infoValue}>{museumProfile?.supportContact ?? "No disponible"}</Text>
-            </View>
+        <SectionCard style={styles.explorerCard}>
+          <SectionEyebrow>Explorador</SectionEyebrow>
+          <Text style={styles.sectionTitle}>Recorre el museo a tu ritmo</Text>
+          <Text style={styles.sectionCopy}>
+            Cambia de sala, revisa obras del recorrido y abre el chat desde cualquier pieza.
+          </Text>
+
+          <View style={styles.roomChipRow}>
+            {rooms.map((room) => (
+              <Pressable
+                key={room.id}
+                onPress={() => setCurrentRoomById(room.id)}
+                style={({ pressed }) => [
+                  styles.roomChip,
+                  visibleRoom?.id === room.id ? styles.roomChipActive : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roomChipText,
+                    visibleRoom?.id === room.id ? styles.roomChipTextActive : null,
+                  ]}
+                >
+                  {room.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.roomSummaryCard}>
+            <Text style={styles.roomSummaryTitle}>{visibleRoom?.name ?? "Sala"}</Text>
+            <Text style={styles.roomSummaryText}>
+              {visibleRoom?.description ?? "Selecciona una sala para comenzar."}
+            </Text>
+          </View>
+
+          <View style={styles.artworkList}>
+            {roomArtworks.map((artwork) => {
+              const isCurrent = artwork.id === currentArtworkId;
+              const isVisited = visitedArtworkIds.includes(artwork.id);
+
+              return (
+                <View
+                  key={artwork.id}
+                  style={[
+                    styles.artworkCard,
+                    isCurrent ? styles.artworkCardActive : null,
+                  ]}
+                >
+                  <View style={styles.artworkHeader}>
+                    <View style={styles.artworkHeaderMain}>
+                      <Text
+                        style={[
+                          styles.artworkTitle,
+                          isCurrent ? styles.artworkTitleActive : null,
+                        ]}
+                      >
+                        {artwork.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.artworkMeta,
+                          isCurrent ? styles.artworkMetaActive : null,
+                        ]}
+                      >
+                        {`${artwork.period} · ${artwork.technique}`}
+                      </Text>
+                    </View>
+                    {isVisited ? (
+                      <Ionicons
+                        color={isCurrent ? "#FFFFFF" : musePalette.success}
+                        name="checkmark-circle"
+                        size={18}
+                      />
+                    ) : null}
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.artworkSummary,
+                      isCurrent ? styles.artworkSummaryActive : null,
+                    ]}
+                  >
+                    {artwork.summary}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.artworkRelation,
+                      isCurrent ? styles.artworkRelationActive : null,
+                    ]}
+                  >
+                    {artwork.roomRelation}
+                  </Text>
+
+                  <View style={styles.artworkActions}>
+                    <Pressable
+                      onPress={() => selectArtwork(artwork.id)}
+                      style={({ pressed }) => [
+                        styles.secondaryAction,
+                        isCurrent ? styles.secondaryActionActive : null,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.secondaryActionText,
+                          isCurrent ? styles.secondaryActionTextActive : null,
+                        ]}
+                      >
+                        {isCurrent ? "Vista actual" : "Ir a esta obra"}
+                      </Text>
+                    </Pressable>
+
+                    <PrimaryButton
+                      icon="chatbubble-ellipses"
+                      label="Preguntar"
+                      onPress={() => openArtworkChat(artwork.id)}
+                      style={styles.askButton}
+                    />
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </SectionCard>
       </AppScreen>
@@ -128,6 +249,12 @@ const styles = StyleSheet.create({
   heroCard: {
     gap: 12,
   },
+  currentCard: {
+    gap: 12,
+  },
+  explorerCard: {
+    gap: 12,
+  },
   heroTitle: {
     color: musePalette.text,
     fontSize: 26,
@@ -150,30 +277,163 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
-  infoList: {
-    gap: 10,
-    marginTop: 10,
+  sectionCopy: {
+    color: musePalette.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 19,
   },
-  infoRow: {
-    alignItems: "center",
+  currentCopy: {
+    color: musePalette.text,
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 21,
+  },
+  currentMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  currentHint: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  roomChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  roomChip: {
+    backgroundColor: "#FFFDFC",
+    borderColor: musePalette.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  roomChipActive: {
+    backgroundColor: musePalette.primary,
+    borderColor: musePalette.primary,
+  },
+  roomChipText: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  roomChipTextActive: {
+    color: "#FFFFFF",
+  },
+  roomSummaryCard: {
     backgroundColor: musePalette.surfaceMuted,
     borderRadius: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  infoLabel: {
+  roomSummaryTitle: {
+    color: musePalette.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  roomSummaryText: {
     color: musePalette.textMuted,
     fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 19,
+  },
+  artworkList: {
+    gap: 10,
+  },
+  artworkCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9E6F2",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  artworkCardActive: {
+    backgroundColor: musePalette.primary,
+    borderColor: musePalette.primary,
+  },
+  artworkHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  artworkHeaderMain: {
+    flex: 1,
+    gap: 4,
+  },
+  artworkTitle: {
+    color: musePalette.text,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  artworkTitleActive: {
+    color: "#FFFFFF",
+  },
+  artworkMeta: {
+    color: musePalette.textMuted,
+    fontSize: 12,
     fontWeight: "700",
   },
-  infoValue: {
+  artworkMetaActive: {
+    color: "rgba(255,255,255,0.82)",
+  },
+  artworkSummary: {
     color: musePalette.text,
-    flex: 1,
     fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 19,
+  },
+  artworkSummaryActive: {
+    color: "#FFFFFF",
+  },
+  artworkRelation: {
+    color: musePalette.primary,
+    fontSize: 12,
     fontWeight: "800",
-    marginLeft: 16,
-    textAlign: "right",
+    lineHeight: 18,
+  },
+  artworkRelationActive: {
+    color: "rgba(255,255,255,0.9)",
+  },
+  artworkActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  secondaryAction: {
+    alignItems: "center",
+    backgroundColor: "#F4F8FC",
+    borderColor: musePalette.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  secondaryActionActive: {
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.32)",
+  },
+  secondaryActionText: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  secondaryActionTextActive: {
+    color: "#FFFFFF",
+  },
+  askButton: {
+    flex: 1,
+  },
+  pressed: {
+    opacity: 0.86,
   },
 });

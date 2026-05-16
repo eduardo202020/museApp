@@ -37,8 +37,36 @@ export interface PersistedChatTurn {
   createdAt: number;
 }
 
+export interface ArtworkConversationMemory {
+  artworkId: string;
+  lastSessionId: string;
+  lastQuestion: string;
+  lastResponse: string;
+  turnsCount: number;
+  updatedAt: number;
+}
+
+export interface AnalyticsEvent {
+  id: string;
+  eventType: string;
+  artworkId?: string | null;
+  roomId?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: number;
+}
+
+export interface AnalyticsSummary {
+  totalEvents: number;
+  totalQuestions: number;
+  totalArtworkSelections: number;
+  totalVoiceStarts: number;
+  totalResets: number;
+  mostConsultedArtworkId: string | null;
+  mostVisitedArtworkId: string | null;
+}
+
 const DATABASE_NAME = "museiq.db";
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
@@ -88,6 +116,10 @@ async function getDatabase() {
 
 async function resetMuseumTables(db: SQLiteDatabase) {
   await db.execAsync(`
+    DROP TABLE IF EXISTS analytics_events;
+    DROP TABLE IF EXISTS artwork_conversation_memory;
+    DROP TABLE IF EXISTS chat_history;
+    DROP TABLE IF EXISTS visitor_state;
     DROP TABLE IF EXISTS permissions_catalog;
     DROP TABLE IF EXISTS voice_prompts;
     DROP TABLE IF EXISTS faq;
@@ -177,6 +209,22 @@ async function ensureMuseumSchema(db: SQLiteDatabase) {
       question TEXT NOT NULL,
       response TEXT NOT NULL,
       source_count INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS artwork_conversation_memory (
+      artwork_id TEXT PRIMARY KEY NOT NULL,
+      last_session_id TEXT NOT NULL,
+      last_question TEXT NOT NULL,
+      last_response TEXT NOT NULL,
+      turns_count INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id TEXT PRIMARY KEY NOT NULL,
+      event_type TEXT NOT NULL,
+      artwork_id TEXT,
+      room_id TEXT,
+      metadata_json TEXT,
       created_at INTEGER NOT NULL
     );
   `);
@@ -540,16 +588,181 @@ export async function persistChatTurn(
   turn: PersistedChatTurn
 ): Promise<void> {
   const db = await getDatabase();
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await txn.runAsync(
+      `INSERT OR REPLACE INTO chat_history (
+        id, session_id, artwork_id, question, response, source_count, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      turn.id,
+      turn.sessionId,
+      turn.artworkId,
+      turn.question,
+      turn.response,
+      turn.sourceCount,
+      turn.createdAt
+    );
+
+    const memoryRow = await txn.getFirstAsync<{ turns_count: number }>(
+      "SELECT turns_count FROM artwork_conversation_memory WHERE artwork_id = ?",
+      turn.artworkId
+    );
+
+    await txn.runAsync(
+      `INSERT INTO artwork_conversation_memory (
+        artwork_id, last_session_id, last_question, last_response, turns_count, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(artwork_id) DO UPDATE SET
+        last_session_id = excluded.last_session_id,
+        last_question = excluded.last_question,
+        last_response = excluded.last_response,
+        turns_count = excluded.turns_count,
+        updated_at = excluded.updated_at`,
+      turn.artworkId,
+      turn.sessionId,
+      turn.question,
+      turn.response,
+      (memoryRow?.turns_count ?? 0) + 1,
+      turn.createdAt
+    );
+  });
+}
+
+export async function getArtworkConversationMemory(
+  artworkId: string
+): Promise<ArtworkConversationMemory | null> {
+  try {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<{
+      artwork_id: string;
+      last_session_id: string;
+      last_question: string;
+      last_response: string;
+      turns_count: number;
+      updated_at: number;
+    }>(
+      `SELECT *
+       FROM artwork_conversation_memory
+       WHERE artwork_id = ?`,
+      artworkId
+    );
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      artworkId: row.artwork_id,
+      lastSessionId: row.last_session_id,
+      lastQuestion: row.last_question,
+      lastResponse: row.last_response,
+      turnsCount: row.turns_count,
+      updatedAt: row.updated_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function recordAnalyticsEvent(
+  event: Omit<AnalyticsEvent, "id" | "createdAt"> & { id?: string; createdAt?: number }
+): Promise<void> {
+  const db = await getDatabase();
   await db.runAsync(
-    `INSERT OR REPLACE INTO chat_history (
-      id, session_id, artwork_id, question, response, source_count, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    turn.id,
-    turn.sessionId,
-    turn.artworkId,
-    turn.question,
-    turn.response,
-    turn.sourceCount,
-    turn.createdAt
+    `INSERT INTO analytics_events (
+      id, event_type, artwork_id, room_id, metadata_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)`,
+    event.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    event.eventType,
+    event.artworkId ?? null,
+    event.roomId ?? null,
+    event.metadata ? toJson(event.metadata) : null,
+    event.createdAt ?? Date.now()
   );
+}
+
+export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+  try {
+    const db = await getDatabase();
+    const [
+      totalEventsRow,
+      totalQuestionsRow,
+      totalSelectionsRow,
+      totalVoiceStartsRow,
+      totalResetsRow,
+      mostConsultedArtworkRow,
+      mostVisitedArtworkRow,
+    ] = await Promise.all([
+      db.getFirstAsync<{ count: number }>("SELECT COUNT(*) as count FROM analytics_events"),
+      db.getFirstAsync<{ count: number }>(
+        "SELECT COUNT(*) as count FROM analytics_events WHERE event_type = 'chat_question'"
+      ),
+      db.getFirstAsync<{ count: number }>(
+        "SELECT COUNT(*) as count FROM analytics_events WHERE event_type = 'artwork_selected'"
+      ),
+      db.getFirstAsync<{ count: number }>(
+        "SELECT COUNT(*) as count FROM analytics_events WHERE event_type = 'voice_started'"
+      ),
+      db.getFirstAsync<{ count: number }>(
+        "SELECT COUNT(*) as count FROM analytics_events WHERE event_type = 'visitor_reset'"
+      ),
+      db.getFirstAsync<{ artwork_id: string | null }>(
+        `SELECT artwork_id
+         FROM analytics_events
+         WHERE event_type = 'chat_question' AND artwork_id IS NOT NULL
+         GROUP BY artwork_id
+         ORDER BY COUNT(*) DESC
+         LIMIT 1`
+      ),
+      db.getFirstAsync<{ artwork_id: string | null }>(
+        `SELECT artwork_id
+         FROM analytics_events
+         WHERE event_type = 'artwork_selected' AND artwork_id IS NOT NULL
+         GROUP BY artwork_id
+         ORDER BY COUNT(*) DESC
+         LIMIT 1`
+      ),
+    ]);
+
+    return {
+      totalEvents: totalEventsRow?.count ?? 0,
+      totalQuestions: totalQuestionsRow?.count ?? 0,
+      totalArtworkSelections: totalSelectionsRow?.count ?? 0,
+      totalVoiceStarts: totalVoiceStartsRow?.count ?? 0,
+      totalResets: totalResetsRow?.count ?? 0,
+      mostConsultedArtworkId: mostConsultedArtworkRow?.artwork_id ?? null,
+      mostVisitedArtworkId: mostVisitedArtworkRow?.artwork_id ?? null,
+    };
+  } catch {
+    return {
+      totalEvents: 0,
+      totalQuestions: 0,
+      totalArtworkSelections: 0,
+      totalVoiceStarts: 0,
+      totalResets: 0,
+      mostConsultedArtworkId: null,
+      mostVisitedArtworkId: null,
+    };
+  }
+}
+
+export async function resetVisitorSessionData(): Promise<void> {
+  const db = await getDatabase();
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await txn.runAsync(
+      `INSERT INTO analytics_events (
+        id, event_type, artwork_id, room_id, metadata_json, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      "visitor_reset",
+      null,
+      null,
+      toJson({ reason: "debug_reset" }),
+      Date.now()
+    );
+    await txn.execAsync(`
+      DELETE FROM visitor_state;
+      DELETE FROM chat_history;
+      DELETE FROM artwork_conversation_memory;
+    `);
+  });
 }

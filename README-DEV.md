@@ -99,7 +99,7 @@ curl http://127.0.0.1:8000/health
 
 ### Paso 5. Configurar la app Expo
 
-En `museiqApp/.env` define la IP de tu PC Windows, no `localhost`, porque el telefono debe alcanzar el backend por Wi-Fi:
+En `iot/.env` define la IP de tu PC Windows, no `localhost`, porque el telefono debe alcanzar el backend por Wi-Fi:
 
 ```env
 EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
@@ -108,17 +108,25 @@ EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
 Luego:
 
 ```powershell
-cd C:\ruta\al\repo\museiqApp
+cd C:\ruta\al\repo\iot
 npm install
 npx tsc --noEmit
 ```
 
 ### Paso 6. Levantar la app
 
-La opcion mas simple en Windows suele ser tunnel:
+Primero intenta LAN, porque asi Expo y `museRAG` quedan en la red local correcta:
 
 ```powershell
-cd C:\ruta\al\repo\museiqApp
+cd C:\ruta\al\repo\iot
+$env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.10"
+npx expo start --dev-client --lan --port 8081
+```
+
+Si LAN falla por restricciones de red o por un problema puntual de Expo, usa tunnel:
+
+```powershell
+cd C:\ruta\al\repo\iot
 npm run dev:client
 ```
 
@@ -140,36 +148,52 @@ Si ya tienes un Development Build instalado en Android:
 - `python ingest.py --rebuild` ejecutado
 - `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload` corriendo
 - `EXPO_PUBLIC_MUSERAG_URL` apuntando a la IP real de la PC
-- Expo corriendo con `npm run dev:client`
+- Expo corriendo en LAN o con `npm run dev:client`
 
 ## Arranque recomendado
 
-### Opcion 1. Tunnel
+### Opcion 1. LAN en Windows nativo
+
+Es la opcion recomendada cuando `museRAG` corre en la misma PC Windows y el telefono comparte la misma Wi-Fi:
+
+```powershell
+cd C:\ruta\al\repo\iot
+$env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.10"
+npx expo start --dev-client --lan --port 8081
+```
+
+Puntos clave:
+
+- `museRAG` debe escuchar en `0.0.0.0:8000`
+- `EXPO_PUBLIC_MUSERAG_URL` debe usar la IP real de la PC
+- si cambias `.env`, reinicia Expo
+
+### Opcion 2. Tunnel
 
 Es la opcion mas simple para salir del paso:
 
 ```bash
-cd /home/eduardo/proyectos/iot/museiq/museiqApp
+cd /home/eduardo/proyectos/iot/museiq/iot
 npm run dev:client
 ```
 
 Usa tunnel y normalmente evita parte de la configuracion LAN manual.
 Con la configuracion actual, el Development Build abre el `launcher` del dev client en vez de reconectarse automaticamente a la ultima sesion.
 
-### Opcion 2. LAN en WSL2
+### Opcion 3. LAN en WSL2
 
 Si quieres trabajar sin tunnel, usa el bridge WSL -> Windows.
 
 1. En PowerShell como administrador:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\proyectos\iot\museiq\museiqApp\scripts\expo-wsl-portproxy.ps1"
+powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\proyectos\iot\museiq\iot\scripts\expo-wsl-portproxy.ps1"
 ```
 
 2. En WSL:
 
 ```bash
-cd /home/eduardo/proyectos/iot/museiq/museiqApp
+cd /home/eduardo/proyectos/iot/museiq/iot
 npm run dev:client:lan
 ```
 
@@ -188,6 +212,61 @@ La app no lee esta variable directamente desde `process.env` en runtime del tele
 
 Si cambias `.env`, reinicia Expo.
 Si ademas cambias plugins o configuracion nativa, reconstruye el Development Build.
+
+## Problemas reales que ya vimos
+
+### `No module named 'app'` al levantar `museRAG`
+
+Ese error aparece si corres `uvicorn app.main:app` desde la carpeta raiz del workspace en lugar de hacerlo dentro de `museRAG`.
+
+Correcto:
+
+```powershell
+cd C:\ruta\al\repo\museRAG
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### La app intenta hablar con `*.exp.direct:8000`
+
+Si ves que la app intenta enviar preguntas a un host parecido a `xxxx.exp.direct:8000`, el backend no va a recibir nada.
+
+La solucion es:
+
+- usar `EXPO_PUBLIC_MUSERAG_URL=http://<IP_DE_TU_PC>:8000`
+- reiniciar Expo despues de cambiar `.env`
+- preferir LAN cuando trabajas con telefono fisico y backend local
+
+### Expo LAN no conecta aunque todo parezca bien
+
+En Windows vimos dos causas frecuentes:
+
+1. reglas viejas de `portproxy` de WSL ocupando puertos de Expo
+2. red Wi-Fi con perfil `Public`
+
+Revisa reglas:
+
+```powershell
+netsh interface portproxy show all
+```
+
+Si aparecen entradas para `8081`, `19000` o `19001`, borralas desde PowerShell como administrador:
+
+```powershell
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=8081
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=19000
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=19001
+```
+
+Luego reinicia Expo:
+
+```powershell
+cd C:\ruta\al\repo\iot
+$env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.10"
+npx expo start --dev-client --lan --port 8081
+```
+
+Si sigue fallando, cambia el perfil de tu red Wi-Fi a `Private`.
 
 ## Rebuild del Development Build
 

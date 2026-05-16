@@ -21,9 +21,12 @@ type ArtworkCardProps = {
   artworkContext?: string;
   artworkLocation?: string;
   imageSource: ReturnType<typeof getArtworkImageSource>;
+  isNarrationPlaying: boolean;
   onListenArtwork: () => void;
   onOpenChat: () => void;
+  onSelectPrevious: () => void;
   onSelectNext: () => void;
+  previousDisabled: boolean;
   nextDisabled: boolean;
 };
 
@@ -37,9 +40,12 @@ export function ArtworkCard({
   artworkContext,
   artworkLocation,
   imageSource,
+  isNarrationPlaying,
   onListenArtwork,
   onOpenChat,
+  onSelectPrevious,
   onSelectNext,
+  previousDisabled,
   nextDisabled,
 }: ArtworkCardProps) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -87,19 +93,41 @@ export function ArtworkCard({
           onPress={onOpenChat}
         />
         <View style={styles.secondaryActionsRow}>
-          <SecondaryButton
-            icon="volume-high-outline"
-            label="Escuchar"
+          <Pressable
+            onPress={onSelectPrevious}
+            disabled={previousDisabled}
+            style={({ pressed }) => [
+              styles.iconActionButton,
+              previousDisabled ? styles.iconActionButtonDisabled : null,
+              pressed && !previousDisabled ? styles.moreTogglePressed : null,
+            ]}
+          >
+            <Ionicons color={previousDisabled ? musePalette.textMuted : musePalette.textMuted} name="play-back-outline" size={18} />
+          </Pressable>
+          <Pressable
             onPress={onListenArtwork}
-            style={styles.secondaryActionButton}
-          />
-          <SecondaryButton
-            icon="play-forward-outline"
-            label="Siguiente"
+            style={({ pressed }) => [
+              styles.iconActionButton,
+              pressed ? styles.moreTogglePressed : null,
+            ]}
+          >
+            <Ionicons
+              color={musePalette.textMuted}
+              name={isNarrationPlaying ? "volume-mute-outline" : "volume-high-outline"}
+              size={18}
+            />
+          </Pressable>
+          <Pressable
             onPress={onSelectNext}
             disabled={nextDisabled}
-            style={styles.secondaryActionButton}
-          />
+            style={({ pressed }) => [
+              styles.iconActionButton,
+              nextDisabled ? styles.iconActionButtonDisabled : null,
+              pressed && !nextDisabled ? styles.moreTogglePressed : null,
+            ]}
+          >
+            <Ionicons color={nextDisabled ? musePalette.textMuted : musePalette.textMuted} name="play-forward-outline" size={18} />
+          </Pressable>
         </View>
       </View>
 
@@ -224,6 +252,19 @@ const styles = StyleSheet.create({
   },
   secondaryActionButton: {
     flex: 1,
+  },
+  iconActionButton: {
+    alignItems: "center",
+    backgroundColor: "#F6F9FC",
+    borderColor: musePalette.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 46,
+  },
+  iconActionButtonDisabled: {
+    opacity: 0.45,
   },
   moreBlock: {
     gap: 6,

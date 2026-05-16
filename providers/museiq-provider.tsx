@@ -8,9 +8,13 @@ import {
     type RoomMock,
 } from "@/datos";
 import {
+  getAnalyticsSummary,
   getMuseumSnapshot,
   getVisitorPreference,
+  recordAnalyticsEvent,
+  resetVisitorSessionData,
   setVisitorPreference,
+  type AnalyticsSummary,
 } from "@/lib/museum-database";
 import { router } from "expo-router";
 import * as Speech from "expo-speech";
@@ -69,6 +73,8 @@ interface MuseIQContextValue {
   visitedArtworkIds: string[];
   currentArtwork: ArtworkMock | undefined;
   currentRoom: RoomMock | undefined;
+  isArtworkNarrationPlaying: boolean;
+  analyticsSummary: AnalyticsSummary;
   allPermissionsGranted: boolean;
   requestAllPermissions: () => Promise<boolean>;
   declinePermissions: () => void;
@@ -82,6 +88,8 @@ interface MuseIQContextValue {
   updateSettings: (patch: Partial<SettingsState>) => void;
   setCurrentRoomById: (roomId: string) => void;
   setCurrentZoneLabel: (label: string) => void;
+  refreshAnalyticsSummary: () => Promise<void>;
+  resetVisitorExperience: () => Promise<void>;
   findArtworkById: (artworkId?: string) => ArtworkMock | undefined;
   findRoomById: (roomId?: string) => RoomMock | undefined;
   getArtworksForRoom: (roomId: string) => ArtworkMock[];
@@ -102,6 +110,16 @@ const defaultSettings: SettingsState = {
 };
 
 const MuseIQContext = createContext<MuseIQContextValue | null>(null);
+
+const defaultAnalyticsSummary: AnalyticsSummary = {
+  totalEvents: 0,
+  totalQuestions: 0,
+  totalArtworkSelections: 0,
+  totalVoiceStarts: 0,
+  totalResets: 0,
+  mostConsultedArtworkId: null,
+  mostVisitedArtworkId: null,
+};
 
 export function MuseIQProvider({ children }: PropsWithChildren) {
   const [isDatabaseReady, setIsDatabaseReady] = useState(false);
@@ -130,6 +148,11 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
   const [visitedArtworkIds, setVisitedArtworkIds] = useState<string[]>([]);
   const [hasCompletedWelcome, setHasCompletedWelcome] = useState(false);
   const [debugModeEnabled, setDebugModeEnabledState] = useState(false);
+  const [isArtworkNarrationPlaying, setIsArtworkNarrationPlaying] = useState(false);
+  const [narratingArtworkId, setNarratingArtworkId] = useState<string | null>(null);
+  const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary>(
+    defaultAnalyticsSummary
+  );
 
   const findArtworkById = (artworkId?: string) =>
     artworks.find((artwork) => artwork.id === artworkId);
@@ -200,6 +223,11 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
         setCurrentZoneLabel(initialRoom.zoneLabelDefault);
       }
 
+      const analytics = await getAnalyticsSummary();
+      if (isMounted) {
+        setAnalyticsSummary(analytics);
+      }
+
       setIsDatabaseReady(true);
     };
 
@@ -225,11 +253,32 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    if (isArtworkNarrationPlaying && narratingArtworkId === artworkId) {
+      Speech.stop();
+      setIsArtworkNarrationPlaying(false);
+      setNarratingArtworkId(null);
+      return;
+    }
+
     Speech.stop();
+    setNarratingArtworkId(artworkId);
+    setIsArtworkNarrationPlaying(true);
     Speech.speak(`${artwork.title}. ${artwork.audioText || artwork.summary}`, {
       language: "es-ES",
       rate: settings.voiceRate,
       pitch: 1,
+      onDone: () => {
+        setIsArtworkNarrationPlaying(false);
+        setNarratingArtworkId(null);
+      },
+      onStopped: () => {
+        setIsArtworkNarrationPlaying(false);
+        setNarratingArtworkId(null);
+      },
+      onError: () => {
+        setIsArtworkNarrationPlaying(false);
+        setNarratingArtworkId(null);
+      },
     });
   };
 
@@ -242,6 +291,15 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     setCurrentArtworkId(artworkId);
     setCurrentRoomId(artwork.roomId);
     markVisited(artworkId);
+    recordAnalyticsEvent({
+      eventType: "artwork_selected",
+      artworkId: artwork.id,
+      roomId: artwork.roomId,
+      metadata: { title: artwork.title },
+    })
+      .then(() => getAnalyticsSummary())
+      .then(setAnalyticsSummary)
+      .catch(() => undefined);
   };
 
   const goToRelativeArtwork = (direction: -1 | 1) => {
@@ -361,6 +419,14 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
   const completeWelcome = () => {
     setHasCompletedWelcome(true);
     setVisitorPreference("welcome_completed", "true").catch(() => undefined);
+    recordAnalyticsEvent({
+      eventType: "welcome_completed",
+      artworkId: currentArtworkId || null,
+      roomId: currentRoomId || null,
+    })
+      .then(() => getAnalyticsSummary())
+      .then(setAnalyticsSummary)
+      .catch(() => undefined);
   };
 
   const setDebugModeEnabled = (enabled: boolean) => {
@@ -388,6 +454,39 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const refreshAnalyticsSummary = async () => {
+    const analytics = await getAnalyticsSummary();
+    setAnalyticsSummary(analytics);
+  };
+
+  const resetVisitorExperience = async () => {
+    await Speech.stop();
+    setIsArtworkNarrationPlaying(false);
+    setNarratingArtworkId(null);
+    await resetVisitorSessionData();
+
+    const snapshot = await getMuseumSnapshot();
+    const initialRoom = snapshot.rooms[0];
+    const initialArtwork = snapshot.route.length
+      ? snapshot.artworks.find(
+          (artwork) => artwork.id === snapshot.route[0]?.artworkId,
+        )
+      : snapshot.artworks.find(
+          (artwork) => artwork.roomId === initialRoom?.id,
+        ) ?? snapshot.artworks[0];
+
+    setHasCompletedWelcome(false);
+    setDebugModeEnabledState(false);
+    setPermissionsAccepted(false);
+    setPermissions(defaultPermissionStatuses);
+    setSettings(defaultSettings);
+    setVisitedArtworkIds(initialArtwork ? [initialArtwork.id] : []);
+    setCurrentArtworkId(initialArtwork?.id ?? "");
+    setCurrentRoomId(initialRoom?.id ?? "");
+    setCurrentZoneLabel(initialRoom?.zoneLabelDefault ?? "cerca de la entrada");
+    setAnalyticsSummary(await getAnalyticsSummary());
+  };
+
   const value = useMemo<MuseIQContextValue>(
     () => ({
       isDatabaseReady,
@@ -413,6 +512,8 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       visitedArtworkIds,
       currentArtwork,
       currentRoom,
+      isArtworkNarrationPlaying,
+      analyticsSummary,
       allPermissionsGranted,
       requestAllPermissions,
       declinePermissions,
@@ -426,6 +527,8 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       updateSettings,
       setCurrentRoomById,
       setCurrentZoneLabel,
+      refreshAnalyticsSummary,
+      resetVisitorExperience,
       findArtworkById,
       findRoomById,
       getArtworksForRoom,
@@ -442,8 +545,10 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       debugModeEnabled,
       hasCompletedWelcome,
       helpFaq,
+      isArtworkNarrationPlaying,
       isDatabaseReady,
       museumProfile,
+      analyticsSummary,
       permissions,
       permissionCatalog,
       permissionsAccepted,

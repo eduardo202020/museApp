@@ -61,7 +61,11 @@ export default function IndexScreen() {
     currentArtwork,
     currentRoom,
     currentZoneLabel,
+    currentArtworkId,
+    getArtworksForRoom,
+    goToPreviousArtwork,
     museumProfile,
+    rooms,
     routeProgress,
     routeProgressLabel,
     routeTotal,
@@ -71,6 +75,10 @@ export default function IndexScreen() {
     completeWelcome,
     goToNextArtwork,
     repeatArtworkNarration,
+    isArtworkNarrationPlaying,
+    selectArtwork,
+    setCurrentRoomById,
+    visitedArtworkIds,
   } = useMuseIQ();
 
   const { beacons, isScanning, error: bleError, startScanning, stopScanning } =
@@ -86,6 +94,7 @@ export default function IndexScreen() {
   } = useHomeSensors();
 
   const imageSource = getArtworkImageSource(currentArtwork?.image);
+  const roomArtworks = currentRoom ? getArtworksForRoom(currentRoom.id) : [];
   const dominantBeacon = beacons[0];
   const bleStatus = dominantBeacon
     ? `${dominantBeacon.roomId} · M${dominantBeacon.beaconNode}`
@@ -141,11 +150,92 @@ export default function IndexScreen() {
           artworkContext={currentArtwork?.context}
           artworkLocation={currentArtwork?.locationHint}
           imageSource={imageSource}
+          isNarrationPlaying={isArtworkNarrationPlaying}
           onListenArtwork={repeatArtworkNarration}
           onOpenChat={openVoiceModal}
+          onSelectPrevious={goToPreviousArtwork}
           onSelectNext={goToNextArtwork}
+          previousDisabled={routeProgress <= 1}
           nextDisabled={routeProgress >= routeTotal}
         />
+
+        <View style={styles.exploreBlock}>
+          <Text style={styles.sectionTitle}>Explora el recorrido manualmente</Text>
+          <Text style={styles.sectionCopy}>
+            Cambia de sala o salta a otra obra para continuar la visita a tu ritmo.
+          </Text>
+
+          <View style={styles.roomChipRow}>
+            {rooms.map((room) => (
+              <Pressable
+                key={room.id}
+                onPress={() => setCurrentRoomById(room.id)}
+                style={({ pressed }) => [
+                  styles.roomChip,
+                  currentRoom?.id === room.id ? styles.roomChipActive : null,
+                  pressed ? styles.debugChipPressed : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roomChipText,
+                    currentRoom?.id === room.id ? styles.roomChipTextActive : null,
+                  ]}
+                >
+                  {room.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.artworkRail}>
+            {roomArtworks.map((artwork) => {
+              const isCurrent = artwork.id === currentArtworkId;
+              const isVisited = visitedArtworkIds.includes(artwork.id);
+
+              return (
+                <Pressable
+                  key={artwork.id}
+                  onPress={() => selectArtwork(artwork.id)}
+                  style={({ pressed }) => [
+                    styles.artworkRailCard,
+                    isCurrent ? styles.artworkRailCardActive : null,
+                    pressed ? styles.debugChipPressed : null,
+                  ]}
+                >
+                  <View style={styles.artworkRailHeader}>
+                    <Text style={styles.artworkRailOrder}>{`${artwork.order}.`}</Text>
+                    {isVisited ? (
+                      <Ionicons
+                        color={isCurrent ? "#FFFFFF" : musePalette.success}
+                        name="checkmark-circle"
+                        size={16}
+                      />
+                    ) : null}
+                  </View>
+                  <Text
+                    numberOfLines={2}
+                    style={[
+                      styles.artworkRailTitle,
+                      isCurrent ? styles.artworkRailTitleActive : null,
+                    ]}
+                  >
+                    {artwork.title}
+                  </Text>
+                  <Text
+                    numberOfLines={2}
+                    style={[
+                      styles.artworkRailMeta,
+                      isCurrent ? styles.artworkRailMetaActive : null,
+                    ]}
+                  >
+                    {artwork.roomRelation}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
       </AppScreen>
 
       {debugModeEnabled ? (
@@ -182,6 +272,95 @@ const styles = StyleSheet.create({
   content: {
     gap: 12,
     paddingBottom: 24,
+  },
+  exploreBlock: {
+    backgroundColor: "#F7F2EA",
+    borderColor: "#E6D8C6",
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  sectionTitle: {
+    color: musePalette.text,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  sectionCopy: {
+    color: musePalette.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 19,
+  },
+  roomChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  roomChip: {
+    backgroundColor: "#FFFDFC",
+    borderColor: "#D8C8B2",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  roomChipActive: {
+    backgroundColor: musePalette.primary,
+    borderColor: musePalette.primary,
+  },
+  roomChipText: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  roomChipTextActive: {
+    color: "#FFFFFF",
+  },
+  artworkRail: {
+    gap: 10,
+  },
+  artworkRailCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E5D8C7",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  artworkRailCardActive: {
+    backgroundColor: musePalette.primary,
+    borderColor: musePalette.primary,
+  },
+  artworkRailHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  artworkRailOrder: {
+    color: "#8A5A2B",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  artworkRailTitle: {
+    color: musePalette.text,
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  artworkRailTitleActive: {
+    color: "#FFFFFF",
+  },
+  artworkRailMeta: {
+    color: musePalette.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+  artworkRailMetaActive: {
+    color: "rgba(255,255,255,0.86)",
   },
   menuButton: {
     alignItems: "center",

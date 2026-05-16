@@ -1,6 +1,6 @@
 import { SourceImageCarousel } from "@/components/museiq/chat/source-image-carousel";
 import { musePalette } from "@/components/museiq/theme";
-import type { SourceSnippet } from "@/lib/muserag-api";
+import type { MuseRagResponseMeta, SourceSnippet } from "@/lib/muserag-api";
 import { Ionicons } from "@expo/vector-icons";
 import Markdown from "react-native-markdown-display";
 import { useEffect, useState } from "react";
@@ -18,6 +18,8 @@ import {
 type ChatSheetProps = {
   artworkTitle: string;
   errorMessage: string;
+  followUpQuestions: string[];
+  historyTurns: { id: string; question: string; response: string; sourceCount: number }[];
   isQuestionReady: boolean;
   isListening: boolean;
   isLoading: boolean;
@@ -28,7 +30,10 @@ type ChatSheetProps = {
     images: { id: string; uri: string; label?: string }[],
     initialIndex: number,
   ) => void;
+  onFollowUpQuestionPress: (value: string) => void;
+  onHistoryTurnPress: (value: string) => void;
   onQuestionTextChange: (value: string) => void;
+  onResponseModeChange: (value: "breve" | "explicada" | "infantil") => void;
   onSuggestedQuestionPress: (value: string) => void;
   onRetry?: () => void;
   onSpeakResponse: () => void;
@@ -38,7 +43,11 @@ type ChatSheetProps = {
   onToggleListening: () => void;
   pendingQuestion: string;
   questionText: string;
+  responseMode: "breve" | "explicada" | "infantil";
   response: string;
+  responseMeta: MuseRagResponseMeta | null;
+  speakingDisplayText: string;
+  speechHighlightRange: { start: number; end: number } | null;
   statusMessage: string;
   suggestedQuestions: string[];
   sources: SourceSnippet[];
@@ -47,22 +56,27 @@ type ChatSheetProps = {
 };
 
 const owlThinkingFrames = [
-  require("@/assets/images/logo-2.png"),
-  require("@/assets/images/logo-3.png"),
-  require("@/assets/images/logo-4.png"),
+  require("../../../assets/images/logo-2.png"),
+  require("../../../assets/images/logo-3.png"),
+  require("../../../assets/images/logo-4.png"),
 ];
 
 export function ChatSheet({
   artworkTitle,
   errorMessage,
+  followUpQuestions,
+  historyTurns,
   isQuestionReady,
   isListening,
   isLoading,
   isSpeaking,
   onCancelPendingQuestion,
   onClose,
+  onFollowUpQuestionPress,
+  onHistoryTurnPress,
   onOpenImage,
   onQuestionTextChange,
+  onResponseModeChange,
   onSuggestedQuestionPress,
   onRetry,
   onSpeakResponse,
@@ -72,7 +86,11 @@ export function ChatSheet({
   onToggleListening,
   pendingQuestion,
   questionText,
+  responseMode,
   response,
+  responseMeta,
+  speakingDisplayText,
+  speechHighlightRange,
   statusMessage,
   suggestedQuestions,
   sources,
@@ -87,9 +105,33 @@ export function ChatSheet({
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   const [owlFrameIndex, setOwlFrameIndex] = useState(0);
   const [thinkingDots, setThinkingDots] = useState(".");
+  const sourcePreviews = sources.slice(0, 3);
+  const quickQuestions = [...new Set([...suggestedQuestions, ...followUpQuestions])]
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  const speechPreviewSegments = speakingDisplayText
+    ? {
+        before: speakingDisplayText.slice(0, speechHighlightRange?.start ?? 0),
+        active: speakingDisplayText.slice(
+          speechHighlightRange?.start ?? 0,
+          speechHighlightRange?.end ?? 0,
+        ),
+        after: speakingDisplayText.slice(speechHighlightRange?.end ?? 0),
+      }
+    : null;
   const markdownRules = {
     image: () => null,
   };
+
+  const confidenceLabel =
+    responseMeta?.support_level === "alto"
+      ? "Apoyo alto"
+      : responseMeta?.support_level === "medio"
+        ? "Apoyo medio"
+        : responseMeta?.support_level === "bajo"
+          ? "Apoyo limitado"
+          : null;
 
   useEffect(() => {
     if (!isWaiting) {
@@ -125,7 +167,36 @@ export function ChatSheet({
       </View>
 
       <View style={styles.inputCard}>
-        <Text style={styles.inputLabel}>Haz una pregunta o dicta una idea</Text>
+        {voiceMode !== "listening" ? (
+          <View style={styles.modeRow}>
+            {[
+              { key: "breve", label: "Breve" },
+              { key: "explicada", label: "Explicada" },
+              { key: "infantil", label: "Para niños" },
+            ].map((mode) => (
+              <Pressable
+                key={mode.key}
+                onPress={() =>
+                  onResponseModeChange(mode.key as "breve" | "explicada" | "infantil")
+                }
+                style={({ pressed }) => [
+                  styles.modeChip,
+                  responseMode === mode.key ? styles.modeChipActive : null,
+                  pressed ? styles.suggestionChipPressed : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modeChipText,
+                    responseMode === mode.key ? styles.modeChipTextActive : null,
+                  ]}
+                >
+                  {mode.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         {voiceMode === "listening" ? (
           <View style={styles.listeningCard}>
@@ -144,7 +215,7 @@ export function ChatSheet({
             <TextInput
               value={questionText}
               onChangeText={onQuestionTextChange}
-              placeholder="Ejemplo: Que revela esta obra sobre el poder moche?"
+              placeholder="Escribe o dicta tu pregunta. Ejemplo: Que revela esta obra sobre el poder moche?"
               placeholderTextColor={musePalette.textMuted}
               multiline
               style={styles.input}
@@ -156,7 +227,7 @@ export function ChatSheet({
           </>
         )}
 
-        {voiceMode !== "listening" && !isLoading && suggestedQuestions.length ? (
+        {voiceMode !== "listening" && !isLoading && quickQuestions.length ? (
           <View style={styles.suggestionsPanel}>
             <Pressable
               onPress={() => setIsSuggestionsOpen((value) => !value)}
@@ -165,7 +236,7 @@ export function ChatSheet({
                 pressed ? styles.suggestionChipPressed : null,
               ]}
             >
-              <Text style={styles.suggestionsTitle}>Ideas rapidas</Text>
+              <Text style={styles.suggestionsTitle}>Preguntas rapidas</Text>
               <Ionicons
                 color={musePalette.primary}
                 name={isSuggestionsOpen ? "chevron-up" : "chevron-down"}
@@ -175,11 +246,15 @@ export function ChatSheet({
 
             {isSuggestionsOpen ? (
               <View style={styles.quickSuggestionList}>
-                {suggestedQuestions.slice(0, 3).map((item) => (
+                {quickQuestions.map((item) => (
                   <Pressable
-                  key={item}
-                  onPress={() => {
-                      onSuggestedQuestionPress(item);
+                    key={item}
+                    onPress={() => {
+                      if (suggestedQuestions.includes(item)) {
+                        onSuggestedQuestionPress(item);
+                      } else {
+                        onFollowUpQuestionPress(item);
+                      }
                       setIsSuggestionsOpen(false);
                     }}
                     style={({ pressed }) => [
@@ -203,45 +278,138 @@ export function ChatSheet({
           scrollEnabled
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={styles.answerPrimaryCard}>
-            {hasAnswer ? (
-              <Pressable
-                onPress={isSpeaking ? onStopSpeaking : onSpeakResponse}
-                style={({ pressed }) => [
-                  styles.answerAudioFloatingButton,
-                  pressed ? styles.suggestionChipPressed : null,
-                ]}
-              >
-                <Ionicons
-                  color="#FFFFFF"
-                  name={isSpeaking ? "volume-mute-outline" : "volume-high-outline"}
-                  size={18}
-                />
-              </Pressable>
-            ) : null}
-            {!isLoading ? (
-              hasAnswer ? (
+          {hasAnswer ? (
+            <Pressable
+              onPress={isSpeaking ? onStopSpeaking : onSpeakResponse}
+              style={({ pressed }) => [
+                styles.answerAudioFloatingButton,
+                pressed ? styles.suggestionChipPressed : null,
+              ]}
+            >
+              <Ionicons
+                color="#FFFFFF"
+                name={isSpeaking ? "volume-mute-outline" : "volume-high-outline"}
+                size={18}
+              />
+            </Pressable>
+          ) : null}
+          {!isLoading ? (
+            hasAnswer ? (
+              isSpeaking && speechPreviewSegments ? (
+                <View style={styles.speakingTrackerCard}>
+                  <Text style={styles.speakingTrackerLabel}>Lectura en curso</Text>
+                  <Text style={styles.speakingTrackerText}>
+                    <Text style={styles.speakingTrackerPast}>
+                      {speechPreviewSegments.before}
+                    </Text>
+                    <Text style={styles.speakingTrackerActive}>
+                      {speechPreviewSegments.active || " "}
+                    </Text>
+                    <Text style={styles.speakingTrackerFuture}>
+                      {speechPreviewSegments.after}
+                    </Text>
+                  </Text>
+                </View>
+              ) : (
                 <View style={styles.markdownWrap}>
                   <Markdown rules={markdownRules} style={markdownStyles}>{response}</Markdown>
                 </View>
-              ) : (
-                <View style={styles.emptyAnswerState}>
-                  <Ionicons
-                    color={musePalette.textMuted}
-                    name="chatbubble-ellipses-outline"
-                    size={22}
-                  />
-                  <Text style={styles.answerText}>
-                    {response || "La respuesta aparecera aqui."}
-                  </Text>
-                </View>
               )
-            ) : null}
-          </View>
+            ) : (
+              <View style={styles.emptyAnswerState}>
+                <Ionicons
+                  color={musePalette.textMuted}
+                  name="chatbubble-ellipses-outline"
+                  size={22}
+                />
+                <Text style={styles.answerText}>
+                  {response || "La respuesta aparecera aqui."}
+                </Text>
+              </View>
+            )
+          ) : null}
+
+          {hasAnswer && responseMeta ? (
+            <View style={styles.metaRow}>
+              {confidenceLabel ? (
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaChipText}>{confidenceLabel}</Text>
+                </View>
+              ) : null}
+              <View style={styles.metaChip}>
+                <Text style={styles.metaChipText}>{`${responseMeta.source_count} fuentes`}</Text>
+              </View>
+              <View style={styles.metaChip}>
+                <Text style={styles.metaChipText}>{`${Math.round(responseMeta.total_ms / 100) / 10}s`}</Text>
+              </View>
+            </View>
+          ) : null}
+
+          {historyTurns.length ? (
+            <View style={styles.historyBlock}>
+              <Text style={styles.inlineSectionTitle}>Preguntas recientes</Text>
+              <View style={styles.historyList}>
+                {historyTurns.slice(0, 3).map((turn) => (
+                  <Pressable
+                    key={turn.id}
+                    onPress={() => onHistoryTurnPress(turn.question)}
+                    style={({ pressed }) => [
+                      styles.historyCard,
+                      pressed ? styles.suggestionChipPressed : null,
+                    ]}
+                  >
+                    <Text numberOfLines={2} style={styles.historyQuestion}>
+                      {turn.question}
+                    </Text>
+                    <Text style={styles.historyMeta}>
+                      {`${turn.sourceCount} fuentes`}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {sourcePreviews.length ? (
+            <View style={styles.sourceSummaryBlock}>
+              <Text style={styles.sourceSummaryTitle}>Base de la respuesta</Text>
+              {sourcePreviews.map((source) => {
+                const page =
+                  source.metadata && typeof source.metadata.page === "number"
+                    ? `Pág. ${source.metadata.page}`
+                    : null;
+                const figureRef =
+                  source.metadata && typeof source.metadata.figure_ref === "string"
+                    ? source.metadata.figure_ref
+                    : null;
+
+                return (
+                  <View key={source.id} style={styles.sourceSummaryCard}>
+                    <View style={styles.sourceSummaryHeader}>
+                      <Text style={styles.sourceSummaryLabel}>
+                        {source.source_label ?? "Fuente"}
+                      </Text>
+                      <Text style={styles.sourceSummaryScore}>
+                        {`${Math.round(source.score * 100)}%`}
+                      </Text>
+                    </View>
+                    <Text numberOfLines={2} style={styles.sourceSummaryText}>
+                      {source.text}
+                    </Text>
+                    {(page || figureRef) ? (
+                      <Text style={styles.sourceSummaryMeta}>
+                        {[page, figureRef].filter(Boolean).join(" · ")}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
 
           {sources.length ? (
             <View style={styles.carouselBlock}>
-              <Text style={styles.carouselTitle}>Imagenes relacionadas</Text>
+              <Text style={styles.carouselTitle}>Fuentes visuales</Text>
               <SourceImageCarousel sources={sources} onOpenImage={onOpenImage} />
             </View>
           ) : null}
@@ -262,11 +430,13 @@ export function ChatSheet({
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingModalCard}>
               <View style={styles.loadingGuideRow}>
-                <Image
-                  source={owlThinkingFrames[owlFrameIndex]}
-                  style={styles.loadingGuideImage}
-                  resizeMode="contain"
-                />
+                <View style={styles.loadingGuideImageWrap}>
+                  <Image
+                    source={owlThinkingFrames[owlFrameIndex]}
+                    style={styles.loadingGuideImage}
+                    resizeMode="contain"
+                  />
+                </View>
                 <View style={styles.loadingQuestionWrap}>
                   <View style={styles.loadingQuestionCard}>
                     <Text style={styles.loadingQuestionText}>
@@ -364,25 +534,39 @@ const styles = StyleSheet.create({
     width: 34,
   },
   inputCard: {
-    backgroundColor: "#F7F1E7",
-    borderColor: "#E4D7C4",
-    borderRadius: 18,
-    borderWidth: 1,
     marginBottom: 10,
-    paddingHorizontal: 14,
+    gap: 8,
+  },
+  modeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  modeChip: {
+    backgroundColor: "#FFFDFC",
+    borderColor: "#E4D7C4",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  inputLabel: {
+  modeChipActive: {
+    backgroundColor: musePalette.primary,
+    borderColor: musePalette.primary,
+  },
+  modeChipText: {
     color: "#6D4D2E",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
-    marginBottom: 6,
+  },
+  modeChipTextActive: {
+    color: "#FFFFFF",
   },
   answerContainer: {
     flex: 1,
-    backgroundColor: "#FBF7F1",
+    backgroundColor: "#FFFFFF",
     borderRadius: 18,
-    borderColor: "#E7DCCA",
+    borderColor: "#D9E6F2",
     borderWidth: 1,
     overflow: "hidden",
     padding: 14,
@@ -397,17 +581,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingBottom: 68,
   },
-  answerPrimaryCard: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D9E6F2",
-    borderRadius: 16,
-    borderWidth: 1,
-    flex: 1,
-    marginBottom: 10,
-    minHeight: 220,
-    padding: 12,
-    position: "relative",
-  },
   answerText: {
     color: musePalette.text,
     fontSize: 14,
@@ -420,9 +593,139 @@ const styles = StyleSheet.create({
   },
   markdownWrap: {
     flexGrow: 1,
+    minHeight: 220,
+    paddingTop: 8,
+  },
+  speakingTrackerCard: {
+    backgroundColor: "#F8FBFF",
+    borderColor: "#D9E6F2",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    minHeight: 220,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  speakingTrackerLabel: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  speakingTrackerText: {
+    color: musePalette.text,
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 28,
+  },
+  speakingTrackerPast: {
+    color: "#7C8FA1",
+  },
+  speakingTrackerActive: {
+    backgroundColor: "#FFDF8D",
+    color: musePalette.text,
+  },
+  speakingTrackerFuture: {
+    color: musePalette.text,
   },
   carouselBlock: {
     marginBottom: 10,
+  },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  metaChip: {
+    backgroundColor: "#EAF5FF",
+    borderColor: "#CEE3F7",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  metaChipText: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sourceSummaryBlock: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  inlineSectionTitle: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  historyBlock: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  historyList: {
+    gap: 8,
+  },
+  historyCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9E6F2",
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  historyQuestion: {
+    color: musePalette.text,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  historyMeta: {
+    color: musePalette.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  sourceSummaryTitle: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sourceSummaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9E6F2",
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  sourceSummaryHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  sourceSummaryLabel: {
+    color: musePalette.text,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  sourceSummaryScore: {
+    color: musePalette.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  sourceSummaryText: {
+    color: musePalette.text,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  sourceSummaryMeta: {
+    color: musePalette.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
   },
   carouselTitle: {
     color: musePalette.primary,
@@ -431,12 +734,17 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   input: {
+    backgroundColor: "#F7F1E7",
+    borderColor: "#E4D7C4",
+    borderRadius: 18,
+    borderWidth: 1,
     color: musePalette.text,
     fontSize: 14,
     lineHeight: 20,
-    maxHeight: 92,
-    minHeight: 42,
-    paddingVertical: 2,
+    maxHeight: 132,
+    minHeight: 68,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     textAlignVertical: "top",
   },
   listeningCard: {
@@ -483,7 +791,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   suggestionsPanel: {
-    marginTop: 10,
+    marginTop: 2,
   },
   suggestionsToggle: {
     alignItems: "center",
@@ -567,42 +875,44 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   loadingGuideRow: {
-    alignItems: "flex-start",
     alignSelf: "stretch",
     marginBottom: 18,
-    minHeight: 260,
+    minHeight: 220,
     position: "relative",
     width: "100%",
   },
-  loadingGuideImage: {
-    height: 208,
-    left: -10,
+  loadingGuideImageWrap: {
+    alignItems: "center",
+    bottom: 0,
+    justifyContent: "flex-end",
+    left: 0,
     position: "absolute",
-    bottom: -8,
-    marginTop: 0,
-    width: 208,
+    width: 184,
+  },
+  loadingGuideImage: {
+    height: 180,
+    width: 180,
   },
   loadingQuestionWrap: {
-    maxWidth: "72%",
+    left: 108,
+    minWidth: 0,
     position: "absolute",
     right: 0,
-    top: 0,
-    width: "72%",
+    top: 10,
   },
   loadingQuestionCard: {
     backgroundColor: "#F7F1E7",
     borderColor: "#E4D7C4",
     borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    width: "100%",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   loadingQuestionText: {
     color: musePalette.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
-    lineHeight: 22,
+    lineHeight: 24,
     textAlign: "left",
   },
   loadingSpinnerBlock: {

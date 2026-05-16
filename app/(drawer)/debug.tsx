@@ -12,7 +12,7 @@ import { useMuseIQ } from "@/providers/museiq-provider";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 function MenuButton({ onPress }: { onPress: () => void }) {
   return (
@@ -24,8 +24,15 @@ function MenuButton({ onPress }: { onPress: () => void }) {
 
 export default function DebugScreen() {
   const navigation = useNavigation();
-  const { currentArtwork, currentRoom, debugModeEnabled, setDebugModeEnabled } =
-    useMuseIQ();
+  const {
+    analyticsSummary,
+    currentArtwork,
+    currentRoom,
+    debugModeEnabled,
+    refreshAnalyticsSummary,
+    resetVisitorExperience,
+    setDebugModeEnabled,
+  } = useMuseIQ();
   const { beacons, error, isScanning, startScanning, stopScanning } =
     useBleScanner();
   const {
@@ -39,10 +46,28 @@ export default function DebugScreen() {
 
   useEffect(() => {
     startScanning().catch(() => undefined);
+    refreshAnalyticsSummary().catch(() => undefined);
     return () => {
       stopScanning();
     };
-  }, [startScanning, stopScanning]);
+  }, [refreshAnalyticsSummary, startScanning, stopScanning]);
+
+  const confirmReset = () => {
+    Alert.alert(
+      "Reiniciar experiencia",
+      "Se borrara la memoria conversacional, el progreso y las preferencias del visitante para empezar como usuario nuevo.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Borrar todo",
+          style: "destructive",
+          onPress: () => {
+            resetVisitorExperience().catch(() => undefined);
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.screen}>
@@ -104,6 +129,23 @@ export default function DebugScreen() {
         </SectionCard>
 
         <SectionCard>
+          <SectionEyebrow>Analitica</SectionEyebrow>
+          <Text style={styles.sectionTitle}>Uso basico del MVP</Text>
+          <View style={styles.metricsList}>
+            <Text style={styles.metricItem}>{`Eventos totales: ${analyticsSummary.totalEvents}`}</Text>
+            <Text style={styles.metricItem}>{`Preguntas hechas: ${analyticsSummary.totalQuestions}`}</Text>
+            <Text style={styles.metricItem}>{`Cambios de obra: ${analyticsSummary.totalArtworkSelections}`}</Text>
+            <Text style={styles.metricItem}>{`Inicios de voz: ${analyticsSummary.totalVoiceStarts}`}</Text>
+            <Text style={styles.metricItem}>
+              {`Obra mas consultada: ${analyticsSummary.mostConsultedArtworkId ?? "Sin datos"}`}
+            </Text>
+            <Text style={styles.metricItem}>
+              {`Obra mas visitada: ${analyticsSummary.mostVisitedArtworkId ?? "Sin datos"}`}
+            </Text>
+          </View>
+        </SectionCard>
+
+        <SectionCard>
           <SectionEyebrow>BLE</SectionEyebrow>
           <Text style={styles.sectionTitle}>Beacons y escaneo</Text>
           <Text style={styles.helperText}>
@@ -127,6 +169,17 @@ export default function DebugScreen() {
               <Text style={styles.helperText}>Aun no hay beacons detectados.</Text>
             )}
           </View>
+        </SectionCard>
+
+        <SectionCard>
+          <SectionEyebrow>Pruebas</SectionEyebrow>
+          <Text style={styles.sectionTitle}>Reiniciar como usuario nuevo</Text>
+          <Text style={styles.helperText}>
+            Borra memoria conversacional, progreso y preferencias para probar la app desde cero.
+          </Text>
+          <Pressable onPress={confirmReset} style={styles.resetButton}>
+            <Text style={styles.resetButtonText}>Borrar memoria e iniciar de nuevo</Text>
+          </Pressable>
         </SectionCard>
       </AppScreen>
     </View>
@@ -207,5 +260,20 @@ const styles = StyleSheet.create({
     color: musePalette.textMuted,
     fontSize: 12,
     fontWeight: "600",
+  },
+  resetButton: {
+    alignItems: "center",
+    backgroundColor: musePalette.danger,
+    borderRadius: 14,
+    justifyContent: "center",
+    marginTop: 14,
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
+  resetButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "900",
+    textAlign: "center",
   },
 });

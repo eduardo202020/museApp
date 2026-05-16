@@ -65,8 +65,67 @@ EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
 Notas:
 
 - la URL debe ser accesible desde el telefono o emulador
+- para telefono fisico, usa la IP LAN real de tu PC, no `localhost`
 - si cambias el `.env`, reinicia Expo para que tome la nueva variable
 - si ya existe un Development Build instalado, no hace falta rebuild por este cambio solo si modificaste la URL; si cambias plugins nativos o permisos, si hace falta reconstruir el build
+
+## Conexion en telefono fisico
+
+Para trabajar con `museRAG` local y un celular Android en la misma Wi-Fi, la configuracion recomendada es:
+
+1. levantar `museRAG` con `--host 0.0.0.0 --port 8000`
+2. apuntar `EXPO_PUBLIC_MUSERAG_URL` a la IP real de la PC
+3. arrancar Expo en modo LAN con Development Build
+
+Ejemplo:
+
+```env
+EXPO_PUBLIC_MUSERAG_URL=http://192.168.18.84:8000
+```
+
+```powershell
+cd C:\ruta\al\repo\iot
+$env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.18.84"
+npx expo start --dev-client --lan --port 8081
+```
+
+Checklist rapido:
+
+- PC y celular en la misma red Wi-Fi
+- `museRAG` respondiendo en `http://<IP_DE_TU_PC>:8000/health`
+- Development Build instalado en el telefono
+- reiniciar Expo si cambiaste `.env`
+
+Importante:
+
+- `npm run dev:client` usa `--tunnel` y puede servir como fallback
+- `npm run dev:client:lan` usa el script `scripts/start-devclient-lan.sh`
+- si la app intenta hablar con `*.exp.direct:8000`, la URL de `museRAG` quedo mal resuelta
+
+## Problemas comunes de conectividad
+
+### Expo LAN no conecta
+
+En Windows ya vimos dos causas frecuentes:
+
+1. reglas viejas de `portproxy` ocupando `8081`, `19000` o `19001`
+2. la red Wi-Fi marcada como `Public` en lugar de `Private`
+
+Ver reglas activas:
+
+```powershell
+netsh interface portproxy show all
+```
+
+Si ves reglas viejas para `8081`, `19000` o `19001`, abre PowerShell como administrador y borralas:
+
+```powershell
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=8081
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=19000
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=19001
+```
+
+Si despues de eso sigue fallando, cambia el perfil de la red Wi-Fi a `Private` y vuelve a iniciar Expo en LAN.
 
 ## BLE y pruebas en sala
 

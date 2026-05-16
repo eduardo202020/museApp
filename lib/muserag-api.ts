@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 export interface MuseRagArtworkContext {
   id?: string;
   title?: string;
+  room_name?: string;
   author?: string;
   year?: string;
   period?: string;
@@ -11,6 +12,9 @@ export interface MuseRagArtworkContext {
   context?: string;
   room_relation?: string;
   location_hint?: string;
+  route_hint?: string;
+  tags?: string[];
+  nearby_artworks?: string[];
   suggested_questions?: string[];
 }
 
@@ -20,6 +24,7 @@ export interface MuseRagQueryParams {
   artworkName?: string;
   museumSlug?: string;
   artworkId?: string;
+  responseMode?: 'breve' | 'explicada' | 'infantil';
   sessionId?: string;
   artworkContext?: MuseRagArtworkContext;
   signal?: AbortSignal;
@@ -53,6 +58,16 @@ export interface MuseRagResponse {
 }
 
 const MUSERAG_TIMEOUT_MS = 45000;
+
+function isLanOrLoopbackHost(host: string) {
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host)
+  );
+}
 
 function createCombinedAbortSignal(timeoutSignal: AbortSignal, externalSignal?: AbortSignal) {
   if (!externalSignal) {
@@ -89,7 +104,7 @@ function createCombinedAbortSignal(timeoutSignal: AbortSignal, externalSignal?: 
 function normalizeMuseRagUrl(url: string, fallbackHost?: string) {
   const trimmedUrl = url.trim().replace(/\/$/, '');
 
-  if (!fallbackHost) {
+  if (!fallbackHost || !isLanOrLoopbackHost(fallbackHost)) {
     return trimmedUrl;
   }
 
@@ -162,10 +177,20 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
     pregunta: params.question,
     museo: params.museumSlug ?? 'tumbas-reales-de-sipan',
     sala: params.roomId,
-    obra: params.artworkName ?? params.artworkId,
+    obra: params.artworkId ?? params.artworkName,
+    modo: params.responseMode ?? 'breve',
     session_id: params.sessionId,
     artwork_context: params.artworkContext,
   };
+
+  console.log("[MuseRAG][request]", {
+    baseUrl,
+    pregunta: payload.pregunta,
+    museo: payload.museo,
+    sala: payload.sala,
+    obra: payload.obra,
+    session_id: payload.session_id,
+  });
 
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), MUSERAG_TIMEOUT_MS);
@@ -189,6 +214,10 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
       signal: abortSignal,
     });
   } catch (error) {
+    console.log("[MuseRAG][network-error]", {
+      baseUrl,
+      message: error instanceof Error ? error.message : String(error),
+    });
     if (error instanceof Error && error.name === 'AbortError') {
       if (externalSignal?.aborted) {
         throw new Error('Consulta cancelada.');
@@ -208,6 +237,13 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
   }
 
   const rawBody = await response.text();
+
+  console.log("[MuseRAG][response]", {
+    baseUrl,
+    status: response.status,
+    ok: response.ok,
+    preview: rawBody.slice(0, 300),
+  });
 
   if (!response.ok) {
     throw new Error(rawBody || `No se pudo consultar MuseRAG. HTTP ${response.status}`);

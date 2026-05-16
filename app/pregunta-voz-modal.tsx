@@ -8,8 +8,10 @@ import {
     type SourceSnippet,
 } from "@/lib/muserag-api";
 import {
+  getArtworkConversationMemory,
   getPersistedChatHistory,
   persistChatTurn,
+  recordAnalyticsEvent,
 } from "@/lib/museum-database";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
@@ -21,6 +23,7 @@ import { StyleSheet, View } from "react-native";
 const RECOGNITION_LANGUAGE = "es-ES";
 const SPEECH_LANGUAGE = "es-PE";
 const MAX_CHAT_HISTORY_TURNS = 3;
+type ResponseMode = "breve" | "explicada" | "infantil";
 
 type ChatHistoryTurn = {
   id: string;
@@ -48,7 +51,15 @@ function markdownToSpeechText(markdown: string) {
 
 export default function PreguntaVozModal() {
   const params = useLocalSearchParams<{ artworkId?: string }>();
-  const { currentArtwork, findArtworkById, settings, voicePrompts } = useMuseIQ();
+  const {
+    currentArtwork,
+    currentRouteStep,
+    currentRoom,
+    findArtworkById,
+    getArtworksForRoom,
+    settings,
+    voicePrompts,
+  } = useMuseIQ();
   const artwork = useMemo(
     () =>
       findArtworkById(
@@ -81,9 +92,15 @@ export default function PreguntaVozModal() {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingDisplayText, setSpeakingDisplayText] = useState("");
+  const [speechHighlightRange, setSpeechHighlightRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
   const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [voiceStatusMessage, setVoiceStatusMessage] = useState("");
+  const [responseMode, setResponseMode] = useState<ResponseMode>("breve");
   const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const activeRequestAbortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string>(
@@ -119,6 +136,35 @@ export default function PreguntaVozModal() {
 
     return [...new Set(candidates)].slice(0, 4);
   }, [artwork?.suggestedQuestions, voicePrompts]);
+
+  const nearbyArtworkTitles = useMemo(() => {
+    if (!artwork?.roomId || !artwork.id) {
+      return [];
+    }
+
+    const roomArtworks = getArtworksForRoom(artwork.roomId);
+    const currentIndex = roomArtworks.findIndex((item) => item.id === artwork.id);
+    if (currentIndex < 0) {
+      return [];
+    }
+
+    return roomArtworks
+      .filter((_, index) => Math.abs(index - currentIndex) <= 2 && index !== currentIndex)
+      .map((item) => item.title)
+      .slice(0, 4);
+  }, [artwork?.id, artwork?.roomId, getArtworksForRoom]);
+
+  const followUpQuestions = useMemo(() => {
+    const candidates = [
+      ...(artwork?.suggestedQuestions ?? []),
+      ...historyTurns.map((turn) => turn.question),
+    ]
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .filter((item) => item !== lastSubmittedQuestion.trim());
+
+    return [...new Set(candidates)].slice(0, 3);
+  }, [artwork?.suggestedQuestions, historyTurns, lastSubmittedQuestion]);
 
   const voiceMode = isListening
     ? "listening"
@@ -159,6 +205,7 @@ export default function PreguntaVozModal() {
       }
 
       const persistedTurns = await getPersistedChatHistory(artwork.id);
+      const memory = await getArtworkConversationMemory(artwork.id);
       if (!isMounted) {
         return;
       }
@@ -174,7 +221,7 @@ export default function PreguntaVozModal() {
 
       const latestTurn = persistedTurns[0];
       sessionIdRef.current =
-        latestTurn?.sessionId ?? createChatSessionId(artwork.id);
+        memory?.lastSessionId ?? latestTurn?.sessionId ?? createChatSessionId(artwork.id);
 
       if (latestTurn) {
         setResponse(latestTurn.response);
@@ -205,6 +252,8 @@ export default function PreguntaVozModal() {
       await Speech.stop();
     } finally {
       setIsSpeaking(false);
+      setSpeakingDisplayText("");
+      setSpeechHighlightRange(null);
     }
   };
 
@@ -217,14 +266,31 @@ export default function PreguntaVozModal() {
     setErrorMessage("");
     await stopSpeaking();
     setIsSpeaking(true);
+    setSpeakingDisplayText(trimmedText);
+    setSpeechHighlightRange({ start: 0, end: 0 });
     Speech.speak(trimmedText, {
       language: SPEECH_LANGUAGE,
       rate: settings.voiceRate,
       pitch: 1,
-      onDone: () => setIsSpeaking(false),
-      onStopped: () => setIsSpeaking(false),
+      onBoundary: (event: { charIndex: number; charLength: number }) => {
+        const start = event.charIndex ?? 0;
+        const end = start + (event.charLength ?? 0);
+        setSpeechHighlightRange({ start, end });
+      },
+      onDone: () => {
+        setIsSpeaking(false);
+        setSpeakingDisplayText("");
+        setSpeechHighlightRange(null);
+      },
+      onStopped: () => {
+        setIsSpeaking(false);
+        setSpeakingDisplayText("");
+        setSpeechHighlightRange(null);
+      },
       onError: () => {
         setIsSpeaking(false);
+        setSpeakingDisplayText("");
+        setSpeechHighlightRange(null);
         setErrorMessage("No pude reproducir la respuesta en voz alta.");
       },
     });
@@ -255,6 +321,12 @@ export default function PreguntaVozModal() {
     setErrorMessage("");
     setVoiceStatusMessage("Activando el microfono del guia...");
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    recordAnalyticsEvent({
+      eventType: "voice_started",
+      artworkId: artwork?.id ?? null,
+      roomId: artwork?.roomId ?? null,
+      metadata: { artworkTitle: artwork?.title ?? null },
+    }).catch(() => undefined);
     ExpoSpeechRecognitionModule.start({
       lang: RECOGNITION_LANGUAGE,
       interimResults: true,
@@ -378,18 +450,6 @@ export default function PreguntaVozModal() {
       return;
     }
 
-    if (response.trim() && lastSubmittedQuestion.trim()) {
-      setHistoryTurns((previous) => [
-        ...previous,
-        {
-          id: `${Date.now()}-${previous.length}`,
-          question: lastSubmittedQuestion,
-          response,
-          sourceCount: responseMeta?.source_count ?? sources.length,
-        },
-      ].slice(-MAX_CHAT_HISTORY_TURNS));
-    }
-
     setResponse("");
     setSources([]);
     setResponseMeta(null);
@@ -413,6 +473,7 @@ export default function PreguntaVozModal() {
         roomId: artwork?.roomId,
         artworkName: artwork?.title,
         artworkId: artwork?.id,
+        responseMode,
         sessionId: sessionIdRef.current,
         artworkContext: artwork
           ? {
@@ -424,8 +485,12 @@ export default function PreguntaVozModal() {
               technique: artwork.technique,
               summary: artwork.summary,
               context: artwork.context,
+              room_name: currentRoom?.name,
               room_relation: artwork.roomRelation,
               location_hint: artwork.locationHint,
+              route_hint: currentRouteStep?.hint,
+              tags: artwork.tags,
+              nearby_artworks: nearbyArtworkTitles,
               suggested_questions: artwork.suggestedQuestions,
             }
           : undefined,
@@ -459,6 +524,15 @@ export default function PreguntaVozModal() {
         );
         persistChatTurn(nextTurn).catch(() => undefined);
       }
+      recordAnalyticsEvent({
+        eventType: "chat_question",
+        artworkId: artwork?.id ?? null,
+        roomId: artwork?.roomId ?? null,
+        metadata: {
+          mode: responseMode,
+          sourceCount: result.meta?.source_count ?? result.fuentes?.length ?? 0,
+        },
+      }).catch(() => undefined);
       if (settings.autoPlay && markdownResponse) {
         await speakResponse(markdownResponse);
       }
@@ -500,6 +574,14 @@ export default function PreguntaVozModal() {
         onOpenImage={openZoomViewer}
         pendingQuestion={pendingQuestion}
         onQuestionTextChange={updateQuestionText}
+        onHistoryTurnPress={(value) => {
+          setQuestionText(value);
+          setQuestionInputMode("manual");
+        }}
+        onFollowUpQuestionPress={(value) => {
+          setQuestionText(value);
+          setQuestionInputMode("manual");
+        }}
         onSuggestedQuestionPress={setSuggestedQuestion}
         onRetry={
           lastSubmittedQuestion
@@ -521,11 +603,18 @@ export default function PreguntaVozModal() {
         onToggleListening={toggleListening}
         questionText={questionText}
         response={response}
+        responseMeta={responseMeta}
+        speakingDisplayText={speakingDisplayText}
+        speechHighlightRange={speechHighlightRange}
         statusMessage={statusMessage}
+        historyTurns={historyTurns}
+        followUpQuestions={followUpQuestions}
         suggestedQuestions={suggestedQuestions}
         voiceStatusMessage={voiceStatusMessage}
         voiceMode={voiceMode}
         isSpeaking={isSpeaking}
+        responseMode={responseMode}
+        onResponseModeChange={setResponseMode}
         sources={sources}
       />
 
