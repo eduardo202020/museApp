@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="./docs/assets/museiq-icon.png" alt="Icono de MuseIQ" width="150" />
+</p>
+
+<p align="center">
   <img src="./docs/screenshots/muse-experience.png" alt="MuseIQ mostrando detección de sala, escaneo y ficha de obra" width="900" />
 </p>
 
