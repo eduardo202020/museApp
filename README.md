@@ -1,67 +1,114 @@
-# museApp
+<p align="center">
+  <img src="./docs/screenshots/muse-experience.png" alt="MuseIQ mostrando detección de sala, escaneo y ficha de obra" width="900" />
+</p>
 
-> Guía interactiva para museos que combina BLE, voz e IA para acompañar al visitante en tiempo real.
+<h1 align="center">museApp · MuseIQ</h1>
 
-museApp es una app móvil creada con Expo y React Native para transformar una visita a museo en una experiencia conversacional, contextual y visual. La app detecta la sala, entiende la obra activa y responde preguntas con texto, voz e imágenes de apoyo.
+<p align="center">
+  Guía móvil contextual para museos que combina <strong>BLE</strong>, <strong>voz</strong> e <strong>IA</strong> para acompañar al visitante en tiempo real.
+</p>
 
-## Por qué destaca
+<p align="center">
+  <img src="https://img.shields.io/badge/Expo-54-111827?style=for-the-badge&logo=expo&logoColor=white" alt="Expo 54" />
+  <img src="https://img.shields.io/badge/React_Native-0.81-61DAFB?style=for-the-badge&logo=react&logoColor=111827" alt="React Native 0.81" />
+  <img src="https://img.shields.io/badge/BLE-Context_Aware-0F766E?style=for-the-badge" alt="BLE context aware" />
+  <img src="https://img.shields.io/badge/Voice-STT_%2B_TTS-8B5CF6?style=for-the-badge" alt="Speech to text and text to speech" />
+  <img src="https://img.shields.io/badge/SQLite-Local_State-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite local state" />
+  <img src="https://img.shields.io/badge/MuseRAG-AI_Backend-C2410C?style=for-the-badge" alt="MuseRAG backend" />
+</p>
 
-- Está pensada para demostrar una solución de producto real, no solo una prueba técnica.
-- Une navegación por salas, sensores, voz y beacons BLE en un mismo flujo.
-- Permite mostrar en una demo cómo la app cambia según el contexto físico del visitante.
-- Es una base sólida para enseñar arquitectura móvil, experiencia de usuario e integración con IA.
+## Qué es este proyecto
 
-## Lo más visible del proyecto
+`museApp` es el cliente móvil de **MuseIQ**, una experiencia guiada para recorridos de museo donde la app entiende el contexto físico del visitante y responde preguntas sobre la obra activa con texto, voz e imágenes de apoyo.
 
-- guía recorridos de museo con soporte para beacons BLE
-- identifica la obra o sala más cercana y mantiene el contexto de visita
-- permite explorar manualmente salas y obras sin depender del sensor
-- ofrece chat por texto y por voz sobre la obra activa
-- consulta a MuseRAG y presenta respuestas con texto e imágenes de apoyo
-- adapta el tono de respuesta entre `Breve`, `Explicada` y `Para niños`
-- mantiene una memoria local por obra para mejorar visitas repetidas
-- incluye lectura en voz alta con seguimiento visual del texto
+No es solo un chat con IA: el proyecto conecta recorrido, proximidad, narrativa, accesibilidad y contenido curado en una sola experiencia mobile.
 
-## Demo rápida
+## Qué hace la app
 
-1. Abre la app y entra al recorrido.
-2. Acerca un beacon o navega manualmente por una sala.
-3. Pregunta por texto o por voz sobre la obra activa.
-4. Revisa la respuesta, escucha la narración y abre las imágenes de apoyo.
-5. Cambia el modo de respuesta para ver cómo se adapta el tono del guía.
+- Detecta contexto de sala mediante beacons BLE.
+- Permite explorar salas y obras manualmente cuando no hay sensor disponible.
+- Abre preguntas por texto o voz sobre la obra activa.
+- Consume respuestas de `MuseRAG` con contexto de museo, sala, obra y modo de respuesta.
+- Ofrece tres estilos de respuesta: `Breve`, `Explicada` y `Para niños`.
+- Reproduce narración en voz alta y resalta el texto mientras se lee.
+- Muestra imágenes fuente y referencias visuales relacionadas con la respuesta.
+- Mantiene estado local de la visita, progreso y analíticas básicas.
+- Incluye panel de depuración para BLE, brújula, acelerómetro y conteo de pasos.
 
-## Lo que aporta al CV
+## Por qué destaca en portafolio
 
-- interacción multimodal con foco en experiencia de visitante
-- integración de hardware cercano y contexto espacial real
-- consumo de IA con respuesta conversacional y visual
-- manejo de memoria local y estado por obra
-- uso de voz nativa para entrada y salida de información
+- Convierte IA en una funcionalidad de producto real, no en una demo aislada.
+- Integra contexto físico con software móvil: proximidad, sensores y navegación situacional.
+- Resuelve una experiencia multimodal completa: texto, voz, visuales y memoria local.
+- Muestra arquitectura separada entre app móvil y backend RAG especializado.
 
-## Stack tecnológico
+## Arquitectura general
 
-| Capa         | Tecnología                               |
-| ------------ | ---------------------------------------- |
-| UI móvil     | Expo Router, React Native, TypeScript    |
-| Conectividad | `react-native-ble-plx`, `expo-sensors`   |
-| Voz          | `expo-speech`, `expo-speech-recognition` |
-| Persistencia | `expo-sqlite`                            |
-| IA           | MuseRAG                                  |
+```mermaid
+flowchart LR
+    V[Visitante] --> A[museApp / MuseIQ]
+    A --> B[BLE Beacons]
+    A --> C[Sensores del dispositivo]
+    A --> D[SQLite local]
+    A --> E[MuseRAG API]
+    E --> F[Recuperación contextual]
+    E --> G[LM Studio / LLM]
+    E --> H[Fuentes e imágenes]
+```
 
-## Cómo funciona
+## Stack
 
-1. La app detecta contexto de sala mediante BLE y sensores.
-2. El visitante abre el chat o dicta una pregunta.
-3. La app envía la consulta a MuseRAG con museo, sala, obra y modo de respuesta.
-4. La respuesta vuelve con texto y, cuando aplica, fuentes visuales.
-5. El usuario puede leer, escuchar y ampliar contenido sin salir del recorrido.
+| Capa | Tecnología |
+| --- | --- |
+| App móvil | Expo Router, React Native, TypeScript |
+| Contexto físico | `react-native-ble-plx`, `expo-sensors` |
+| Voz | `expo-speech`, `expo-speech-recognition` |
+| Estado local | `expo-sqlite` |
+| Backend IA | [MuseRAG](https://github.com/eduardo202020/museRAG) |
+
+## Flujo de experiencia
+
+1. El visitante entra al recorrido y la app detecta sala o zona mediante BLE.
+2. `museApp` selecciona la obra actual o permite cambiarla manualmente.
+3. El usuario pregunta por texto o por voz.
+4. La app envía la consulta a `MuseRAG` con contexto enriquecido.
+5. La respuesta vuelve con texto, metadatos y, cuando aplica, fuentes visuales.
+6. El visitante puede leer, escuchar, profundizar o continuar el recorrido.
+
+## Ejecución local
+
+1. Instala dependencias:
+
+```bash
+npm install
+```
+
+2. Crea tu archivo `.env`:
+
+```env
+EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
+```
+
+3. Inicia la app:
+
+```bash
+npm run dev
+```
+
+Comandos útiles:
+
+- `npm run android`
+- `npm run ios`
+- `npm run web`
+- `npm run dev:client`
+
+## Repos y documentación relacionada
+
+- Backend RAG: [eduardo202020/museRAG](https://github.com/eduardo202020/museRAG)
+- Guía técnica de desarrollo: [README-DEV.md](README-DEV.md)
+- Cliente de integración con IA: [lib/muserag-api.ts](lib/muserag-api.ts)
+- Estado principal de la visita: [providers/museiq-provider.tsx](providers/museiq-provider.tsx)
 
 ## Estado actual
 
-El MVP ya cubre el flujo principal de visita y consulta. Está listo para demostraciones funcionales y para seguir evolucionando el recorrido, la conversación y la experiencia en sala.
-
-## Documentación relacionada
-
-- La configuración técnica vive en [README-DEV.md](README-DEV.md)
-- La URL del backend se define en [app.config.js](app.config.js)
-- El cliente de MuseRAG está en [lib/muserag-api.ts](lib/muserag-api.ts)
+El proyecto ya cubre el flujo principal del MVP: recorrido contextual, selección de obra, consulta multimodal y respuesta asistida por IA. Está preparado para demos funcionales, pruebas de sala y evolución hacia una experiencia de mediación cultural más completa.
