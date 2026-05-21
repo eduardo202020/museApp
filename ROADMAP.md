@@ -14,36 +14,60 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - La interfaz usa azul MuseIQ como color primario, con botones de borde en el HUD.
 - El modo técnico queda separado del visitante común.
 
-## Avance por flujo
+## Cobertura por `flujo.png`
 
-### 01. Entrada a la visita
+### Entrada y Home
 
-- [x] `01-Inicio.png`: pantalla inicial con fondo inmersivo y logo.
-- [x] `01-seleccion-museo.png`: selección de museo.
-- [x] `01-Preparacion-visita.png`: preparación de visita y permisos.
+- [x] `1 Inicio` / `01-Inicio.png`: pantalla inicial con fondo inmersivo y logo (`app/index.tsx`).
+- [x] `2 Seleccionar museo` / `01-seleccion-museo.png`: selección de museo (`app/seleccionar-museo.tsx`).
+- [x] `3 Preparación de visita` / `01-Preparacion-visita.png`: preparación de visita (`app/preparacion-visita.tsx`).
+- [x] `4 Home AR - sin sala detectada` / `02-Home-AR-Sin-Sala.png`: estado sin sala (`app/(drawer)/home.tsx`).
+- [x] `5 Home AR - sala detectada` / `02-Home-AR-con-Sala.png`: estado con sala (`app/(drawer)/home.tsx`).
+- [x] `6/13 Sugerencia BLE futura` / `02-03.png`: sugerencia probabilística por BLE (`BleSuggestionCard`).
 
-### 02. Home AR
+### Identificación y ficha de obra
 
-- [x] `02-Home-AR-Sin-Sala.png`: estado sin sala detectada.
-- [x] `02-Home-AR-con-Sala.png`: estado con sala detectada.
-- [x] `02-03.png`: sugerencia BLE futura con lenguaje probabilístico.
-
-### 03. Acciones dentro de Home AR
-
-- [x] `03-01.png`: explorar sala como bottom sheet.
-- [x] `03-02.png`: escanear QR como overlay de cámara.
+- [x] `7 Explorar sala` / `03-01.png`: bottom sheet de obras de la sala.
+- [x] `8 Escanear QR` / `03-02.png`: overlay visual de QR.
 - [ ] QR real con cámara y parsing de códigos de obra.
-- [ ] Estado de QR inválido y entrada manual de código.
-- [x] `03-03.png`: obra identificada tras QR.
-- [x] `08-03.png`: cargando AR.
+- [x] `X Resultado de QR inválido`: error de QR, causas y reintento (`app/qr-invalido.tsx`).
+- [x] Entrada manual de código QR (`app/codigo-manual.tsx`).
+- [x] `9 Obra identificada` / `03-03.png`: resultado tras QR simulado (`app/obra-identificada.tsx`).
+- [x] `A Detalles de la obra` / `05-02.png`: ficha base (`app/artwork-detail.tsx`).
+- [x] `B Imágenes relacionadas` / `05-03.png`: galería (`app/artwork-images.tsx`).
+- [x] Tab funcional de `Contexto` dentro de ficha.
+- [x] Tab funcional de `Fuentes` / sustento dentro de ficha.
+- [x] Favoritos y compartir conectados a estado real.
 
-### 05. Paneles secundarios de obra
+### AR, chat y audio
 
-- [x] `05-02.png`: detalle de obra.
-- [x] `05-03.png`: imágenes relacionadas.
-- [ ] Contexto curatorial como tab interno.
-- [ ] Fuentes y sustento como tab sobrio/académico.
-- [ ] Favoritos y compartir conectados a estado real.
+- [x] `R Cargando AR` / `08-03.png`: carga visual de modelo (`app/cargando-ar.tsx`).
+- [x] `10 AR activo (obra 3D)`: escena AR temporal con modelo 3D (`app/ar-activo.tsx`).
+- [x] `11 Hotspot seleccionado`: detalle de hotspot (`app/ar-hotspot-seleccionado.tsx`).
+- [x] `12 Chat IA (bottom sheet)`: pantalla/estado de chat (`app/ar-chat-ia.tsx`).
+- [x] `9 Audio activo`: pantalla de reproducción (`app/ar-audio-activo.tsx`).
+- [x] `V AR no disponible`: fallback a visor 3D (`app/ar-no-disponible.tsx`).
+- [x] `U Visor 3D sin AR`: visor 3D (`app/visor-3d.tsx`).
+- [ ] AR real con ARCore/ARKit o librería equivalente.
+- [ ] `W Modelo 3D no disponible`: pantalla dedicada, no solo mensaje interno del visor.
+
+### Drawer y pantallas auxiliares
+
+- [x] `J Menú drawer`: drawer compacto con perfil en encabezado, Inicio, Explorar salas, Cambiar museo, Configuracion, Ayuda, Modo tecnico y cierre de sesion.
+- [x] `K Perfil del visitante`.
+- [x] `L Cambiar museo` desde drawer con museo actual y opciones.
+- [x] `M Configuración`: pantalla alineada al flujo con secciones de experiencia, conectividad, preferencias y soporte.
+- [x] `N Ayuda`: pantalla alineada al flujo con buscador, temas frecuentes, guias rapidas y contacto.
+- [x] `O Modo técnico`: pantalla alineada al flujo con diagnostico, informacion de dispositivo y herramientas avanzadas.
+- [x] `H Idioma`.
+- [x] Drawer depurado: `Mis visitas`, `Favoritos` e `Historial` se retiraron del menu y quedan como rutas internas ocultas.
+
+### Estados transversales
+
+- [x] `Q Permisos`: modal integrado desde preparación de visita (`app/permissions-modal.tsx`).
+- [x] `P Sin conexión`: estado offline de Home/obra (`app/sin-conexion.tsx`).
+- [x] `S Error de conexión`: fallo de MuseRAG/backend con reintento (`app/error-conexion.tsx`).
+- [ ] `T Actualización`: pantalla de nueva versión disponible.
 
 ## Fases técnicas
 
@@ -60,7 +84,7 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - [x] Home AR como pantalla principal.
 - [x] Explorar y QR como acciones internas.
 - [x] Drawer separado del HUD principal.
-- [ ] Revisar drawer final: Perfil, Cambiar museo, Configuración, Ayuda, Modo técnico, Idioma y Accesibilidad.
+- [x] Drawer final compacto: perfil desde encabezado; idioma desde Configuración; Inicio, Explorar salas, Cambiar museo, Configuración, Ayuda, Modo técnico y cierre de sesión como opciones principales.
 
 ### Fase 3. Estados visuales del Home
 
@@ -69,30 +93,23 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - [x] Sugerencia BLE futura.
 - [x] Explorar sala.
 - [x] Escaneo QR simulado.
-- [ ] Obra identificada después de QR.
-- [ ] AR activo / obra 3D.
-- [ ] Hotspot seleccionado.
-- [ ] Chat IA como bottom sheet.
-- [ ] Audio activo con progreso.
-- [ ] Estados de error, carga y sin conexión.
-
-<!-- Actualizado según pantallas presentes en `app/` -->
-
 - [x] Obra identificada después de QR (`obra-identificada.tsx`, `artwork-detail.tsx`).
+- [x] Carga de AR (`cargando-ar.tsx`).
 - [x] AR activo / obra 3D (`ar-activo.tsx`, `visor-3d.tsx`, `cargando-ar.tsx`).
 - [x] Hotspot seleccionado (`ar-hotspot-seleccionado.tsx`).
 - [x] Chat IA como componente/estado (`ar-chat-ia.tsx`).
 - [x] Audio activo con control básico (`ar-audio-activo.tsx`).
-- [ ] Estados de error, carga y sin conexión (mejoras y manejos por robustecer).
+- [x] Estados de QR invalido, error de conexión y sin conexión (`X`, `S`, `P`) como pantallas de flujo.
+- [ ] Estado de actualización (`T`) integrado al flujo.
 
 ### Fase 4. Recursos AR/3D
 
 - [ ] Tipos de datos para `model_3d` y `hotspots`.
 - [ ] Endpoint o payload MuseRAG con recursos AR.
-- [ ] Descarga/carga de GLB por obra.
-- [ ] Estado "modelo 3D no disponible".
-- [ ] Visor 3D sin AR.
-- [ ] Fallback si ARCore/ARKit no está disponible.
+- [ ] Descarga/carga de GLB por obra, no solo assets locales de prueba.
+- [ ] Estado dedicado `W Modelo 3D no disponible`.
+- [x] Visor 3D sin AR base (`visor-3d.tsx`).
+- [x] Fallback base si ARCore/ARKit no está disponible (`ar-no-disponible.tsx`).
 
 ### Fase 5. AR real
 
@@ -104,11 +121,12 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 
 ## Próximos pasos recomendados
 
-1. Implementar el estado de obra identificada tras QR.
-2. Convertir el chat actual en bottom sheet del Home AR.
-3. Agregar el estado de audio activo con barra de progreso.
-4. Completar tabs de Contexto y Fuentes en detalle de obra.
-5. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG.
+1. Integrar estado `T`: actualización disponible.
+2. Implementar pantalla dedicada `W Modelo 3D no disponible`.
+3. Implementar QR real: cámara, parsing y mapping a obra usando las pantallas ya creadas de resultado inválido y entrada manual.
+4. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
+5. Integrar AR real con ARCore/ARKit o alternativa compatible y probar en dispositivo físico.
+6. Reemplazar los datos locales de Idioma/Cambiar museo por persistencia y selección real cuando haya multi-museo.
 
 ## Validación esperada
 

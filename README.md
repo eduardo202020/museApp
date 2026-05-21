@@ -23,18 +23,47 @@ MuseIQ está evolucionando desde una guía conversacional tradicional hacia una 
 6. Sugerencia BLE futura, expresada como hipótesis y con confirmación por QR.
 7. Explorar sala como bottom sheet con obras, imágenes y badges de recurso.
 8. Escanear QR como overlay de cámara con marco de lectura, cancelar y linterna.
-9. Detalle de obra con ficha, acciones AR/chat e imágenes relacionadas.
-10. Galería de imágenes relacionadas.
+9. Obra identificada tras QR simulado.
+10. Detalle de obra con ficha, acciones AR/chat e imágenes relacionadas.
+11. Galería de imágenes relacionadas.
+12. Cargando AR, AR activo temporal y hotspot seleccionado.
+13. Chat IA y audio activo como estados de la experiencia AR.
+14. AR no disponible con fallback a visor 3D.
+
+## Cobertura contra `pantallas/flujo.png`
+
+El flujo visual completo incluye mas pantallas que el MVP actual. La cobertura real queda asi:
+
+- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` como overlay simulado, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, tabs de `Contexto` y `Fuentes`, `R Cargando AR`, `10 AR activo`, `11 Hotspot seleccionado`, `12 Chat IA`, `9 Audio activo`, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
+- Parcial: `W Modelo 3D no disponible`. El visor 3D y el fallback de AR existen, pero falta una pantalla dedicada para el estado de modelo no disponible.
+- Faltante: `T Actualizacion` y pantalla dedicada completa de `W Modelo 3D no disponible`.
 
 ## Pantallas implementadas (carpeta `app/`)
 
 Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 
-- `splash.tsx`: Pantalla inicial (logo / carga)
+- `splash.tsx`: Splash legado de logo / carga
 - `seleccionar-museo.tsx`: Selección de museo
 - `preparacion-visita.tsx`: Preparación de visita y permisos
-- `index.tsx` / `_layout.tsx`: Orquestación del Home AR y rutas
-- `ar-no-disponible.tsx`: Home AR - sin sala detectada
+- `permissions-modal.tsx`: Modal de permisos integrado desde la preparación
+- `index.tsx`: Pantalla inicial principal del flujo
+- `_layout.tsx`: Orquestación de rutas
+- `(drawer)/home.tsx`: Home AR con estados de sala, sugerencia BLE, explorar sala y QR simulado
+- `(drawer)/info-recorrido.tsx`: Exploración por salas y obras fuera del HUD principal, alineada al estilo oscuro del flujo
+- `(drawer)/perfil.tsx`: Perfil del visitante y resumen de actividad
+- `(drawer)/mis-visitas.tsx`: Ruta interna oculta; ya no aparece como opcion del drawer
+- `(drawer)/favoritos.tsx`: Ruta interna oculta; ya no aparece como opcion del drawer
+- `(drawer)/historial.tsx`: Ruta interna oculta; ya no aparece como opcion del drawer
+- `(drawer)/cambiar-museo.tsx`: Cambio de museo desde el drawer, alineado a la referencia visual
+- `(drawer)/idioma.tsx`: Selección de idioma base
+- `(drawer)/ayuda.tsx`: Ayuda con buscador, temas frecuentes, guias rapidas y contacto
+- `(drawer)/ajustes.tsx`: Configuración agrupada por experiencia, conectividad, preferencias y soporte
+- `(drawer)/debug.tsx`: Modo técnico con estado del sistema, dispositivo y herramientas de desarrollo
+- `ar-no-disponible.tsx`: AR no disponible / fallback a visor 3D
+- `qr-invalido.tsx`: Resultado de QR inválido con reintento y entrada manual
+- `codigo-manual.tsx`: Ingreso manual de código QR y mapping local a obra
+- `sin-conexion.tsx`: Estado sin conexión para continuar con contenido offline
+- `error-conexion.tsx`: Estado de error MuseRAG/backend con reintento
 - `ar-activo.tsx`: Home AR - AR activo
 - `ar-audio-activo.tsx`: Estado de audio activo
 - `ar-chat-ia.tsx`: Chat IA integrado (estado / bottom sheet)
@@ -44,16 +73,16 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `cargando-ar.tsx`: Indicador de carga de AR
 - `visor-3d.tsx`: Visor 3D (sin integrar AR completo)
 - `ar-hotspot-seleccionado.tsx`: Hotspot seleccionado (estado)
-- `permissions-modal.tsx`: Modal de permisos
 - `pregunta-voz-modal.tsx`: Interfaz para preguntas por voz
 
 ## Pantallas o funcionalidades pendientes
 
-- Integración de QR real con parsing y mapping a obra (QR en cámara)
-- Manejo de QR inválido y entrada manual de códigos
-- Tabs internos de Contexto curatorial y Fuentes en detalle de obra
-- Favoritos, compartir y sincronización con backend
-- Descarga y renderizado final de modelos 3D por obra en AR
+- QR real con cámara, parsing y mapping a obra.
+- Estado de resiliencia: Actualización disponible.
+- Detección automática de conectividad para abrir Sin conexión/Error de conexión sin depender de una acción manual.
+- Estado dedicado de Modelo 3D no disponible.
+- Sincronización de idioma, museo seleccionado, favoritos y actividad local con backend.
+- Descarga y renderizado final de modelos 3D por obra en AR.
 
 
 ## Capacidades conservadas
@@ -97,7 +126,9 @@ npm run dev:client
 
 ## Estado actual
 
-La base AR-first ya está montada para las primeras pantallas del flujo. El reconocimiento automático de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
+La base AR-first ya está montada para el flujo visual principal y para las pantallas auxiliares del drawer. El drawer actual queda deliberadamente compacto: Inicio, Explorar salas, Cambiar museo, Configuracion, Ayuda, Modo tecnico, Perfil desde el encabezado e Idioma desde Configuracion. `Mis visitas`, `Favoritos` e `Historial` se conservan como rutas internas ocultas, pero ya no saturan el menu.
+
+El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
 
 ## Documentación relacionada
 
