@@ -1,67 +1,77 @@
-# museApp
+# MuseIQ
 
-> Guía interactiva para museos que combina BLE, voz e IA para acompañar al visitante en tiempo real.
+> Guía móvil contextual e inmersiva para museos, con experiencia AR-first apoyada por BLE, QR, voz, MuseRAG e imágenes.
 
-museApp es una app móvil creada con Expo y React Native para transformar una visita a museo en una experiencia conversacional, contextual y visual. La app detecta la sala, entiende la obra activa y responde preguntas con texto, voz e imágenes de apoyo.
+MuseIQ está evolucionando desde una guía conversacional tradicional hacia una experiencia de mediación cultural centrada en la cámara o vista AR. La pantalla principal ya no se organiza como una app de tabs, sino como una visita inmersiva con controles flotantes, bottom sheets y paneles secundarios cuando el visitante necesita más detalle.
 
-## Por qué destaca
+## Enfoque actual
 
-- Está pensada para demostrar una solución de producto real, no solo una prueba técnica.
-- Une navegación por salas, sensores, voz y beacons BLE en un mismo flujo.
-- Permite mostrar en una demo cómo la app cambia según el contexto físico del visitante.
-- Es una base sólida para enseñar arquitectura móvil, experiencia de usuario e integración con IA.
+- La cámara o fondo AR es el centro de la visita.
+- BLE detecta sala o zona y resume el estado en el HUD.
+- Explorar sala y Escanear QR son acciones flotantes, no tabs.
+- Chat y Audio viven como acciones laterales.
+- Info, fuentes e imágenes aparecen dentro del detalle, chat o paneles secundarios.
+- El color principal es el azul MuseIQ `#1689CE`.
 
-## Lo más visible del proyecto
+## Flujo implementado
 
-- guía recorridos de museo con soporte para beacons BLE
-- identifica la obra o sala más cercana y mantiene el contexto de visita
-- permite explorar manualmente salas y obras sin depender del sensor
-- ofrece chat por texto y por voz sobre la obra activa
-- consulta a MuseRAG y presenta respuestas con texto e imágenes de apoyo
-- adapta el tono de respuesta entre `Breve`, `Explicada` y `Para niños`
-- mantiene una memoria local por obra para mejorar visitas repetidas
-- incluye lectura en voz alta con seguimiento visual del texto
+1. Inicio con fondo inmersivo y logo MuseIQ.
+2. Selección de museo.
+3. Preparación de visita con permisos y requisitos.
+4. Home AR sin sala detectada.
+5. Home AR con sala detectada.
+6. Sugerencia BLE futura, expresada como hipótesis y con confirmación por QR.
+7. Explorar sala como bottom sheet con obras, imágenes y badges de recurso.
+8. Escanear QR como overlay de cámara con marco de lectura, cancelar y linterna.
+9. Detalle de obra con ficha, acciones AR/chat e imágenes relacionadas.
+10. Galería de imágenes relacionadas.
 
-## Demo rápida
+## Capacidades conservadas
 
-1. Abre la app y entra al recorrido.
-2. Acerca un beacon o navega manualmente por una sala.
-3. Pregunta por texto o por voz sobre la obra activa.
-4. Revisa la respuesta, escucha la narración y abre las imágenes de apoyo.
-5. Cambia el modo de respuesta para ver cómo se adapta el tono del guía.
+- Detección BLE de sala o zona.
+- Exploración manual de salas y obras.
+- Chat con MuseRAG por texto.
+- Preguntas por voz y narración con TTS/STT.
+- Contexto de museo, sala, obra y modo de respuesta.
+- Imágenes relacionadas y fuentes visuales.
+- Progreso local y analítica básica.
+- Modo técnico con BLE, sensores y depuración.
 
-## Lo que aporta al CV
+## Arquitectura visual reciente
 
-- interacción multimodal con foco en experiencia de visitante
-- integración de hardware cercano y contexto espacial real
-- consumo de IA con respuesta conversacional y visual
-- manejo de memoria local y estado por obra
-- uso de voz nativa para entrada y salida de información
+- `app/(drawer)/home.tsx`: Home AR y orquestación de estados.
+- `components/museiq/home/`: HUD, sugerencia BLE, explorar sala, QR y componentes de home.
+- `components/museiq/artwork/`: encabezado, tabs, filas de ficha y galería reutilizable.
+- `hooks/use-home-ble-status.ts`: estado BLE resumido para Home AR.
+- `hooks/use-artwork-chat-controller.ts`: controlador compartido para chat, RAG y voz.
 
 ## Stack tecnológico
 
-| Capa         | Tecnología                               |
-| ------------ | ---------------------------------------- |
-| UI móvil     | Expo Router, React Native, TypeScript    |
-| Conectividad | `react-native-ble-plx`, `expo-sensors`   |
-| Voz          | `expo-speech`, `expo-speech-recognition` |
-| Persistencia | `expo-sqlite`                            |
-| IA           | MuseRAG                                  |
+| Capa | Tecnología |
+| --- | --- |
+| UI móvil | Expo Router, React Native, TypeScript |
+| Navegación | Stack, Drawer, rutas modales |
+| Conectividad | `react-native-ble-plx`, `expo-sensors` |
+| Voz | `expo-speech`, `expo-speech-recognition` |
+| Persistencia | `expo-sqlite` |
+| IA | MuseRAG |
 
-## Cómo funciona
+## Comandos útiles
 
-1. La app detecta contexto de sala mediante BLE y sensores.
-2. El visitante abre el chat o dicta una pregunta.
-3. La app envía la consulta a MuseRAG con museo, sala, obra y modo de respuesta.
-4. La respuesta vuelve con texto y, cuando aplica, fuentes visuales.
-5. El usuario puede leer, escuchar y ampliar contenido sin salir del recorrido.
+```bash
+npm install
+npx tsc --noEmit
+npm run lint
+npm run dev:client
+```
 
 ## Estado actual
 
-El MVP ya cubre el flujo principal de visita y consulta. Está listo para demostraciones funcionales y para seguir evolucionando el recorrido, la conversación y la experiencia en sala.
+La base AR-first ya está montada para las primeras pantallas del flujo. El reconocimiento automático de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
 
 ## Documentación relacionada
 
-- La configuración técnica vive en [README-DEV.md](README-DEV.md)
-- La URL del backend se define en [app.config.js](app.config.js)
-- El cliente de MuseRAG está en [lib/muserag-api.ts](lib/muserag-api.ts)
+- Configuración técnica: [README-DEV.md](README-DEV.md)
+- Roadmap de producto y flujo: [ROADMAP.md](ROADMAP.md)
+- URL de backend: [app.config.js](app.config.js)
+- Cliente de MuseRAG: [lib/muserag-api.ts](lib/muserag-api.ts)

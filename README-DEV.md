@@ -204,26 +204,13 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 
 ## Roadmap técnico sugerido
 
-### Corto plazo
+El roadmap activo de producto y flujo vive en [ROADMAP.md](ROADMAP.md). A nivel técnico, las prioridades inmediatas son:
 
-- estabilizar la detección BLE en más salas
-- mejorar el mapeo entre beacon y obra activa
-- reducir latencia percibida de consulta y narración
-- cerrar el ciclo de pruebas con más contenido real de museo
-
-### Mediano plazo
-
-- soporte multi-sala más completo
-- memoria conversacional mejor segmentada por visita
-- métricas más claras de uso y recorrido
-- mejor recuperación de errores de red y backend
-
-### Largo plazo
-
-- soporte para más recorridos y museos
-- recomendaciones contextuales según visita
-- analítica de interacción más rica
-- endurecimiento del modo offline o degradado
+- conectar QR real con cámara y códigos de obra
+- completar el estado de obra identificada
+- convertir el chat en bottom sheet dentro del Home AR
+- definir el contrato `model_3d` y `hotspots` con MuseRAG
+- preparar fallback de visor 3D sin AR
 
 ## Troubleshooting
 
