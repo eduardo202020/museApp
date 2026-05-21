@@ -84,7 +84,6 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - Sincronización de idioma, museo seleccionado, favoritos y actividad local con backend.
 - Descarga y renderizado final de modelos 3D por obra en AR.
 
-
 ## Capacidades conservadas
 
 - Detección BLE de sala o zona.
@@ -106,14 +105,14 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 
 ## Stack tecnológico
 
-| Capa | Tecnología |
-| --- | --- |
-| UI móvil | Expo Router, React Native, TypeScript |
-| Navegación | Stack, Drawer, rutas modales |
-| Conectividad | `react-native-ble-plx`, `expo-sensors` |
-| Voz | `expo-speech`, `expo-speech-recognition` |
-| Persistencia | `expo-sqlite` |
-| IA | MuseRAG |
+| Capa         | Tecnología                               |
+| ------------ | ---------------------------------------- |
+| UI móvil     | Expo Router, React Native, TypeScript    |
+| Navegación   | Stack, Drawer, rutas modales             |
+| Conectividad | `react-native-ble-plx`, `expo-sensors`   |
+| Voz          | `expo-speech`, `expo-speech-recognition` |
+| Persistencia | `expo-sqlite`                            |
+| IA           | MuseRAG                                  |
 
 ## Comandos útiles
 
