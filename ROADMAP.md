@@ -34,6 +34,8 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - [x] `03-02.png`: escanear QR como overlay de cámara.
 - [ ] QR real con cámara y parsing de códigos de obra.
 - [ ] Estado de QR inválido y entrada manual de código.
+- [x] `03-03.png`: obra identificada tras QR.
+- [x] `08-03.png`: cargando AR.
 
 ### 05. Paneles secundarios de obra
 
@@ -73,6 +75,15 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - [ ] Chat IA como bottom sheet.
 - [ ] Audio activo con progreso.
 - [ ] Estados de error, carga y sin conexión.
+
+<!-- Actualizado según pantallas presentes en `app/` -->
+
+- [x] Obra identificada después de QR (`obra-identificada.tsx`, `artwork-detail.tsx`).
+- [x] AR activo / obra 3D (`ar-activo.tsx`, `visor-3d.tsx`, `cargando-ar.tsx`).
+- [x] Hotspot seleccionado (`ar-hotspot-seleccionado.tsx`).
+- [x] Chat IA como componente/estado (`ar-chat-ia.tsx`).
+- [x] Audio activo con control básico (`ar-audio-activo.tsx`).
+- [ ] Estados de error, carga y sin conexión (mejoras y manejos por robustecer).
 
 ### Fase 4. Recursos AR/3D
 

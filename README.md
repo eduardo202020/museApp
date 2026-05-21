@@ -26,6 +26,36 @@ MuseIQ está evolucionando desde una guía conversacional tradicional hacia una 
 9. Detalle de obra con ficha, acciones AR/chat e imágenes relacionadas.
 10. Galería de imágenes relacionadas.
 
+## Pantallas implementadas (carpeta `app/`)
+
+Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
+
+- `splash.tsx`: Pantalla inicial (logo / carga)
+- `seleccionar-museo.tsx`: Selección de museo
+- `preparacion-visita.tsx`: Preparación de visita y permisos
+- `index.tsx` / `_layout.tsx`: Orquestación del Home AR y rutas
+- `ar-no-disponible.tsx`: Home AR - sin sala detectada
+- `ar-activo.tsx`: Home AR - AR activo
+- `ar-audio-activo.tsx`: Estado de audio activo
+- `ar-chat-ia.tsx`: Chat IA integrado (estado / bottom sheet)
+- `obra-identificada.tsx`: Pantalla que muestra obra identificada
+- `artwork-detail.tsx`: Detalle de obra (ficha, metadatos)
+- `artwork-images.tsx`: Galería / imágenes relacionadas
+- `cargando-ar.tsx`: Indicador de carga de AR
+- `visor-3d.tsx`: Visor 3D (sin integrar AR completo)
+- `ar-hotspot-seleccionado.tsx`: Hotspot seleccionado (estado)
+- `permissions-modal.tsx`: Modal de permisos
+- `pregunta-voz-modal.tsx`: Interfaz para preguntas por voz
+
+## Pantallas o funcionalidades pendientes
+
+- Integración de QR real con parsing y mapping a obra (QR en cámara)
+- Manejo de QR inválido y entrada manual de códigos
+- Tabs internos de Contexto curatorial y Fuentes en detalle de obra
+- Favoritos, compartir y sincronización con backend
+- Descarga y renderizado final de modelos 3D por obra en AR
+
+
 ## Capacidades conservadas
 
 - Detección BLE de sala o zona.
