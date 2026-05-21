@@ -1,3 +1,7 @@
+<p align="center">
+    <a href="http://eduardoguev.me/Tesis/" target="_blank">http://eduardoguev.me/Tesis/</a>
+</p>
+
 
 <p align="center">
     <img src="./docs/assets/museiq-icon.png" alt="Icono de MuseIQ" width="150" />
