@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type ArtworkScreenHeaderProps = {
   cultureLabel: string;
+  isFavorite?: boolean;
   onBack: () => void;
   onFavorite?: () => void;
   onShare?: () => void;
@@ -13,6 +14,7 @@ type ArtworkScreenHeaderProps = {
 
 export function ArtworkScreenHeader({
   cultureLabel,
+  isFavorite = false,
   onBack,
   onFavorite,
   onShare,
@@ -56,7 +58,11 @@ export function ArtworkScreenHeader({
             pressed ? styles.pressed : null,
           ]}
         >
-          <Ionicons color="#FFFFFF" name="heart-outline" size={29} />
+          <Ionicons
+            color={isFavorite ? musePalette.primary : "#FFFFFF"}
+            name={isFavorite ? "heart" : "heart-outline"}
+            size={29}
+          />
         </Pressable>
         <Pressable
           accessibilityLabel="Compartir obra"

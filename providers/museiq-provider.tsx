@@ -71,6 +71,7 @@ interface MuseIQContextValue {
   >;
   settings: SettingsState;
   visitedArtworkIds: string[];
+  favoriteArtworkIds: string[];
   currentArtwork: ArtworkMock | undefined;
   currentRoom: RoomMock | undefined;
   isArtworkNarrationPlaying: boolean;
@@ -85,6 +86,7 @@ interface MuseIQContextValue {
   continueVisit: () => void;
   completeWelcome: () => void;
   setDebugModeEnabled: (enabled: boolean) => void;
+  toggleFavoriteArtwork: (artworkId: string) => void;
   updateSettings: (patch: Partial<SettingsState>) => void;
   setCurrentRoomById: (roomId: string) => void;
   setCurrentZoneLabel: (label: string) => void;
@@ -146,6 +148,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     "cerca de la entrada",
   );
   const [visitedArtworkIds, setVisitedArtworkIds] = useState<string[]>([]);
+  const [favoriteArtworkIds, setFavoriteArtworkIds] = useState<string[]>([]);
   const [hasCompletedWelcome, setHasCompletedWelcome] = useState(false);
   const [debugModeEnabled, setDebugModeEnabledState] = useState(false);
   const [isArtworkNarrationPlaying, setIsArtworkNarrationPlaying] = useState(false);
@@ -196,12 +199,20 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       setVoicePrompts(snapshot.voicePrompts);
       setPermissionCatalog(snapshot.permissionCatalog);
 
-      const [welcomePreference, debugPreference] = await Promise.all([
+      const [welcomePreference, debugPreference, favoritePreference] = await Promise.all([
         getVisitorPreference("welcome_completed"),
         getVisitorPreference("debug_mode_enabled"),
+        getVisitorPreference("favorite_artwork_ids"),
       ]);
       setHasCompletedWelcome(welcomePreference === "true");
       setDebugModeEnabledState(debugPreference === "true");
+      if (favoritePreference) {
+        try {
+          setFavoriteArtworkIds(JSON.parse(favoritePreference) as string[]);
+        } catch {
+          setFavoriteArtworkIds([]);
+        }
+      }
 
       const firstRoom = snapshot.rooms[0];
       const initialRoom = firstRoom;
@@ -436,6 +447,33 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     );
   };
 
+  const toggleFavoriteArtwork = (artworkId: string) => {
+    const artwork = findArtworkById(artworkId);
+    if (!artwork) {
+      return;
+    }
+
+    setFavoriteArtworkIds((previous) => {
+      const next = previous.includes(artworkId)
+        ? previous.filter((value) => value !== artworkId)
+        : [...previous, artworkId];
+
+      setVisitorPreference("favorite_artwork_ids", JSON.stringify(next)).catch(
+        () => undefined,
+      );
+      recordAnalyticsEvent({
+        eventType: previous.includes(artworkId)
+          ? "artwork_unfavorited"
+          : "artwork_favorited",
+        artworkId,
+        roomId: artwork.roomId,
+        metadata: { title: artwork.title },
+      }).catch(() => undefined);
+
+      return next;
+    });
+  };
+
   const updateSettings = (patch: Partial<SettingsState>) => {
     setSettings((previous) => ({ ...previous, ...patch }));
   };
@@ -480,6 +518,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     setPermissionsAccepted(false);
     setPermissions(defaultPermissionStatuses);
     setSettings(defaultSettings);
+    setFavoriteArtworkIds([]);
     setVisitedArtworkIds(initialArtwork ? [initialArtwork.id] : []);
     setCurrentArtworkId(initialArtwork?.id ?? "");
     setCurrentRoomId(initialRoom?.id ?? "");
@@ -510,6 +549,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       permissions,
       settings,
       visitedArtworkIds,
+      favoriteArtworkIds,
       currentArtwork,
       currentRoom,
       isArtworkNarrationPlaying,
@@ -524,6 +564,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       continueVisit,
       completeWelcome,
       setDebugModeEnabled,
+      toggleFavoriteArtwork,
       updateSettings,
       setCurrentRoomById,
       setCurrentZoneLabel,
@@ -543,6 +584,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       currentRouteStep,
       currentZoneLabel,
       debugModeEnabled,
+      favoriteArtworkIds,
       hasCompletedWelcome,
       helpFaq,
       isArtworkNarrationPlaying,

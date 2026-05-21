@@ -55,10 +55,10 @@ export default function ArtworkImagesScreen() {
   const cultureLabel = getCultureLabel(artwork.period, artwork.author);
 
   const handleTabSelect = (tab: ArtworkTabKey) => {
-    if (tab === "details") {
+    if (tab !== "images") {
       router.replace({
         pathname: "/artwork-detail",
-        params: { artworkId: artwork.id },
+        params: { artworkId: artwork.id, tab },
       } as never);
     }
   };

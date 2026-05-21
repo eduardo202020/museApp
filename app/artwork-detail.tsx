@@ -1,5 +1,7 @@
 import { ArtworkInfoRow } from "@/components/museiq/artwork/artwork-info-row";
 import { ArtworkScreenHeader } from "@/components/museiq/artwork/artwork-screen-header";
+import type { ArtworkTabKey } from "@/components/museiq/artwork/artwork-tabs";
+import { ArtworkTabs } from "@/components/museiq/artwork/artwork-tabs";
 import { musePalette } from "@/components/museiq/theme";
 import { getArtworkImageSource } from "@/lib/artwork-images";
 import { useMuseIQ } from "@/providers/museiq-provider";
@@ -7,7 +9,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 function getCultureLabel(period?: string, author?: string) {
@@ -22,17 +25,29 @@ function getCultureLabel(period?: string, author?: string) {
 }
 
 export default function ArtworkDetailScreen() {
-  const { artworkId } = useLocalSearchParams<{ artworkId?: string }>();
+  const { artworkId, tab } = useLocalSearchParams<{
+    artworkId?: string;
+    tab?: ArtworkTabKey;
+  }>();
   const {
     currentArtwork,
     currentRoom,
+    favoriteArtworkIds,
     findArtworkById,
     findRoomById,
     museumProfile,
     selectArtwork,
+    toggleFavoriteArtwork,
   } = useMuseIQ();
+  const [activeTab, setActiveTab] = useState<ArtworkTabKey>("details");
   const artwork = findArtworkById(artworkId) ?? currentArtwork;
   const room = findRoomById(artwork?.roomId) ?? currentRoom;
+
+  useEffect(() => {
+    if (tab === "context" || tab === "sources" || tab === "details") {
+      setActiveTab(tab);
+    }
+  }, [tab]);
 
   if (!artwork) {
     return (
@@ -55,6 +70,7 @@ export default function ArtworkDetailScreen() {
   const roomName = room?.name ?? "Sala por confirmar";
   const cultureLabel = getCultureLabel(artwork.period, artwork.author);
   const museumName = museumProfile?.name ?? "MuseIQ";
+  const isFavorite = favoriteArtworkIds.includes(artwork.id);
 
   const openAr = () => {
     selectArtwork(artwork.id);
@@ -79,6 +95,22 @@ export default function ArtworkDetailScreen() {
     } as never);
   };
 
+  const handleTabSelect = (tab: ArtworkTabKey) => {
+    if (tab === "images") {
+      openImages();
+      return;
+    }
+
+    setActiveTab(tab);
+  };
+
+  const shareArtwork = () => {
+    Share.share({
+      message: `${artwork.title} - ${artwork.summary}`,
+      title: artwork.title,
+    }).catch(() => undefined);
+  };
+
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
@@ -89,10 +121,15 @@ export default function ArtworkDetailScreen() {
         >
           <ArtworkScreenHeader
             cultureLabel={cultureLabel}
+            isFavorite={isFavorite}
             onBack={() => router.back()}
+            onFavorite={() => toggleFavoriteArtwork(artwork.id)}
+            onShare={shareArtwork}
             roomName={roomName}
             title={artwork.title}
           />
+
+          <ArtworkTabs activeTab={activeTab} onSelect={handleTabSelect} />
 
           <View style={styles.hero}>
             {imageSource ? (
@@ -124,73 +161,146 @@ export default function ArtworkDetailScreen() {
             </View>
           </View>
 
-          <View style={styles.infoStack}>
-            <ArtworkInfoRow
-              icon="location-outline"
-              label="Ubicacion actual"
-              value={`${roomName}, ${museumName}`}
-            />
-            <ArtworkInfoRow
-              icon="resize-outline"
-              label="Dimensiones"
-              value="No especificadas en la ficha"
-            />
-            <ArtworkInfoRow
-              icon="cube-outline"
-              label="Material"
-              value={artwork.technique}
-            />
-            <ArtworkInfoRow
-              icon="calendar-outline"
-              label="Cultura"
-              value={cultureLabel}
-            />
-          </View>
+          {activeTab === "details" ? (
+            <>
+              <View style={styles.infoStack}>
+                <ArtworkInfoRow
+                  icon="location-outline"
+                  label="Ubicacion actual"
+                  value={`${roomName}, ${museumName}`}
+                />
+                <ArtworkInfoRow
+                  icon="resize-outline"
+                  label="Dimensiones"
+                  value="No especificadas en la ficha"
+                />
+                <ArtworkInfoRow
+                  icon="cube-outline"
+                  label="Material"
+                  value={artwork.technique}
+                />
+                <ArtworkInfoRow
+                  icon="calendar-outline"
+                  label="Cultura"
+                  value={cultureLabel}
+                />
+              </View>
 
-          <View style={styles.primaryActions}>
-            <Pressable
-              onPress={openAr}
-              style={({ pressed }) => [
-                styles.outlineButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Ionicons color="#FFFFFF" name="cube-outline" size={24} />
-              <Text style={styles.outlineButtonText}>Ver en AR</Text>
-            </Pressable>
-            <Pressable
-              onPress={openQuestion}
-              style={({ pressed }) => [
-                styles.solidButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Ionicons
-                color="#FFFFFF"
-                name="chatbubble-ellipses-outline"
-                size={24}
+              <View style={styles.primaryActions}>
+                <Pressable
+                  onPress={openAr}
+                  style={({ pressed }) => [
+                    styles.outlineButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Ionicons color="#FFFFFF" name="cube-outline" size={24} />
+                  <Text style={styles.outlineButtonText}>Ver en AR</Text>
+                </Pressable>
+                <Pressable
+                  onPress={openQuestion}
+                  style={({ pressed }) => [
+                    styles.solidButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Ionicons
+                    color="#FFFFFF"
+                    name="chatbubble-ellipses-outline"
+                    size={24}
+                  />
+                  <Text style={styles.solidButtonText}>
+                    Preguntar sobre esta obra
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Pressable
+                onPress={openImages}
+                style={({ pressed }) => [
+                  styles.relatedButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Ionicons color="#FFFFFF" name="images-outline" size={29} />
+                <Text style={styles.relatedButtonText}>
+                  Ver imagenes relacionadas
+                </Text>
+                <Ionicons color="#FFFFFF" name="chevron-forward" size={24} />
+              </Pressable>
+            </>
+          ) : null}
+
+          {activeTab === "context" ? (
+            <View style={styles.tabPanel}>
+              <Text style={styles.panelTitle}>Contexto curatorial</Text>
+              <Text style={styles.panelText}>{artwork.context}</Text>
+              <View style={styles.contextBlock}>
+                <Text style={styles.panelLabel}>Relacion con la sala</Text>
+                <Text style={styles.panelText}>{artwork.roomRelation}</Text>
+              </View>
+              <View style={styles.contextBlock}>
+                <Text style={styles.panelLabel}>Ubicacion sugerida</Text>
+                <Text style={styles.panelText}>{artwork.locationHint}</Text>
+              </View>
+              <View style={styles.tagRow}>
+                {artwork.tags.map((tag) => (
+                  <View key={tag} style={styles.tagChip}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {activeTab === "sources" ? (
+            <View style={styles.tabPanel}>
+              <Text style={styles.panelTitle}>Fuentes y sustento</Text>
+              <SourceRow
+                icon="document-text-outline"
+                label="Ficha tecnica local"
+                value={`${artwork.author}. ${artwork.year}. ${artwork.technique}.`}
               />
-              <Text style={styles.solidButtonText}>
-                Preguntar sobre esta obra
-              </Text>
-            </Pressable>
-          </View>
-
-          <Pressable
-            onPress={openImages}
-            style={({ pressed }) => [
-              styles.relatedButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Ionicons color="#FFFFFF" name="images-outline" size={29} />
-            <Text style={styles.relatedButtonText}>
-              Ver imagenes relacionadas
-            </Text>
-            <Ionicons color="#FFFFFF" name="chevron-forward" size={24} />
-          </Pressable>
+              <SourceRow
+                icon="map-outline"
+                label="Contexto de sala"
+                value={`${roomName}: ${room?.description ?? "Descripcion de sala pendiente."}`}
+              />
+              <SourceRow
+                icon="sparkles-outline"
+                label="Preguntas guia"
+                value={artwork.suggestedQuestions.join(" ")}
+              />
+              <View style={styles.sourceNote}>
+                <Ionicons color={musePalette.primary} name="information-circle-outline" size={20} />
+                <Text style={styles.sourceNoteText}>
+                  Estas fuentes locales sostienen la ficha. Las fuentes RAG ampliadas aparecen dentro del chat cuando el backend responde.
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
+    </View>
+  );
+}
+
+function SourceRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.sourceRow}>
+      <Ionicons color={musePalette.primary} name={icon} size={22} />
+      <View style={styles.sourceCopy}>
+        <Text style={styles.panelLabel}>{label}</Text>
+        <Text style={styles.panelText}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -307,6 +417,78 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontWeight: "700",
+  },
+  tabPanel: {
+    backgroundColor: "rgba(255,255,255,0.035)",
+    borderColor: "rgba(255,255,255,0.16)",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 14,
+    padding: 18,
+  },
+  panelTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  panelLabel: {
+    color: musePalette.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  panelText: {
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 23,
+  },
+  contextBlock: {
+    gap: 6,
+  },
+  tagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tagChip: {
+    backgroundColor: "rgba(22,137,206,0.20)",
+    borderColor: "rgba(22,137,206,0.42)",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tagText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sourceRow: {
+    alignItems: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+  },
+  sourceCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  sourceNote: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  sourceNoteText: {
+    color: "rgba(255,255,255,0.72)",
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 18,
   },
   backOnly: {
     alignItems: "center",
