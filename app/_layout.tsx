@@ -14,6 +14,10 @@ export default function RootLayout() {
         <ThemeProvider value={DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
+            <Stack.Screen name="seleccionar-museo" />
+            <Stack.Screen name="preparacion-visita" />
+            <Stack.Screen name="artwork-detail" />
+            <Stack.Screen name="artwork-images" />
             <Stack.Screen name="(drawer)" />
             <Stack.Screen
               name="pregunta-voz-modal"
