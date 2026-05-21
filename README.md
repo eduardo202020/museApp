@@ -1,3 +1,27 @@
+
+<p align="center">
+    <img src="./docs/assets/museiq-icon.png" alt="Icono de MuseIQ" width="150" />
+</p>
+
+<p align="center">
+    <img src="./docs/screenshots/muse-experience.png" alt="MuseIQ mostrando detección de sala, escaneo y ficha de obra" width="900" />
+</p>
+
+<h1 align="center">museApp · MuseIQ</h1>
+
+<p align="center">
+    Guía móvil contextual para museos que combina <strong>BLE</strong>, <strong>voz</strong> e <strong>IA</strong> para acompañar al visitante en tiempo real.
+</p>
+
+<p align="center">
+    <img src="https://img.shields.io/badge/Expo-54-111827?style=for-the-badge&logo=expo&logoColor=white" alt="Expo 54" />
+    <img src="https://img.shields.io/badge/React_Native-0.81-61DAFB?style=for-the-badge&logo=react&logoColor=111827" alt="React Native 0.81" />
+    <img src="https://img.shields.io/badge/BLE-Context_Aware-0F766E?style=for-the-badge" alt="BLE context aware" />
+    <img src="https://img.shields.io/badge/Voice-STT_%2B_TTS-8B5CF6?style=for-the-badge" alt="Speech to text and text to speech" />
+    <img src="https://img.shields.io/badge/SQLite-Local_State-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite local state" />
+    <img src="https://img.shields.io/badge/MuseRAG-AI_Backend-C2410C?style=for-the-badge" alt="MuseRAG backend" />
+</p>
+
 # MuseIQ
 
 > Guía móvil contextual e inmersiva para museos, con experiencia AR-first apoyada por BLE, QR, voz, MuseRAG e imágenes.
