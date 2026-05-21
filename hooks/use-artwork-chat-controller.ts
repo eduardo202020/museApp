@@ -14,6 +14,7 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
+import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const RECOGNITION_LANGUAGE = "es-ES";
@@ -573,6 +574,16 @@ export function useArtworkChatController({
     onFollowUpQuestionPress: setSuggestedQuestion,
     onHistoryTurnPress: setSuggestedQuestion,
     onOpenImage: openZoomViewer,
+    onOpenConnectionError: errorMessage
+      ? () =>
+          router.push({
+            pathname: "/error-conexion",
+            params: {
+              ...(artwork?.id ? { artworkId: artwork.id } : {}),
+              message: errorMessage,
+            },
+          } as never)
+      : undefined,
     onQuestionTextChange: updateQuestionText,
     onResponseModeChange: setResponseMode,
     onRetry: lastSubmittedQuestion ? () => askQuestion(lastSubmittedQuestion) : undefined,

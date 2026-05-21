@@ -7,6 +7,7 @@ type QrScannerOverlayProps = {
   isTorchOn: boolean;
   museumName: string;
   onCancel: () => void;
+  onManualEntry: () => void;
   onMockScan: () => void;
   onToggleTorch: () => void;
   roomName: string;
@@ -45,6 +46,7 @@ export function QrScannerOverlay({
   isTorchOn,
   museumName,
   onCancel,
+  onManualEntry,
   onMockScan,
   onToggleTorch,
   roomName,
@@ -110,6 +112,17 @@ export function QrScannerOverlay({
           <View style={styles.scanBand} />
           <View style={styles.scanLine} />
         </View>
+      </Pressable>
+
+      <Pressable
+        onPress={onManualEntry}
+        style={({ pressed }) => [
+          styles.manualEntryButton,
+          pressed ? styles.pressed : null,
+        ]}
+      >
+        <Ionicons color={musePalette.primary} name="keypad-outline" size={20} />
+        <Text style={styles.manualEntryText}>Ingresar codigo manualmente</Text>
       </Pressable>
 
       <View style={styles.actions}>
@@ -272,6 +285,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 12,
+  },
+  manualEntryButton: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: "rgba(5,8,13,0.62)",
+    borderColor: "rgba(255,255,255,0.20)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 9,
+    minHeight: 44,
+    paddingHorizontal: 16,
+  },
+  manualEntryText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
   },
   action: {
     alignItems: "center",

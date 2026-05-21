@@ -32,6 +32,7 @@ export type ChatSheetProps = {
   ) => void;
   onFollowUpQuestionPress: (value: string) => void;
   onHistoryTurnPress: (value: string) => void;
+  onOpenConnectionError?: () => void;
   onQuestionTextChange: (value: string) => void;
   onResponseModeChange: (value: "breve" | "explicada" | "infantil") => void;
   onSuggestedQuestionPress: (value: string) => void;
@@ -75,6 +76,7 @@ export function ChatSheet({
   onFollowUpQuestionPress,
   onHistoryTurnPress,
   onOpenImage,
+  onOpenConnectionError,
   onQuestionTextChange,
   onResponseModeChange,
   onSuggestedQuestionPress,
@@ -420,6 +422,11 @@ export function ChatSheet({
               {onRetry ? (
                 <Pressable onPress={onRetry} style={styles.retryButton}>
                   <Text style={styles.retryText}>Reintentar la misma pregunta</Text>
+                </Pressable>
+              ) : null}
+              {onOpenConnectionError ? (
+                <Pressable onPress={onOpenConnectionError} style={styles.connectionButton}>
+                  <Text style={styles.connectionButtonText}>Ver estado de conexion</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -977,6 +984,18 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: musePalette.danger,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  connectionButton: {
+    alignSelf: "flex-start",
+    backgroundColor: musePalette.danger,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  connectionButtonText: {
+    color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "800",
   },

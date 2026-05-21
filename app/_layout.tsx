@@ -1,7 +1,6 @@
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import "react-native-gesture-handler";
 import "react-native-reanimated";
 
 import { MuseIQProvider } from "@/providers/museiq-provider";
@@ -17,6 +16,10 @@ export default function RootLayout() {
             <Stack.Screen name="seleccionar-museo" />
             <Stack.Screen name="preparacion-visita" />
             <Stack.Screen name="obra-identificada" />
+            <Stack.Screen name="qr-invalido" />
+            <Stack.Screen name="codigo-manual" />
+            <Stack.Screen name="sin-conexion" />
+            <Stack.Screen name="error-conexion" />
             <Stack.Screen name="cargando-ar" />
             <Stack.Screen name="ar-no-disponible" />
             <Stack.Screen name="ar-activo" />
@@ -29,6 +32,10 @@ export default function RootLayout() {
             <Stack.Screen name="(drawer)" />
             <Stack.Screen
               name="pregunta-voz-modal"
+              options={{ presentation: "transparentModal", animation: "slide_from_bottom" }}
+            />
+            <Stack.Screen
+              name="permissions-modal"
               options={{ presentation: "transparentModal", animation: "slide_from_bottom" }}
             />
           </Stack>

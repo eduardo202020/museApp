@@ -14,13 +14,13 @@ type SetupItem = {
 };
 
 export default function PreparacionVisitaScreen() {
-  const { currentRoom, isDatabaseReady } = useMuseIQ();
+  const { allPermissionsGranted, currentRoom, isDatabaseReady } = useMuseIQ();
 
   const setupItems: SetupItem[] = [
     {
       icon: "bluetooth",
       label: "Bluetooth (BLE)",
-      status: "Opcional por ahora",
+      status: allPermissionsGranted ? "Listo" : "Pendiente",
     },
     {
       icon: "location-outline",
@@ -35,7 +35,7 @@ export default function PreparacionVisitaScreen() {
     {
       icon: "mic-outline",
       label: "Microfono",
-      status: "Opcional para voz",
+      status: allPermissionsGranted ? "Listo" : "Opcional para voz",
     },
     {
       icon: "wifi-outline",
@@ -50,6 +50,10 @@ export default function PreparacionVisitaScreen() {
     }
 
     router.push("/home" as never);
+  };
+
+  const openPermissions = () => {
+    router.push("/permissions-modal" as never);
   };
 
   return (
@@ -146,6 +150,19 @@ export default function PreparacionVisitaScreen() {
           </View>
 
           <View style={styles.actions}>
+            {!allPermissionsGranted ? (
+              <Pressable
+                onPress={openPermissions}
+                style={({ pressed }) => [
+                  styles.permissionsButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Ionicons color="#FFFFFF" name="shield-checkmark-outline" size={21} />
+                <Text style={styles.permissionsButtonText}>Conceder permisos</Text>
+              </Pressable>
+            ) : null}
+
             <Pressable
               onPress={startVisit}
               disabled={!isDatabaseReady}
@@ -333,6 +350,23 @@ const styles = StyleSheet.create({
   actions: {
     gap: 16,
     marginTop: 18,
+  },
+  permissionsButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(22,137,206,0.20)",
+    borderColor: "rgba(22,137,206,0.54)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    minHeight: 54,
+    paddingHorizontal: 22,
+  },
+  permissionsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "800",
   },
   primaryButton: {
     alignItems: "center",

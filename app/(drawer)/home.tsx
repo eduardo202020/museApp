@@ -192,6 +192,12 @@ export default function HomeScreen() {
     setActiveSheet(null);
   };
 
+  const openManualCodeEntry = () => {
+    setActiveSheet(null);
+    setIsTorchOn(false);
+    router.push("/codigo-manual" as never);
+  };
+
   const handleMockQrScan = () => {
     const artwork = suggestedArtwork ?? currentArtwork;
     if (!artwork) {
@@ -271,6 +277,7 @@ export default function HomeScreen() {
             isTorchOn={isTorchOn}
             museumName={museumName}
             onCancel={closeQrScanner}
+            onManualEntry={openManualCodeEntry}
             onMockScan={handleMockQrScan}
             onToggleTorch={() => setIsTorchOn((value) => !value)}
             roomName={roomName}
