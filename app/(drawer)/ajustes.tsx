@@ -1,183 +1,230 @@
 import { musePalette } from "@/components/museiq/theme";
-import {
-  AppScreen,
-  SectionCard,
-  SectionEyebrow,
-  SettingRow,
-  TopBar,
-} from "@/components/museiq/ui";
 import { useMuseIQ } from "@/providers/museiq-provider";
-import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
-
-function MenuButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.menuButton}>
-      <Ionicons color={musePalette.primary} name="menu" size={18} />
-    </Pressable>
-  );
-}
+import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import type { PropsWithChildren } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AjustesScreen() {
-  const navigation = useNavigation();
-  const { settings, updateSettings } = useMuseIQ();
+  const { settings } = useMuseIQ();
 
   return (
     <View style={styles.screen}>
-      <AppScreen contentContainerStyle={styles.content}>
-        <TopBar
-          title="MuseIQ"
-          subtitle="Ajustes"
-          left={
-            <MenuButton
-              onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Configuracion" />
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Section title="Experiencia">
+            <SettingsRow
+              icon="globe-outline"
+              label="Idioma de la aplicacion"
+              onPress={() => router.push("/idioma" as never)}
+              value="Espanol"
             />
-          }
-        />
+            <SettingsRow
+              icon="pulse-outline"
+              label="Ajustes de audio"
+              value={`Narracion ${settings.autoPlay ? "automatica" : "manual"}, velocidad y voces`}
+            />
+            <SettingsRow
+              icon="cube-outline"
+              label="Calidad de modelos 3D"
+              value="Equilibrado recomendado"
+            />
+            <SettingsRow
+              icon="download-outline"
+              label="Descargar contenido"
+              value="Gestiona modelos 3D y recursos"
+              last
+            />
+          </Section>
 
-        <SectionCard>
-          <SectionEyebrow>Experiencia</SectionEyebrow>
-          <Text style={styles.sectionTitle}>Personaliza la visita</Text>
+          <Section title="Conectividad">
+            <SettingsRow
+              icon="bluetooth-outline"
+              label="Bluetooth"
+              value="Conectado  -  Senal estable"
+              valueTone="primary"
+            />
+            <SettingsRow icon="wifi-outline" label="Red e Internet" value="MuseIQ-App_5G" />
+            <SettingsRow
+              icon="sync-outline"
+              label="Sincronizar datos"
+              value="Ultima sincronizacion: Hoy"
+              last
+            />
+          </Section>
 
-          <SettingRow
-            title="Reproducir respuestas automaticamente"
-            description="La guia lee en voz alta la respuesta apenas llega."
-            accessory={
-              <Switch
-                value={settings.autoPlay}
-                onValueChange={(value) => updateSettings({ autoPlay: value })}
-              />
-            }
-          />
-          <SettingRow
-            title="Subtitulos y texto visible"
-            description="Mantiene la informacion textual presente mientras escuchas."
-            accessory={
-              <Switch
-                value={settings.subtitles}
-                onValueChange={(value) => updateSettings({ subtitles: value })}
-              />
-            }
-          />
-          <SettingRow
-            title="Confirmaciones visuales"
-            description="Refuerza cambios de estado y acciones dentro de la visita."
-            accessory={
-              <Switch
-                value={settings.visualConfirmations}
-                onValueChange={(value) =>
-                  updateSettings({ visualConfirmations: value })
-                }
-              />
-            }
-          />
-          <SettingRow
-            title="Vibraciones sutiles"
-            description="Usa vibracion ligera al empezar o terminar acciones importantes."
-            accessory={
-              <Switch
-                value={settings.vibrations}
-                onValueChange={(value) => updateSettings({ vibrations: value })}
-              />
-            }
-          />
-        </SectionCard>
+          <Section title="Preferencias">
+            <SettingsRow
+              icon="notifications-outline"
+              label="Notificaciones"
+              value={settings.visualConfirmations ? "Activadas" : "Desactivadas"}
+            />
+            <SettingsRow
+              icon="shield-checkmark-outline"
+              label="Privacidad"
+              value="Gestionar datos y permisos"
+              last
+            />
+          </Section>
 
-        <SectionCard>
-          <SectionEyebrow>Lectura</SectionEyebrow>
-          <Text style={styles.sectionTitle}>Ritmo de narracion</Text>
-          <View style={styles.rateRow}>
-            {[
-              { label: "Pausado", value: 0.8 },
-              { label: "Natural", value: 0.95 },
-              { label: "Ligero", value: 1.05 },
-            ].map((option) => {
-              const active = settings.voiceRate === option.value;
-              return (
-                <Pressable
-                  key={option.label}
-                  onPress={() => updateSettings({ voiceRate: option.value })}
-                  style={[
-                    styles.rateChip,
-                    active ? styles.rateChipActive : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.rateChipText,
-                      active ? styles.rateChipTextActive : null,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </SectionCard>
+          <Section title="Soporte">
+            <SettingsRow icon="trash-outline" label="Borrar cache" value="0.98 GB" last />
+          </Section>
 
-        <SectionCard>
-          <SectionEyebrow>Permisos</SectionEyebrow>
-          <Text style={styles.sectionTitle}>Accesos del dispositivo</Text>
-          <Text style={styles.helperText}>
-            La app no solicita permisos al iniciar. Voz, Bluetooth y sensores se activaran solo cuando uses una funcion que los necesite.
-          </Text>
-        </SectionCard>
-      </AppScreen>
+          <Text style={styles.versionText}>Version 1.0.0 (100)  -  MuseIQ</Text>
+        </ScrollView>
+      </SafeAreaView>
     </View>
+  );
+}
+
+function Header({ title }: { title: string }) {
+  return (
+    <View style={styles.header}>
+      <Pressable onPress={() => router.back()} style={styles.headerButton}>
+        <Ionicons color="#FFFFFF" name="arrow-back" size={28} />
+      </Pressable>
+      <Text style={styles.headerTitle}>{title}</Text>
+      <View style={styles.headerButton} />
+    </View>
+  );
+}
+
+function Section({ children, title }: PropsWithChildren<{ title: string }>) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.card}>{children}</View>
+    </View>
+  );
+}
+
+function SettingsRow({
+  icon,
+  label,
+  last,
+  onPress,
+  value,
+  valueTone,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  last?: boolean;
+  onPress?: () => void;
+  value: string;
+  valueTone?: "primary";
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        last ? styles.rowLast : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <Ionicons color="#FFFFFF" name={icon} size={27} />
+      <View style={styles.rowCopy}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={[styles.rowValue, valueTone === "primary" ? styles.rowValuePrimary : null]}>
+          {value}
+        </Text>
+      </View>
+      <Ionicons color="#FFFFFF" name="chevron-forward" size={22} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
+    backgroundColor: "#02070B",
     flex: 1,
-    backgroundColor: musePalette.background,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    minHeight: 68,
+    paddingHorizontal: 22,
+  },
+  headerButton: {
+    alignItems: "center",
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  headerTitle: {
+    color: "#FFFFFF",
+    flex: 1,
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
   },
   content: {
-    gap: 16,
+    gap: 17,
+    paddingBottom: 34,
+    paddingHorizontal: 22,
   },
-  menuButton: {
-    alignItems: "center",
-    backgroundColor: musePalette.surfaceMuted,
-    borderRadius: 999,
-    height: 36,
-    justifyContent: "center",
-    width: 36,
+  section: {
+    gap: 8,
   },
   sectionTitle: {
-    color: musePalette.text,
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 10,
-  },
-  rateRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 8,
-  },
-  rateChip: {
-    backgroundColor: musePalette.surfaceMuted,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  rateChipActive: {
-    backgroundColor: musePalette.primaryStrong,
-  },
-  rateChipText: {
-    color: musePalette.text,
+    color: musePalette.primary,
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
-  rateChipTextActive: {
-    color: "#fff",
+  card: {
+    backgroundColor: "rgba(255,255,255,0.045)",
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
   },
-  helperText: {
-    color: musePalette.textMuted,
-    fontSize: 14,
+  row: {
+    alignItems: "center",
+    borderBottomColor: "rgba(255,255,255,0.10)",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 16,
+    minHeight: 70,
+    paddingHorizontal: 16,
+  },
+  rowLast: {
+    borderBottomWidth: 0,
+  },
+  rowCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  rowLabel: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  rowValue: {
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 13,
     fontWeight: "600",
-    lineHeight: 20,
-    marginBottom: 14,
+  },
+  rowValuePrimary: {
+    color: musePalette.primary,
+  },
+  versionText: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 6,
+    textAlign: "center",
+  },
+  pressed: {
+    opacity: 0.84,
   },
 });
