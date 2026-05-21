@@ -14,13 +14,13 @@ type SetupItem = {
 };
 
 export default function PreparacionVisitaScreen() {
-  const { allPermissionsGranted, currentRoom, isDatabaseReady } = useMuseIQ();
+  const { currentRoom, isDatabaseReady } = useMuseIQ();
 
   const setupItems: SetupItem[] = [
     {
       icon: "bluetooth",
       label: "Bluetooth (BLE)",
-      status: allPermissionsGranted ? "Conectado" : "Pendiente de permisos",
+      status: "Opcional por ahora",
     },
     {
       icon: "location-outline",
@@ -35,7 +35,7 @@ export default function PreparacionVisitaScreen() {
     {
       icon: "mic-outline",
       label: "Microfono",
-      status: allPermissionsGranted ? "Listo" : "Opcional para voz",
+      status: "Opcional para voz",
     },
     {
       icon: "wifi-outline",
@@ -50,10 +50,6 @@ export default function PreparacionVisitaScreen() {
     }
 
     router.push("/home" as never);
-
-    if (!allPermissionsGranted) {
-      requestAnimationFrame(() => router.push("/permissions-modal" as never));
-    }
   };
 
   return (

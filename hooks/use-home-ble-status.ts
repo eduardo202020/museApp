@@ -1,16 +1,8 @@
 import { useBleScanner } from "@/hooks/use-ble-scanner";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 export function useHomeBleStatus() {
   const scanner = useBleScanner();
-
-  useEffect(() => {
-    scanner.startScanning().catch(() => undefined);
-
-    return () => {
-      scanner.stopScanning();
-    };
-  }, [scanner.startScanning, scanner.stopScanning]);
 
   const dominantBeacon = scanner.beacons[0];
 
@@ -23,7 +15,7 @@ export function useHomeBleStatus() {
       return `error · ${scanner.error}`;
     }
 
-    return scanner.isScanning ? "esperando senal" : "sin senal";
+    return scanner.isScanning ? "esperando senal" : "BLE en pausa";
   }, [dominantBeacon, scanner.error, scanner.isScanning]);
 
   const bleSignalLabel = useMemo(() => {
@@ -35,7 +27,7 @@ export function useHomeBleStatus() {
       return "Error BLE";
     }
 
-    return scanner.isScanning ? "Buscando sala" : "Sin senal";
+    return scanner.isScanning ? "Buscando sala" : "BLE opcional";
   }, [dominantBeacon, scanner.error, scanner.isScanning]);
 
   return {

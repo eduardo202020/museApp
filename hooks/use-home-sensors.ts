@@ -131,11 +131,11 @@ export function useHomeSensors() {
       try {
         const sensorsModule = await import("expo-sensors");
         const Pedometer = sensorsModule.Pedometer;
-        const permissionResponse = await Pedometer.requestPermissionsAsync();
+        const permissionResponse = await Pedometer.getPermissionsAsync();
 
         if (!permissionResponse.granted) {
           if (isMounted) {
-            setStepCountStatus("permiso requerido");
+            setStepCountStatus("opcional");
             setStepCount(null);
           }
           return;

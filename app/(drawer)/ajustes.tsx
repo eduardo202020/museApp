@@ -1,7 +1,6 @@
 import { musePalette } from "@/components/museiq/theme";
 import {
   AppScreen,
-  PrimaryButton,
   SectionCard,
   SectionEyebrow,
   SettingRow,
@@ -10,7 +9,6 @@ import {
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
 function MenuButton({ onPress }: { onPress: () => void }) {
@@ -121,15 +119,10 @@ export default function AjustesScreen() {
 
         <SectionCard>
           <SectionEyebrow>Permisos</SectionEyebrow>
-          <Text style={styles.sectionTitle}>Revisar accesos del dispositivo</Text>
+          <Text style={styles.sectionTitle}>Accesos del dispositivo</Text>
           <Text style={styles.helperText}>
-            Si mas adelante quieres activar voz, Bluetooth o sensores, puedes revisar los permisos desde aqui.
+            La app no solicita permisos al iniciar. Voz, Bluetooth y sensores se activaran solo cuando uses una funcion que los necesite.
           </Text>
-          <PrimaryButton
-            icon="shield-checkmark-outline"
-            label="Revisar permisos"
-            onPress={() => router.push("/permissions-modal" as never)}
-          />
         </SectionCard>
       </AppScreen>
     </View>

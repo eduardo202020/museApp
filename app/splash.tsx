@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 export default function SplashScreen() {
-  const { allPermissionsGranted, isDatabaseReady, museumProfile } = useMuseIQ();
+  const { isDatabaseReady, museumProfile } = useMuseIQ();
 
   useEffect(() => {
     if (!isDatabaseReady) {
@@ -15,13 +15,10 @@ export default function SplashScreen() {
 
     const timeout = setTimeout(() => {
       router.replace("/(drawer)/(tabs)" as never);
-      if (!allPermissionsGranted) {
-        requestAnimationFrame(() => router.push("/permissions-modal" as never));
-      }
     }, 2200);
 
     return () => clearTimeout(timeout);
-  }, [allPermissionsGranted, isDatabaseReady]);
+  }, [isDatabaseReady]);
 
   return (
     <View style={styles.container}>
@@ -39,9 +36,7 @@ export default function SplashScreen() {
       <View style={styles.statusBlock}>
         <ActivityIndicator color={musePalette.primaryStrong} />
         <Text style={styles.statusText}>Preparando recorrido</Text>
-        <Text style={styles.helperText}>
-          Verificando permisos y configuración del museo
-        </Text>
+        <Text style={styles.helperText}>Cargando configuración del museo</Text>
       </View>
     </View>
   );

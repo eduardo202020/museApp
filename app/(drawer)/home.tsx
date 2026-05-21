@@ -123,7 +123,7 @@ export default function HomeScreen() {
     ? "Esto es una sugerencia, escanea el QR para confirmar."
     : isRoomDetected
       ? "Senal estable  -  Estas cerca de varias obras."
-      : "Consejo: activa el Bluetooth para mejor experiencia.";
+      : "Escanea un QR para identificar una obra.";
 
   useEffect(() => {
     if (!hasNearbySuggestion || !suggestedArtwork?.id || isSuggestionDismissed) {
@@ -136,14 +136,14 @@ export default function HomeScreen() {
 
   const openChat = () => {
     router.push({
-      pathname: "/pregunta-voz-modal",
+      pathname: "/ar-chat-ia",
       params: currentArtwork?.id ? { artworkId: currentArtwork.id } : {},
     } as never);
   };
 
   const openCentralQuestion = () => {
     router.push({
-      pathname: "/pregunta-voz-modal",
+      pathname: "/ar-chat-ia",
       params: currentArtwork?.id ? { artworkId: currentArtwork.id } : {},
     } as never);
   };
@@ -202,7 +202,7 @@ export default function HomeScreen() {
     setActiveSheet(null);
     setIsTorchOn(false);
     router.push({
-      pathname: "/artwork-detail",
+      pathname: "/obra-identificada",
       params: { artworkId: artwork.id },
     } as never);
   };
@@ -233,7 +233,7 @@ export default function HomeScreen() {
                     !isRoomDetected ? styles.roomStatusSearching : null,
                   ]}
                 >
-                  {isRoomDetected ? roomName : "Buscando sala..."}
+                  {isRoomDetected ? roomName : "Sala por confirmar"}
                 </Text>
                 {isRoomDetected ? <View style={styles.signalDot} /> : null}
                 {isRoomDetected ? (
@@ -301,10 +301,10 @@ export default function HomeScreen() {
                 <View style={styles.searchingCard}>
                   <Ionicons color="#FFFFFF" name="radio-outline" size={72} />
                   <Text style={styles.searchingTitle}>
-                    Camina por el museo para detectar tu sala
+                    Escanea el QR de una obra para iniciar
                   </Text>
                   <Text style={styles.searchingText}>
-                    La senal BLE nos ayuda a saber donde estas.
+                    La deteccion por Bluetooth queda pausada mientras terminamos el flujo.
                   </Text>
                 </View>
               )}

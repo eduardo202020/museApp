@@ -74,6 +74,8 @@
         }
       ],
       "expo-sqlite",
+      "expo-asset",
+      "expo-web-browser",
       [
         "expo-speech-recognition",
         {

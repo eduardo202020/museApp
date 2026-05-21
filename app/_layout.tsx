@@ -16,15 +16,19 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="seleccionar-museo" />
             <Stack.Screen name="preparacion-visita" />
+            <Stack.Screen name="obra-identificada" />
+            <Stack.Screen name="cargando-ar" />
+            <Stack.Screen name="ar-no-disponible" />
+            <Stack.Screen name="ar-activo" />
+            <Stack.Screen name="ar-chat-ia" />
+            <Stack.Screen name="ar-hotspot-seleccionado" />
+            <Stack.Screen name="ar-audio-activo" />
+            <Stack.Screen name="visor-3d" />
             <Stack.Screen name="artwork-detail" />
             <Stack.Screen name="artwork-images" />
             <Stack.Screen name="(drawer)" />
             <Stack.Screen
               name="pregunta-voz-modal"
-              options={{ presentation: "transparentModal", animation: "slide_from_bottom" }}
-            />
-            <Stack.Screen
-              name="permissions-modal"
               options={{ presentation: "transparentModal", animation: "slide_from_bottom" }}
             />
           </Stack>

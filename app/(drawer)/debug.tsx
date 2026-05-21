@@ -45,12 +45,11 @@ export default function DebugScreen() {
   } = useHomeSensors();
 
   useEffect(() => {
-    startScanning().catch(() => undefined);
     refreshAnalyticsSummary().catch(() => undefined);
     return () => {
       stopScanning();
     };
-  }, [refreshAnalyticsSummary, startScanning, stopScanning]);
+  }, [refreshAnalyticsSummary, stopScanning]);
 
   const confirmReset = () => {
     Alert.alert(
@@ -155,6 +154,21 @@ export default function DebugScreen() {
                 ? "Escaneando dispositivos cercanos."
                 : "El escaneo no esta activo en este momento."}
           </Text>
+          <Pressable
+            onPress={() => {
+              if (isScanning) {
+                stopScanning();
+                return;
+              }
+
+              startScanning().catch(() => undefined);
+            }}
+            style={styles.scanButton}
+          >
+            <Text style={styles.scanButtonText}>
+              {isScanning ? "Detener escaneo" : "Escanear BLE"}
+            </Text>
+          </Pressable>
           <View style={styles.beaconList}>
             {beacons.length ? (
               beacons.slice(0, 5).map((beacon) => (
@@ -243,6 +257,21 @@ const styles = StyleSheet.create({
   beaconList: {
     gap: 10,
     marginTop: 12,
+  },
+  scanButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: musePalette.primaryStrong,
+    borderRadius: 12,
+    justifyContent: "center",
+    marginTop: 12,
+    minHeight: 40,
+    paddingHorizontal: 14,
+  },
+  scanButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "900",
   },
   beaconItem: {
     backgroundColor: musePalette.surfaceMuted,

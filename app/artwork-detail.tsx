@@ -58,13 +58,16 @@ export default function ArtworkDetailScreen() {
 
   const openAr = () => {
     selectArtwork(artwork.id);
-    router.replace("/home" as never);
+    router.push({
+      pathname: "/cargando-ar",
+      params: { artworkId: artwork.id },
+    } as never);
   };
 
   const openQuestion = () => {
     selectArtwork(artwork.id);
     router.push({
-      pathname: "/pregunta-voz-modal",
+      pathname: "/ar-chat-ia",
       params: { artworkId: artwork.id },
     } as never);
   };
