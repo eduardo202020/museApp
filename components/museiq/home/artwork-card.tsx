@@ -1,7 +1,6 @@
 import { musePalette } from "@/components/museiq/theme";
 import {
   PrimaryButton,
-  SecondaryButton,
   SectionCard,
   StatusPill,
 } from "@/components/museiq/ui";

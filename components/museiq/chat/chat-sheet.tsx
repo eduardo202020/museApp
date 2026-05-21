@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 
-type ChatSheetProps = {
+export type ChatSheetProps = {
   artworkTitle: string;
   errorMessage: string;
   followUpQuestions: string[];
