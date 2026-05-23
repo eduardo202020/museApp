@@ -39,7 +39,7 @@ export default function InfoRecorridoScreen() {
   const openArtworkChat = (artwork: ArtworkMock) => {
     selectArtwork(artwork.id);
     router.push({
-      pathname: "/ar-chat-ia",
+      pathname: "/pregunta-voz-modal",
       params: { artworkId: artwork.id },
     } as never);
   };

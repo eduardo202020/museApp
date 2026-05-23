@@ -4,12 +4,22 @@ import {
   ArTopStatusHud,
   arColors,
 } from "@/components/museiq/ar-flow";
+import { ZoomImageViewer } from "@/components/museiq/chat/zoom-image-viewer";
 import { musePalette } from "@/components/museiq/theme";
+import { useArtworkChatController } from "@/hooks/use-artwork-chat-controller";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ArChatIaScreen() {
@@ -22,45 +32,43 @@ export default function ArChatIaScreen() {
     museumProfile,
     selectArtwork,
   } = useMuseIQ();
-  const artwork = findArtworkById(artworkId) ?? currentArtwork;
+  const resolvedArtworkId =
+    typeof artworkId === "string" ? artworkId : undefined;
+  const artwork = findArtworkById(resolvedArtworkId) ?? currentArtwork;
   const room = findRoomById(artwork?.roomId) ?? currentRoom;
+  const { chatSheetProps, closeZoomViewer, zoomImage } =
+    useArtworkChatController({ artworkId: resolvedArtworkId });
 
   if (!artwork) {
-    return (
-      <View style={styles.screen}>
-        <StatusBar style="light" />
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>Chat no disponible</Text>
-          </View>
-        </SafeAreaView>
-      </View>
-    );
+    return <View style={styles.screen} />;
   }
 
   const museumName = museumProfile?.name ?? "MuseIQ";
   const roomName = room?.name ?? "Sala por confirmar";
   const statusLabel = room?.statusLabel ?? "Senal estable";
-  const suggestions = artwork.suggestedQuestions.length
-    ? artwork.suggestedQuestions.slice(0, 3)
-    : [
-        `Que representa ${artwork.title}?`,
-        "Por que es importante?",
-        "Que otros elementos se observan?",
-      ];
+  const quickQuestions = chatSheetProps.suggestedQuestions.slice(0, 4);
+  const hasResponse = chatSheetProps.response.trim().length > 0;
+  const canSubmit = chatSheetProps.questionText.trim().length > 0;
 
   const openAudioActive = () => {
     selectArtwork(artwork.id);
-    router.push({ pathname: "/ar-audio-activo", params: { artworkId: artwork.id } } as never);
+    router.push({
+      pathname: "/ar-audio-activo",
+      params: { artworkId: artwork.id },
+    } as never);
   };
 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <ArSceneBackground dim="rgba(5,8,13,0.24)" />
+      <ArSceneBackground dim="rgba(5,8,13,0.18)" />
 
       <SafeAreaView style={styles.safeArea}>
-        <ArTopStatusHud museumName={museumName} roomName={roomName} statusLabel={statusLabel} />
+        <ArTopStatusHud
+          museumName={museumName}
+          roomName={roomName}
+          statusLabel={statusLabel}
+        />
 
         <ArSideRail
           active="chat"
@@ -75,9 +83,20 @@ export default function ArChatIaScreen() {
           <View style={styles.sheetHandle} />
 
           <View style={styles.sheetHeaderRow}>
-            <Text style={styles.sheetTitle}>MuseIQ IA</Text>
-            <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}>
-              <Ionicons color="#FFFFFF" name="close" size={17} />
+            <View>
+              <Text style={styles.sheetTitle}>Preguntar</Text>
+              <Text numberOfLines={1} style={styles.sheetSubtitle}>
+                {artwork.title}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => router.back()}
+              style={({ pressed }) => [
+                styles.closeButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Ionicons color="#FFFFFF" name="close" size={18} />
             </Pressable>
           </View>
 
@@ -86,42 +105,177 @@ export default function ArChatIaScreen() {
               <Ionicons color="#D7F7D3" name="sparkles-outline" size={13} />
               <Text style={styles.topicChipTextActive}>Sugeridas</Text>
             </View>
-            <View style={styles.topicChip}>
-              <Text style={styles.topicChipText}>Obra</Text>
-            </View>
-            <View style={styles.topicChip}>
-              <Text style={styles.topicChipText}>Sala</Text>
-            </View>
+            <Pressable
+              onPress={() => chatSheetProps.onResponseModeChange("breve")}
+              style={[
+                styles.topicChip,
+                chatSheetProps.responseMode === "breve"
+                  ? styles.topicChipActive
+                  : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.topicChipText,
+                  chatSheetProps.responseMode === "breve"
+                    ? styles.topicChipTextActive
+                    : null,
+                ]}
+              >
+                Breve
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => chatSheetProps.onResponseModeChange("explicada")}
+              style={[
+                styles.topicChip,
+                chatSheetProps.responseMode === "explicada"
+                  ? styles.topicChipActive
+                  : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.topicChipText,
+                  chatSheetProps.responseMode === "explicada"
+                    ? styles.topicChipTextActive
+                    : null,
+                ]}
+              >
+                Explicada
+              </Text>
+            </Pressable>
           </View>
 
           <View style={styles.questionStack}>
-            {suggestions.map((question) => (
-              <Text key={question} numberOfLines={1} style={styles.questionBubble}>
-                {question}
-              </Text>
+            {quickQuestions.map((question) => (
+              <Pressable
+                key={question}
+                onPress={() =>
+                  chatSheetProps.onSuggestedQuestionPress(question)
+                }
+                style={({ pressed }) => [
+                  styles.questionBubble,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text numberOfLines={2} style={styles.questionBubbleText}>
+                  {question}
+                </Text>
+              </Pressable>
             ))}
           </View>
 
           <View style={styles.answerCard}>
             <View style={styles.answerHeader}>
-              <Ionicons color={musePalette.success} name="sparkles-outline" size={18} />
+              <Ionicons
+                color={musePalette.success}
+                name="sparkles-outline"
+                size={18}
+              />
               <Text style={styles.answerHeaderText}>Respuesta IA</Text>
+              {chatSheetProps.isLoading ? (
+                <ActivityIndicator color={musePalette.success} size="small" />
+              ) : null}
             </View>
-            <Text numberOfLines={5} style={styles.answerText}>
-              {artwork.title} sintetiza poder, identidad y memoria cultural. Sus formas y simbolos conectan ritual, autoridad y cosmovision.
-            </Text>
-            <Pressable style={({ pressed }) => [styles.sourcesButton, pressed ? styles.pressed : null]}>
-              <Text style={styles.sourcesButtonText}>Ver fuentes y sustento</Text>
-              <Ionicons color={musePalette.success} name="document-text-outline" size={15} />
-            </Pressable>
+
+            <ScrollView
+              contentContainerStyle={styles.answerScrollContent}
+              style={styles.answerScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.answerText}>
+                {hasResponse
+                  ? chatSheetProps.response
+                  : "Haz una pregunta sobre esta obra y la respuesta aparecera aqui."}
+              </Text>
+
+              {chatSheetProps.errorMessage ? (
+                <Text style={styles.errorText}>
+                  {chatSheetProps.errorMessage}
+                </Text>
+              ) : null}
+
+              {chatSheetProps.sources.slice(0, 3).map((source) => (
+                <Pressable
+                  key={source.id}
+                  onPress={() => {
+                    const sourceImages = chatSheetProps.sources
+                      .filter((item) => item.image_url)
+                      .map((item, index) => ({
+                        id: item.id,
+                        uri: item.image_url as string,
+                        label: item.source_label ?? `Fuente ${index + 1}`,
+                      }));
+
+                    const imageIndex = sourceImages.findIndex(
+                      (item) => item.id === source.id,
+                    );
+
+                    if (sourceImages.length && imageIndex >= 0) {
+                      chatSheetProps.onOpenImage(sourceImages, imageIndex);
+                    }
+                  }}
+                  style={({ pressed }) => [
+                    styles.sourceCard,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Text style={styles.sourceLabel}>
+                    {source.source_label ?? "Fuente"}
+                  </Text>
+                  <Text numberOfLines={2} style={styles.sourceText}>
+                    {source.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
 
           <View style={styles.inputRow}>
-            <Text style={styles.inputPlaceholder}>Escribe tu pregunta...</Text>
-            <Ionicons color="#FFFFFF" name="mic-outline" size={21} />
+            <TextInput
+              value={chatSheetProps.questionText}
+              onChangeText={chatSheetProps.onQuestionTextChange}
+              placeholder="Escribe tu pregunta..."
+              placeholderTextColor="rgba(255,255,255,0.55)"
+              multiline
+              style={styles.input}
+            />
+
+            <Pressable
+              onPress={
+                canSubmit
+                  ? chatSheetProps.onSubmit
+                  : chatSheetProps.onToggleListening
+              }
+              style={({ pressed }) => [
+                styles.inputAction,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Ionicons
+                color="#FFFFFF"
+                name={canSubmit ? "send" : "mic-outline"}
+                size={20}
+              />
+            </Pressable>
           </View>
+
+          {chatSheetProps.voiceStatusMessage ? (
+            <Text style={styles.helperText}>
+              {chatSheetProps.voiceStatusMessage}
+            </Text>
+          ) : null}
         </View>
       </SafeAreaView>
+
+      {zoomImage ? (
+        <ZoomImageViewer
+          images={zoomImage.images}
+          initialIndex={zoomImage.initialIndex}
+          onClose={closeZoomViewer}
+        />
+      ) : null}
     </View>
   );
 }
@@ -138,7 +292,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sideRail: {
-    top: "34%",
+    top: "31%",
   },
   chatSheet: {
     backgroundColor: arColors.glassFillStrong,
@@ -146,7 +300,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     borderWidth: 1,
-    gap: 11,
+    gap: 12,
+    maxHeight: "74%",
     paddingBottom: 16,
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -165,8 +320,15 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "800",
+  },
+  sheetSubtitle: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
+    maxWidth: 240,
   },
   closeButton: {
     alignItems: "center",
@@ -174,9 +336,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.20)",
     borderRadius: 999,
     borderWidth: 1,
-    height: 30,
+    height: 32,
     justifyContent: "center",
-    width: 30,
+    width: 32,
   },
   topicTabs: {
     flexDirection: "row",
@@ -192,6 +354,7 @@ const styles = StyleSheet.create({
     gap: 5,
     justifyContent: "center",
     minHeight: 34,
+    paddingHorizontal: 10,
   },
   topicChipActive: {
     backgroundColor: "rgba(67,147,57,0.58)",
@@ -208,20 +371,23 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   questionStack: {
-    gap: 7,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   questionBubble: {
-    alignSelf: "flex-start",
     backgroundColor: "rgba(70,130,60,0.35)",
     borderColor: "rgba(97,188,73,0.4)",
     borderRadius: 12,
     borderWidth: 1,
+    maxWidth: "100%",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  questionBubbleText: {
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
-    maxWidth: "92%",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   answerCard: {
     backgroundColor: "rgba(255,255,255,0.035)",
@@ -229,6 +395,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     gap: 8,
+    minHeight: 230,
     padding: 12,
   },
   answerHeader: {
@@ -241,52 +408,75 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
+  answerScroll: {
+    flex: 1,
+  },
+  answerScrollContent: {
+    gap: 10,
+    paddingBottom: 8,
+  },
   answerText: {
     color: "rgba(255,255,255,0.86)",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
-    lineHeight: 18,
+    lineHeight: 20,
   },
-  sourcesButton: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    borderColor: "rgba(97,188,73,0.58)",
-    borderRadius: 10,
+  sourceCard: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "rgba(255,255,255,0.1)",
+    borderRadius: 12,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 7,
-    minHeight: 34,
-    paddingHorizontal: 10,
+    gap: 4,
+    padding: 10,
   },
-  sourcesButtonText: {
-    color: "#9EE087",
+  sourceLabel: {
+    color: musePalette.success,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sourceText: {
+    color: "rgba(255,255,255,0.74)",
+    fontSize: 11,
+    fontWeight: "600",
+    lineHeight: 16,
+  },
+  errorText: {
+    color: "#FFB2A6",
     fontSize: 12,
     fontWeight: "700",
   },
   inputRow: {
-    alignItems: "center",
+    alignItems: "flex-end",
     borderColor: "rgba(255,255,255,0.24)",
     borderRadius: 15,
     borderWidth: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 48,
+    gap: 10,
+    minHeight: 54,
     paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  inputPlaceholder: {
-    color: "rgba(255,255,255,0.70)",
+  input: {
+    color: "#FFFFFF",
+    flex: 1,
     fontSize: 13,
     fontWeight: "600",
+    maxHeight: 90,
+    paddingVertical: 0,
   },
-  emptyState: {
+  inputAction: {
     alignItems: "center",
-    flex: 1,
+    backgroundColor: "rgba(67,147,57,0.72)",
+    borderRadius: 999,
+    height: 36,
     justifyContent: "center",
+    width: 36,
   },
-  emptyTitle: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "800",
+  helperText: {
+    color: "rgba(255,255,255,0.66)",
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
   },
   pressed: {
     opacity: 0.84,

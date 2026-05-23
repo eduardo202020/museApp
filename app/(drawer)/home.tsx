@@ -130,7 +130,7 @@ export default function HomeScreen() {
 
   const openCentralQuestion = () => {
     router.push({
-      pathname: "/ar-chat-ia",
+      pathname: "/pregunta-voz-modal",
       params: currentArtwork?.id ? { artworkId: currentArtwork.id } : {},
     } as never);
   };

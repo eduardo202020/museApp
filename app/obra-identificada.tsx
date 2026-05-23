@@ -71,7 +71,7 @@ export default function ObraIdentificadaScreen() {
 
   const openQuestion = () => {
     selectArtwork(artwork.id);
-    router.push({ pathname: "/ar-chat-ia", params: { artworkId: artwork.id } } as never);
+    router.push({ pathname: "/pregunta-voz-modal", params: { artworkId: artwork.id } } as never);
   };
 
   return (
