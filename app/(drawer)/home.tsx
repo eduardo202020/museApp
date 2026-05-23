@@ -116,14 +116,7 @@ export default function HomeScreen() {
   const roomName = activeRoom?.name ?? "Buscando sala";
   const centralLabel = shouldShowSuggestionCta
     ? "Ver sugerencia"
-    : isRoomDetected
-      ? "Preguntar sobre\nla sala"
-      : "Preguntar sobre\nel museo";
-  const bottomStatus = shouldShowSuggestionCta
-    ? "Esto es una sugerencia, escanea el QR para confirmar."
-    : isRoomDetected
-      ? "Senal estable  -  Estas cerca de varias obras."
-      : "Escanea un QR para identificar una obra.";
+    : "Preguntar";
 
   useEffect(() => {
     if (!hasNearbySuggestion || !suggestedArtwork?.id || isSuggestionDismissed) {
@@ -133,13 +126,6 @@ export default function HomeScreen() {
 
     setIsSuggestionVisible(true);
   }, [hasNearbySuggestion, isSuggestionDismissed, suggestedArtwork?.id]);
-
-  const openChat = () => {
-    router.push({
-      pathname: "/ar-chat-ia",
-      params: currentArtwork?.id ? { artworkId: currentArtwork.id } : {},
-    } as never);
-  };
 
   const openCentralQuestion = () => {
     router.push({
@@ -225,50 +211,15 @@ export default function HomeScreen() {
       <View style={styles.cameraShade} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.topHud}>
-          <View style={styles.museumStatusCard}>
-            <Ionicons color="#FFFFFF" name="business-outline" size={34} />
-            <View style={styles.museumStatusText}>
-              <Text numberOfLines={1} style={styles.museumName}>
-                {museumName}
-              </Text>
-              <View style={styles.roomStatusRow}>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.roomStatus,
-                    !isRoomDetected ? styles.roomStatusSearching : null,
-                  ]}
-                >
-                  {isRoomDetected ? roomName : "Sala por confirmar"}
-                </Text>
-                {isRoomDetected ? <View style={styles.signalDot} /> : null}
-                {isRoomDetected ? (
-                  <Text style={styles.signalText}>{bleSignalLabel}</Text>
-                ) : (
-                  <Text style={styles.searchingDot}>.</Text>
-                )}
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.topRightStack}>
-            <Pressable
-              onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-              style={({ pressed }) => [
-                styles.menuButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Ionicons color="#FFFFFF" name="menu" size={38} />
-            </Pressable>
-            <View style={styles.bleMiniBadge}>
-              <Ionicons
-                color={isRoomDetected ? musePalette.primary : "#FFFFFF"}
-                name="bluetooth-outline"
-                size={25}
-              />
-            </View>
-          </View>
+          <Pressable
+            onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+            style={({ pressed }) => [
+              styles.menuButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Ionicons color="#FFFFFF" name="menu" size={38} />
+          </Pressable>
         </View>
 
         {activeSheet === "qr" ? (
@@ -319,16 +270,6 @@ export default function HomeScreen() {
 
             <View style={styles.sideActions}>
               <Pressable
-                onPress={openChat}
-                style={({ pressed }) => [
-                  styles.sideButton,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Ionicons color="#FFFFFF" name="chatbubble-ellipses-outline" size={31} />
-                <Text style={styles.sideButtonLabel}>Chat</Text>
-              </Pressable>
-              <Pressable
                 onPress={repeatArtworkNarration}
                 style={({ pressed }) => [
                   styles.sideButton,
@@ -339,7 +280,7 @@ export default function HomeScreen() {
                 <Ionicons
                   color="#FFFFFF"
                   name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
-                  size={34}
+                  size={26}
                 />
                 <Text style={styles.sideButtonLabel}>Audio</Text>
               </Pressable>
@@ -364,7 +305,7 @@ export default function HomeScreen() {
                   <Ionicons
                     color={shouldShowSuggestionCta ? musePalette.primary : "#FFFFFF"}
                     name="sparkles-outline"
-                    size={55}
+                    size={44}
                   />
                 </Pressable>
 
@@ -384,21 +325,6 @@ export default function HomeScreen() {
               >
                 {centralLabel}
               </Text>
-
-              <View style={styles.bottomStatusBar}>
-                <Ionicons
-                  color={musePalette.primary}
-                  name={
-                    shouldShowSuggestionCta || isRoomDetected
-                      ? "radio-outline"
-                      : "information-circle-outline"
-                  }
-                  size={21}
-                />
-                <Text numberOfLines={1} style={styles.bottomStatusText}>
-                  {bottomStatus}
-                </Text>
-              </View>
             </View>
           </>
         )}
@@ -465,68 +391,9 @@ const styles = StyleSheet.create({
   },
   topHud: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     paddingHorizontal: 22,
     paddingTop: 14,
-  },
-  museumStatusCard: {
-    alignItems: "center",
-    backgroundColor: glassFill,
-    borderColor: glassBorder,
-    borderRadius: 18,
-    borderWidth: 1,
-    flex: 1,
-    flexDirection: "row",
-    gap: 12,
-    maxWidth: 315,
-    minHeight: 78,
-    paddingHorizontal: 16,
-  },
-  museumStatusText: {
-    flex: 1,
-    gap: 5,
-    minWidth: 0,
-  },
-  museumName: {
-    color: "#FFFFFF",
-    fontSize: 19,
-    fontWeight: "800",
-  },
-  roomStatusRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 7,
-  },
-  roomStatus: {
-    color: "#FFFFFF",
-    flexShrink: 1,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  roomStatusSearching: {
-    color: musePalette.primary,
-  },
-  signalDot: {
-    backgroundColor: musePalette.primary,
-    borderRadius: 999,
-    height: 7,
-    width: 7,
-  },
-  signalText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  searchingDot: {
-    color: musePalette.primary,
-    fontSize: 20,
-    fontWeight: "900",
-    marginLeft: "auto",
-  },
-  topRightStack: {
-    alignItems: "center",
-    gap: 14,
-    marginLeft: 14,
   },
   menuButton: {
     alignItems: "center",
@@ -537,16 +404,6 @@ const styles = StyleSheet.create({
     height: 66,
     justifyContent: "center",
     width: 66,
-  },
-  bleMiniBadge: {
-    alignItems: "center",
-    backgroundColor: "rgba(8,10,14,0.54)",
-    borderColor: "rgba(255,255,255,0.24)",
-    borderRadius: 16,
-    borderWidth: 1,
-    height: 46,
-    justifyContent: "center",
-    width: 46,
   },
   sceneLayer: {
     flex: 1,
@@ -617,32 +474,33 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   sideActions: {
-    gap: 10,
+    flexDirection: "row",
+    gap: 8,
     position: "absolute",
     right: 22,
-    top: "43%",
+    top: 112,
   },
   sideButton: {
     alignItems: "center",
     backgroundColor: glassFill,
     borderColor: glassBorder,
-    borderRadius: 17,
+    borderRadius: 16,
     borderWidth: 1,
-    gap: 8,
-    height: 89,
+    gap: 5,
+    height: 66,
     justifyContent: "center",
-    width: 72,
+    width: 66,
   },
   sideButtonActive: {
     borderColor: musePalette.primary,
   },
   sideButtonLabel: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: "600",
   },
   bottomHud: {
-    paddingBottom: 18,
+    paddingBottom: 12,
     paddingHorizontal: 22,
   },
   bottomActionsRow: {
@@ -663,50 +521,32 @@ const styles = StyleSheet.create({
   },
   centralAction: {
     alignItems: "center",
-    backgroundColor: "rgba(28,23,18,0.62)",
-    borderColor: "rgba(255,255,255,0.9)",
+    backgroundColor: "rgba(10,12,16,0.48)",
+    borderColor: "rgba(255,255,255,0.72)",
     borderRadius: 999,
-    borderWidth: 2,
-    height: 132,
+    borderWidth: 1.5,
+    height: 104,
     justifyContent: "center",
-    marginBottom: 18,
-    width: 132,
+    marginBottom: 10,
+    width: 104,
   },
   centralActionSuggested: {
-    backgroundColor: "rgba(5,8,13,0.62)",
-    borderColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "rgba(5,8,13,0.52)",
+    borderColor: "rgba(255,255,255,0.86)",
   },
   centralActionLabel: {
     alignSelf: "center",
     color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "600",
-    lineHeight: 25,
-    marginTop: -10,
-    minHeight: 54,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 20,
+    marginTop: -1,
+    minHeight: 34,
     textAlign: "center",
     width: 170,
   },
   centralActionLabelSuggested: {
     color: musePalette.primary,
-  },
-  bottomStatusBar: {
-    alignItems: "center",
-    backgroundColor: "rgba(5,8,13,0.62)",
-    borderColor: "rgba(255,255,255,0.18)",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 8,
-    minHeight: 44,
-    paddingHorizontal: 17,
-  },
-  bottomStatusText: {
-    color: "rgba(255,255,255,0.74)",
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
   },
   pressed: {
     opacity: 0.84,
