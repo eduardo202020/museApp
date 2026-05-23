@@ -38,7 +38,8 @@ MuseIQ está evolucionando desde una guía conversacional tradicional hacia una 
 - BLE detecta sala o zona y resume el estado en el HUD.
 - Explorar sala y Escanear QR son acciones flotantes, no tabs.
 - Chat y Audio viven como acciones laterales.
-- Info, fuentes e imágenes aparecen dentro del detalle, chat o paneles secundarios.
+- Las preguntas se abren como modal inferior, no como pantalla independiente.
+- El detalle de obra se simplifica a `Detalles` e `Imagenes`.
 - El color principal es el azul MuseIQ `#1689CE`.
 
 ## Flujo implementado
@@ -62,7 +63,7 @@ MuseIQ está evolucionando desde una guía conversacional tradicional hacia una 
 
 El flujo visual completo incluye mas pantallas que el MVP actual. La cobertura real queda asi:
 
-- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` como overlay simulado, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, tabs de `Contexto` y `Fuentes`, `R Cargando AR`, `10 AR activo`, `11 Hotspot seleccionado`, `12 Chat IA`, `9 Audio activo`, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
+- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` como overlay simulado, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, `R Cargando AR`, `10 AR activo`, `11 Hotspot seleccionado`, `12 Chat IA` como modal inferior, `9 Audio activo`, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
 - Parcial: `W Modelo 3D no disponible`. El visor 3D y el fallback de AR existen, pero falta una pantalla dedicada para el estado de modelo no disponible.
 - Faltante: `T Actualizacion` y pantalla dedicada completa de `W Modelo 3D no disponible`.
 
@@ -94,14 +95,14 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `error-conexion.tsx`: Estado de error MuseRAG/backend con reintento
 - `ar-activo.tsx`: Home AR - AR activo
 - `ar-audio-activo.tsx`: Estado de audio activo
-- `ar-chat-ia.tsx`: Chat IA integrado (estado / bottom sheet)
+- `ar-chat-ia.tsx`: Vista AR del flujo de preguntar
 - `obra-identificada.tsx`: Pantalla que muestra obra identificada
-- `artwork-detail.tsx`: Detalle de obra (ficha, metadatos)
+- `artwork-detail.tsx`: Detalle de obra simplificado (tabs de Detalles e Imagenes)
 - `artwork-images.tsx`: Galería / imágenes relacionadas
 - `cargando-ar.tsx`: Indicador de carga de AR
 - `visor-3d.tsx`: Visor 3D (sin integrar AR completo)
 - `ar-hotspot-seleccionado.tsx`: Hotspot seleccionado (estado)
-- `pregunta-voz-modal.tsx`: Interfaz para preguntas por voz
+- `pregunta-voz-modal.tsx`: Modal inferior de preguntas con voz prioritaria, markdown y fuentes
 
 ## Pantallas o funcionalidades pendientes
 
@@ -155,6 +156,8 @@ npm run dev:client
 ## Estado actual
 
 La base AR-first ya está montada para el flujo visual principal y para las pantallas auxiliares del drawer. El drawer actual queda deliberadamente compacto: Inicio, Explorar salas, Cambiar museo, Configuracion, Ayuda, Modo tecnico, Perfil desde el encabezado e Idioma desde Configuracion. `Mis visitas`, `Favoritos` e `Historial` se conservan como rutas internas ocultas, pero ya no saturan el menu.
+
+El Home fue depurado para dejar solo las acciones esenciales del HUD: menu, nombre de sala, audio, explorar, preguntar y QR. `Preguntar` ahora abre un modal que sube desde abajo, prioriza la interacción por voz y renderiza la respuesta en Markdown.
 
 El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
 

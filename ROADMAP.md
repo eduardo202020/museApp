@@ -1,6 +1,6 @@
 # Roadmap MuseIQ AR-first
 
-Actualizado: 2026-05-21
+Actualizado: 2026-05-22
 
 Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de referencia incluidas en `pantallas/`. El objetivo es convertir MuseIQ en una guía inmersiva, sobria y museográfica, sin perder las funciones ya existentes de BLE, MuseRAG, voz, imágenes y modo técnico.
 
@@ -9,8 +9,9 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - La experiencia principal es Home AR, no un set de tabs.
 - BLE detecta sala/zona; no debe afirmar obra exacta sin QR o selección explícita.
 - QR identifica una obra exacta.
-- Info y fuentes no son acciones permanentes del Home.
+- Info y fuentes no son acciones permanentes del Home ni tabs persistentes del detalle.
 - Chat y Audio sí pueden estar visibles como acciones laterales.
+- Preguntar debe sentirse como un modal contextual que emerge sobre la experiencia.
 - La interfaz usa azul MuseIQ como color primario, con botones de borde en el HUD.
 - El modo técnico queda separado del visitante común.
 
@@ -35,16 +36,15 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - [x] `9 Obra identificada` / `03-03.png`: resultado tras QR simulado (`app/obra-identificada.tsx`).
 - [x] `A Detalles de la obra` / `05-02.png`: ficha base (`app/artwork-detail.tsx`).
 - [x] `B Imágenes relacionadas` / `05-03.png`: galería (`app/artwork-images.tsx`).
-- [x] Tab funcional de `Contexto` dentro de ficha.
-- [x] Tab funcional de `Fuentes` / sustento dentro de ficha.
-- [x] Favoritos y compartir conectados a estado real.
+- [x] Detalle simplificado a tabs de `Detalles` e `Imagenes`.
+- [x] Acciones superiores de favoritos y compartir retiradas del header de obra.
 
 ### AR, chat y audio
 
 - [x] `R Cargando AR` / `08-03.png`: carga visual de modelo (`app/cargando-ar.tsx`).
 - [x] `10 AR activo (obra 3D)`: escena AR temporal con modelo 3D (`app/ar-activo.tsx`).
 - [x] `11 Hotspot seleccionado`: detalle de hotspot (`app/ar-hotspot-seleccionado.tsx`).
-- [x] `12 Chat IA (bottom sheet)`: pantalla/estado de chat (`app/ar-chat-ia.tsx`).
+- [x] `12 Chat IA (bottom sheet/modal)`: flujo de preguntar como modal inferior (`app/pregunta-voz-modal.tsx`).
 - [x] `9 Audio activo`: pantalla de reproducción (`app/ar-audio-activo.tsx`).
 - [x] `V AR no disponible`: fallback a visor 3D (`app/ar-no-disponible.tsx`).
 - [x] `U Visor 3D sin AR`: visor 3D (`app/visor-3d.tsx`).
@@ -61,10 +61,11 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - [x] `O Modo técnico`: pantalla alineada al flujo con diagnostico, informacion de dispositivo y herramientas avanzadas.
 - [x] `H Idioma`.
 - [x] Drawer depurado: `Mis visitas`, `Favoritos` e `Historial` se retiraron del menu y quedan como rutas internas ocultas.
+- [x] Header del drawer simplificado: sin marca textual, con cierre junto al perfil y cierre de sesion al fondo.
 
 ### Estados transversales
 
-- [x] `Q Permisos`: modal integrado desde preparación de visita (`app/permissions-modal.tsx`).
+- [x] `Q Permisos`: preparación simplificada y solicitud directa de permisos desde la pantalla de visita.
 - [x] `P Sin conexión`: estado offline de Home/obra (`app/sin-conexion.tsx`).
 - [x] `S Error de conexión`: fallo de MuseRAG/backend con reintento (`app/error-conexion.tsx`).
 - [ ] `T Actualización`: pantalla de nueva versión disponible.
@@ -94,10 +95,11 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - [x] Explorar sala.
 - [x] Escaneo QR simulado.
 - [x] Obra identificada después de QR (`obra-identificada.tsx`, `artwork-detail.tsx`).
+- [x] HUD superior simplificado con nombre de sala entre menu y audio (`home.tsx`).
 - [x] Carga de AR (`cargando-ar.tsx`).
 - [x] AR activo / obra 3D (`ar-activo.tsx`, `visor-3d.tsx`, `cargando-ar.tsx`).
 - [x] Hotspot seleccionado (`ar-hotspot-seleccionado.tsx`).
-- [x] Chat IA como componente/estado (`ar-chat-ia.tsx`).
+- [x] Chat IA como modal inferior con voz prioritaria (`pregunta-voz-modal.tsx`).
 - [x] Audio activo con control básico (`ar-audio-activo.tsx`).
 - [x] Estados de QR invalido, error de conexión y sin conexión (`X`, `S`, `P`) como pantallas de flujo.
 - [ ] Estado de actualización (`T`) integrado al flujo.
