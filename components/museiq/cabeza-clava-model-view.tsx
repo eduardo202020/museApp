@@ -1,5 +1,4 @@
-import cabezaClavaGlb from "@/assets/models/cabeza_clava.glb";
-import cabezaClavaLiteGlb from "@/assets/models/cabeza_clava-2.glb";
+import { DEFAULT_ARTWORK_MODEL, getArtworkModelAssetForArtwork } from "@/lib/artwork-models";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
@@ -76,6 +75,7 @@ type GltfNode = {
 };
 
 type GltfMaterial = {
+  emissiveTexture?: { index?: number };
   pbrMetallicRoughness?: {
     baseColorFactor?: [number, number, number, number];
     baseColorTexture?: { index?: number };
@@ -119,6 +119,8 @@ type CameraFit = {
   target: THREE.Vector3;
 };
 
+type ModelPreparationProgress = (progress: number) => void;
+
 const COMPONENT_BYTE_SIZE: Record<number, number> = {
   5120: 1,
   5121: 1,
@@ -145,33 +147,37 @@ const ATTRIBUTE_MAP: Record<string, string> = {
   TEXCOORD_0: "uv",
 };
 
-const INTRO_ROTATION_RADIANS = Math.PI * 2;
+const INTRO_ROTATION_RADIANS = Math.PI * 4;
 const INTRO_ROTATION_SPEED = 0.012;
 const MODEL_WIDTH_FILL_RATIO = 0.98;
 const MAX_MODEL_ZOOM = 3.4;
 const MIN_MODEL_ZOOM = 0.72;
+const MAX_VERTICAL_ROTATION = Math.PI * 0.32;
 
 const embeddedTextureFileCache = new Map<string, Promise<EmbeddedTextureAsset>>();
+const preparedModelCache = new Map<ModelAsset, Promise<THREE.Object3D>>();
 
-export const TUMBA_PRINCIPAL_SIPAN_ARTWORK_ID = "obra-1-1-C";
+export const getCabezaClavaModelAssetForArtwork = getArtworkModelAssetForArtwork;
 
-export function getCabezaClavaModelAssetForArtwork(artworkId?: string) {
-  return artworkId === TUMBA_PRINCIPAL_SIPAN_ARTWORK_ID
-    ? {
-        asset: cabezaClavaLiteGlb,
-        label: "cabeza_clava-2.glb",
-      }
-    : {
-        asset: cabezaClavaGlb,
-        label: "cabeza_clava.glb",
-      };
+export function prepareCabezaClavaModel(
+  modelAsset: ModelAsset,
+  onProgress?: ModelPreparationProgress,
+) {
+  const cachedPreparation = preparedModelCache.get(modelAsset);
+  if (cachedPreparation) {
+    return cachedPreparation;
+  }
+
+  const preparation = loadCabezaClavaModelSource(modelAsset, onProgress);
+  preparedModelCache.set(modelAsset, preparation);
+  return preparation;
 }
 
 export function CabezaClavaModelView({
   autoRotate = true,
   interactive = false,
-  modelAsset = cabezaClavaGlb,
-  modelLabel = "cabeza_clava.glb",
+  modelAsset = DEFAULT_ARTWORK_MODEL.asset,
+  modelLabel = DEFAULT_ARTWORK_MODEL.label,
   showStatus = true,
   style,
 }: CabezaClavaModelViewProps) {
@@ -180,8 +186,10 @@ export function CabezaClavaModelView({
   const animationFrameRef = useRef<number | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const isMountedRef = useRef(true);
-  const manualRotationRef = useRef(0);
+  const manualRotationYRef = useRef(0);
+  const manualRotationXRef = useRef(0);
   const lastGestureDxRef = useRef(0);
+  const lastGestureDyRef = useRef(0);
   const modelZoomRef = useRef(1);
   const initialPinchDistanceRef = useRef<number | null>(null);
   const initialPinchZoomRef = useRef(1);
@@ -210,6 +218,7 @@ export function CabezaClavaModelView({
         onPanResponderGrant: (event) => {
           hasUserInteractedRef.current = true;
           lastGestureDxRef.current = 0;
+          lastGestureDyRef.current = 0;
           const pinchDistance = getTouchDistance(event.nativeEvent.touches);
           initialPinchDistanceRef.current = pinchDistance;
           initialPinchZoomRef.current = modelZoomRef.current;
@@ -230,6 +239,7 @@ export function CabezaClavaModelView({
               initialPinchZoomRef.current * (pinchDistance / initialPinchDistanceRef.current);
             modelZoomRef.current = clamp(nextZoom, MIN_MODEL_ZOOM, MAX_MODEL_ZOOM);
             lastGestureDxRef.current = gesture.dx;
+            lastGestureDyRef.current = gesture.dy;
             return;
           }
 
@@ -237,16 +247,25 @@ export function CabezaClavaModelView({
           initialPinchZoomRef.current = modelZoomRef.current;
 
           const delta = gesture.dx - lastGestureDxRef.current;
+          const deltaY = gesture.dy - lastGestureDyRef.current;
           lastGestureDxRef.current = gesture.dx;
-          manualRotationRef.current += delta * 0.012;
+          lastGestureDyRef.current = gesture.dy;
+          manualRotationYRef.current += delta * 0.012;
+          manualRotationXRef.current = clamp(
+            manualRotationXRef.current + deltaY * 0.01,
+            -MAX_VERTICAL_ROTATION,
+            MAX_VERTICAL_ROTATION,
+          );
         },
         onPanResponderRelease: () => {
           lastGestureDxRef.current = 0;
+          lastGestureDyRef.current = 0;
           initialPinchDistanceRef.current = null;
           initialPinchZoomRef.current = modelZoomRef.current;
         },
         onPanResponderTerminate: () => {
           lastGestureDxRef.current = 0;
+          lastGestureDyRef.current = 0;
           initialPinchDistanceRef.current = null;
           initialPinchZoomRef.current = modelZoomRef.current;
         },
@@ -303,7 +322,8 @@ export function CabezaClavaModelView({
           ) {
             spin = Math.min(INTRO_ROTATION_RADIANS, spin + INTRO_ROTATION_SPEED);
           }
-          model.rotation.y = spin + manualRotationRef.current;
+          model.rotation.x = manualRotationXRef.current;
+          model.rotation.y = spin + manualRotationYRef.current;
           model.scale.copy(modelBaseScale);
           if (cameraFit) {
             applyCameraZoom(camera, cameraFit, modelZoomRef.current);
@@ -423,8 +443,24 @@ function patchUnsupportedPixelStore(gl: ExpoWebGLRenderingContext) {
 }
 
 async function loadCabezaClavaModel(modelAsset: ModelAsset) {
+  const preparedModel = preparedModelCache.get(modelAsset);
+  if (preparedModel) {
+    preparedModelCache.delete(modelAsset);
+    return preparedModel;
+  }
+
+  return loadCabezaClavaModelSource(modelAsset);
+}
+
+async function loadCabezaClavaModelSource(
+  modelAsset: ModelAsset,
+  onProgress?: ModelPreparationProgress,
+) {
+  onProgress?.(12);
   const asset = Asset.fromModule(modelAsset);
   await asset.downloadAsync();
+
+  onProgress?.(42);
   const uri = asset.localUri ?? asset.uri;
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: "base64",
@@ -435,7 +471,10 @@ async function loadCabezaClavaModel(modelAsset: ModelAsset) {
     bytes.byteOffset + bytes.byteLength,
   );
 
-  return parseGlbGeometry(arrayBuffer);
+  onProgress?.(76);
+  const model = await parseGlbGeometry(arrayBuffer);
+  onProgress?.(100);
+  return model;
 }
 
 async function parseGlbGeometry(arrayBuffer: ArrayBuffer) {
@@ -547,7 +586,6 @@ function buildMesh(
 
   mesh?.primitives.forEach((primitive) => {
     const geometry = new THREE.BufferGeometry();
-    const material = createMaterial(json, primitive, resources);
 
     Object.entries(primitive.attributes).forEach(([attributeName, accessorIndex]) => {
       const threeAttributeName = ATTRIBUTE_MAP[attributeName];
@@ -571,6 +609,12 @@ function buildMesh(
       geometry.computeVertexNormals();
     }
 
+    const material = createMaterial(
+      json,
+      primitive,
+      resources,
+      Boolean(geometry.getAttribute("color")),
+    );
     geometry.computeBoundingSphere();
     meshGroup.add(new THREE.Mesh(geometry, material));
   });
@@ -584,17 +628,21 @@ async function loadGltfResources(
   binStart: number,
 ): Promise<GltfResources> {
   const textures = new Map<number, THREE.Texture>();
-  const baseColorTextureIndices = new Set<number>();
+  const textureIndices = new Set<number>();
 
   json.materials?.forEach((material) => {
-    const textureIndex = material.pbrMetallicRoughness?.baseColorTexture?.index;
-    if (typeof textureIndex === "number") {
-      baseColorTextureIndices.add(textureIndex);
+    const baseColorTextureIndex = material.pbrMetallicRoughness?.baseColorTexture?.index;
+    const emissiveTextureIndex = material.emissiveTexture?.index;
+    if (typeof baseColorTextureIndex === "number") {
+      textureIndices.add(baseColorTextureIndex);
+    }
+    if (typeof emissiveTextureIndex === "number") {
+      textureIndices.add(emissiveTextureIndex);
     }
   });
 
   await Promise.all(
-    Array.from(baseColorTextureIndices).map(async (textureIndex) => {
+    Array.from(textureIndices).map(async (textureIndex) => {
       try {
         const texture = json.textures?.[textureIndex];
         const imageIndex = texture?.source;
@@ -629,28 +677,45 @@ function createMaterial(
   json: GltfJson,
   primitive: GltfPrimitive,
   resources: GltfResources,
+  hasVertexColors = false,
 ) {
   const materialSource =
     typeof primitive.material === "number" ? json.materials?.[primitive.material] : undefined;
   const pbr = materialSource?.pbrMetallicRoughness;
   const baseColorFactor = pbr?.baseColorFactor ?? [1, 1, 1, 1];
   const baseTextureIndex = pbr?.baseColorTexture?.index;
+  const emissiveTextureIndex = materialSource?.emissiveTexture?.index;
   const baseTexture =
     typeof baseTextureIndex === "number" ? resources.textures.get(baseTextureIndex) : undefined;
-  const material = new THREE.MeshStandardMaterial({
+  const emissiveTexture =
+    typeof emissiveTextureIndex === "number"
+      ? resources.textures.get(emissiveTextureIndex)
+      : undefined;
+  const resolvedColorTexture = baseTexture ?? emissiveTexture;
+  const materialParams: ConstructorParameters<typeof THREE.MeshStandardMaterial>[0] = {
     color: new THREE.Color(baseColorFactor[0], baseColorFactor[1], baseColorFactor[2]),
-    map: baseTexture,
     metalness: pbr?.metallicFactor ?? 0,
     opacity: baseColorFactor[3] ?? 1,
     roughness: pbr?.roughnessFactor ?? 0.9,
     side: THREE.DoubleSide,
     transparent: (baseColorFactor[3] ?? 1) < 1,
-  });
+    vertexColors: hasVertexColors,
+  };
 
-  if (baseTexture) {
+  if (resolvedColorTexture) {
+    materialParams.map = resolvedColorTexture;
+  }
+
+  if (emissiveTexture) {
+    materialParams.emissiveMap = emissiveTexture;
+  }
+
+  const material = new THREE.MeshStandardMaterial(materialParams);
+
+  if (resolvedColorTexture) {
     material.emissive.set(0x050302);
-    material.emissiveIntensity = 0.08;
-  } else {
+    material.emissiveIntensity = emissiveTexture ? 0.18 : 0.08;
+  } else if (!hasVertexColors) {
     material.color.set(0xc19464);
     material.emissive.set(0x352111);
     material.emissiveIntensity = 0.5;

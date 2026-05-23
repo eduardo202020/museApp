@@ -1,10 +1,13 @@
 import {
-  ArArtifactModel,
   ArBottomHud,
   ArSceneBackground,
   ArTopStatusHud,
   arColors,
 } from "@/components/museiq/ar-flow";
+import {
+  getCabezaClavaModelAssetForArtwork,
+  prepareCabezaClavaModel,
+} from "@/components/museiq/cabeza-clava-model-view";
 import { musePalette } from "@/components/museiq/theme";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,21 +36,101 @@ export default function CargandoArScreen() {
   const artwork = findArtworkById(artworkId) ?? currentArtwork;
   const room = findRoomById(artwork?.roomId) ?? currentRoom;
   const [progress, setProgress] = useState(0);
+  const [targetProgress, setTargetProgress] = useState(0);
+  const [statusText, setStatusText] = useState("Iniciando carga del modelo 3D...");
+  const [isModelReady, setIsModelReady] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setProgress((value) => {
-        if (value >= 100) {
-          clearInterval(timer);
-          return 100;
+      setProgress((currentProgress) => {
+        if (currentProgress >= targetProgress) {
+          return currentProgress;
         }
 
-        return Math.min(100, value + 4);
+        const remaining = targetProgress - currentProgress;
+        const step = remaining > 24 ? 3 : remaining > 8 ? 2 : 1;
+        return Math.min(targetProgress, currentProgress + step);
       });
-    }, 90);
+    }, 28);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [targetProgress]);
+
+  useEffect(() => {
+    if (!artwork) {
+      return;
+    }
+
+    let isMounted = true;
+    const model = getCabezaClavaModelAssetForArtwork(artwork.id);
+
+    setProgress(0);
+    setTargetProgress(0);
+    setIsModelReady(false);
+    setStatusText("Descargando el modelo 3D...");
+
+    prepareCabezaClavaModel(model.asset, (nextProgress) => {
+      if (!isMounted) {
+        return;
+      }
+
+      setTargetProgress((currentProgress) => Math.max(currentProgress, nextProgress));
+
+      if (nextProgress < 42) {
+        setStatusText("Descargando el modelo 3D...");
+        return;
+      }
+      if (nextProgress < 76) {
+        setStatusText("Leyendo el archivo del modelo...");
+        return;
+      }
+      if (nextProgress < 100) {
+        setStatusText("Procesando la geometria y las texturas...");
+        return;
+      }
+      setStatusText("Modelo listo. Abriendo la experiencia...");
+    })
+      .then(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        setTargetProgress(100);
+        setIsModelReady(true);
+        setStatusText("Modelo listo. Abriendo la experiencia...");
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setStatusText(
+          error instanceof Error ? error.message : "No se pudo preparar el modelo 3D.",
+        );
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [artwork, selectArtwork]);
+
+  const displayProgress = Math.max(0, Math.min(100, Math.round(progress)));
+
+  useEffect(() => {
+    if (!artwork || !isModelReady || displayProgress < 100) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      selectArtwork(artwork.id);
+      router.replace({
+        pathname: "/ar-activo",
+        params: { artworkId: artwork.id, prepared: "1" },
+      } as never);
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [artwork, displayProgress, isModelReady, selectArtwork]);
 
   if (!artwork) {
     return (
@@ -70,13 +153,8 @@ export default function CargandoArScreen() {
   const roomName = room?.name ?? "Sala por confirmar";
   const statusLabel = room?.statusLabel ?? "Senal estable";
   const loadingCopy = getLoadingCopy(artwork.title);
-  const progressLabel = `${progress}%`;
-  const isModelReady = progress >= 100;
-
-  const openArActive = () => {
-    selectArtwork(artwork.id);
-    router.push({ pathname: "/ar-activo", params: { artworkId: artwork.id } } as never);
-  };
+  const progressLabel = `${displayProgress}%`;
+  const showReadyState = isModelReady && displayProgress >= 100;
 
   return (
     <View style={styles.screen}>
@@ -87,12 +165,14 @@ export default function CargandoArScreen() {
         <ArTopStatusHud museumName={museumName} roomName={roomName} statusLabel={statusLabel} />
 
         <View style={styles.loadingCenter}>
-          {isModelReady ? (
+          {showReadyState ? (
             <View style={styles.readyBlock}>
-              <ArArtifactModel artworkId={artwork.id} interactive style={styles.readyModel} />
+              <View style={styles.readyBadge}>
+                <Ionicons color={musePalette.success} name="checkmark-circle" size={54} />
+              </View>
               <Text style={styles.loadingTitle}>Modelo 3D listo</Text>
               <Text numberOfLines={2} style={styles.loadingSubtitle}>
-                Modelo 3D preparado para la vista temporal.
+                La experiencia AR se abrira automaticamente.
               </Text>
             </View>
           ) : (
@@ -105,7 +185,7 @@ export default function CargandoArScreen() {
 
               <Text style={styles.loadingTitle}>Cargando experiencia AR...</Text>
               <Text numberOfLines={2} style={styles.loadingSubtitle}>
-                {loadingCopy}
+                {statusText || loadingCopy}
               </Text>
 
               <View style={styles.tipCard}>
@@ -115,7 +195,7 @@ export default function CargandoArScreen() {
                     <Text style={styles.tipTitle}>Consejo</Text>
                   </View>
                   <Text style={styles.tipText}>
-                    AR aun no esta operativo. Primero terminaremos las pantallas y usaremos el modelo 3D como vista temporal.
+                    Esta carga ya prepara el modelo real. Cuando termine, la pantalla siguiente entrara con la obra lista.
                   </Text>
                 </View>
                 <Ionicons color="rgba(255,255,255,0.34)" name="phone-portrait-outline" size={54} />
@@ -128,11 +208,11 @@ export default function CargandoArScreen() {
           bottomIcon="cube-outline"
           bottomText={isModelReady ? "Modelo 3D listo." : "Cargando modelo 3D..."}
           centralActive
-          centralLabel={isModelReady ? "Ver modelo 3D" : "Preparando modelo"}
-          onCentral={openArActive}
+          centralLabel={isModelReady ? "Abriendo experiencia" : "Preparando modelo"}
+          onCentral={() => undefined}
           onExplore={() => router.push("/home" as never)}
           onQr={() => router.push("/home" as never)}
-          progress={progress}
+          progress={displayProgress}
           progressLabel={progressLabel}
         />
       </SafeAreaView>
@@ -157,14 +237,13 @@ const styles = StyleSheet.create({
   readyBlock: {
     alignItems: "center",
     flex: 1,
+    gap: 14,
     justifyContent: "center",
     width: "100%",
   },
-  readyModel: {
-    alignSelf: "stretch",
-    flex: 1,
-    minHeight: 0,
-    width: "100%",
+  readyBadge: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   ringOuter: {
     alignItems: "center",

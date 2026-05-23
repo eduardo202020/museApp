@@ -261,7 +261,6 @@ export function ArArtifactModel({
 
   return (
     <View style={[styles.modelWrap, style]}>
-      <View pointerEvents="none" style={styles.modelGlow} />
       <CabezaClavaModelView
         autoRotate={autoRotate}
         interactive={interactive}
@@ -495,17 +494,6 @@ const styles = StyleSheet.create({
     minHeight: 0,
     overflow: "visible",
     width: "100%",
-  },
-  modelGlow: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 999,
-    height: "72%",
-    maxHeight: 620,
-    maxWidth: 420,
-    minHeight: 280,
-    minWidth: 180,
-    position: "absolute",
-    width: "62%",
   },
   modelCanvas: {
     ...StyleSheet.absoluteFillObject,

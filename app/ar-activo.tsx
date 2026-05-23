@@ -27,7 +27,10 @@ const defaultHotspots: Hotspot[] = [
 ];
 
 export default function ArActivoScreen() {
-  const { artworkId } = useLocalSearchParams<{ artworkId?: string }>();
+  const { artworkId, prepared } = useLocalSearchParams<{
+    artworkId?: string;
+    prepared?: string;
+  }>();
   const {
     currentArtwork,
     currentRoom,
@@ -60,6 +63,7 @@ export default function ArActivoScreen() {
   const roomName = room?.name ?? "Sala por confirmar";
   const statusLabel = room?.statusLabel ?? "Senal estable";
   const hotspots = defaultHotspots;
+  const showModelStatus = prepared !== "1";
 
   const openChat = () => {
     selectArtwork(artwork.id);
@@ -89,7 +93,7 @@ export default function ArActivoScreen() {
 
         <View style={styles.sceneArea}>
           <View style={styles.modelStage}>
-            <ArArtifactModel artworkId={artwork.id} interactive />
+            <ArArtifactModel artworkId={artwork.id} interactive showStatus={showModelStatus} />
             {hotspots.map((hotspot) => (
               <Pressable
                 key={hotspot.id}
