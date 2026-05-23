@@ -114,6 +114,7 @@ export default function HomeScreen() {
   const shouldShowSuggestionCta = hasNearbySuggestion && !isSuggestionDismissed;
   const museumName = museumProfile?.name ?? "MuseIQ";
   const roomName = activeRoom?.name ?? "Buscando sala";
+  const topRoomLabel = isRoomDetected ? roomName : "Reconociendo sala";
   const centralLabel = shouldShowSuggestionCta
     ? "Ver sugerencia"
     : "Preguntar";
@@ -211,6 +212,12 @@ export default function HomeScreen() {
       <View style={styles.cameraShade} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.topHud}>
+          <View pointerEvents="none" style={styles.topHudCenter}>
+            <Text numberOfLines={1} style={styles.topHudRoomLabel}>
+              {topRoomLabel}
+            </Text>
+          </View>
+
           <Pressable
             onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
             style={({ pressed }) => [
@@ -219,6 +226,22 @@ export default function HomeScreen() {
             ]}
           >
             <Ionicons color="#FFFFFF" name="menu" size={38} />
+          </Pressable>
+
+          <Pressable
+            onPress={repeatArtworkNarration}
+            style={({ pressed }) => [
+              styles.sideButton,
+              isArtworkNarrationPlaying ? styles.sideButtonActive : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Ionicons
+              color="#FFFFFF"
+              name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
+              size={26}
+            />
+            <Text style={styles.sideButtonLabel}>Audio</Text>
           </Pressable>
         </View>
 
@@ -266,24 +289,6 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               )}
-            </View>
-
-            <View style={styles.sideActions}>
-              <Pressable
-                onPress={repeatArtworkNarration}
-                style={({ pressed }) => [
-                  styles.sideButton,
-                  isArtworkNarrationPlaying ? styles.sideButtonActive : null,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Ionicons
-                  color="#FFFFFF"
-                  name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
-                  size={26}
-                />
-                <Text style={styles.sideButtonLabel}>Audio</Text>
-              </Pressable>
             </View>
 
             <View style={styles.bottomHud}>
@@ -391,9 +396,26 @@ const styles = StyleSheet.create({
   },
   topHud: {
     flexDirection: "row",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
     paddingHorizontal: 22,
     paddingTop: 14,
+  },
+  topHudCenter: {
+    alignItems: "center",
+    justifyContent: "center",
+    left: 92,
+    position: "absolute",
+    right: 92,
+    top: 14,
+  },
+  topHudRoomLabel: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800",
+    minHeight: 66,
+    paddingHorizontal: 12,
+    paddingTop: 20,
+    textAlign: "center",
   },
   menuButton: {
     alignItems: "center",
@@ -472,13 +494,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     lineHeight: 22,
-  },
-  sideActions: {
-    flexDirection: "row",
-    gap: 8,
-    position: "absolute",
-    right: 22,
-    top: 112,
   },
   sideButton: {
     alignItems: "center",

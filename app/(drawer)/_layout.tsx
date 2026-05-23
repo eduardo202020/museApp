@@ -2,7 +2,6 @@ import { musePalette } from "@/components/museiq/theme";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerContentScrollView } from "@react-navigation/drawer";
-import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -26,7 +25,7 @@ const secondaryRoutes: DrawerRoute[] = [
 ];
 
 export default function DrawerLayout() {
-  const { museumProfile, resetVisitorExperience } = useMuseIQ();
+  const { resetVisitorExperience } = useMuseIQ();
 
   return (
     <Drawer
@@ -41,26 +40,7 @@ export default function DrawerLayout() {
           >
             <View style={styles.drawerHeader}>
               <View style={styles.brandRow}>
-                <View style={styles.brandLockup}>
-                  <Image
-                    contentFit="contain"
-                    source={require("@/assets/images/splash-icon.png")}
-                    style={styles.brandMark}
-                  />
-                  <Text style={styles.drawerBrand}>
-                    Muse<Text style={styles.brandAccent}>IQ</Text>
-                  </Text>
-                </View>
-
-                <Pressable
-                  onPress={() => props.navigation.closeDrawer()}
-                  style={({ pressed }) => [
-                    styles.closeButton,
-                    pressed ? styles.pressed : null,
-                  ]}
-                >
-                  <Ionicons color="#FFFFFF" name="close" size={23} />
-                </Pressable>
+                <View />
               </View>
 
               <Pressable
@@ -74,15 +54,24 @@ export default function DrawerLayout() {
                   <Ionicons color="#FFFFFF" name="person" size={30} />
                 </View>
                 <View style={styles.profileCopy}>
-                  <Text style={styles.visitorName}>Visitante</Text>
+                  <View style={styles.visitorRow}>
+                    <Text style={styles.visitorName}>Visitante</Text>
+                    <Pressable
+                      onPress={() => props.navigation.closeDrawer()}
+                      style={({ pressed }) => [
+                        styles.closeButton,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Ionicons color="#FFFFFF" name="close" size={23} />
+                    </Pressable>
+                  </View>
                   <Text style={styles.profileLink}>Ver perfil</Text>
                 </View>
               </Pressable>
-
-              <Text numberOfLines={1} style={styles.drawerMuseum}>
-                {museumProfile?.name ?? "Museo"}
-              </Text>
             </View>
+
+            <View style={styles.headerDivider} />
 
             <View style={styles.menuSection}>
               {primaryRoutes.map((item) => (
@@ -112,20 +101,23 @@ export default function DrawerLayout() {
 
             <View style={styles.separator} />
 
-            <Pressable
-              onPress={() => {
-                resetVisitorExperience()
-                  .then(() => router.replace("/" as never))
-                  .catch(() => undefined);
-              }}
-              style={({ pressed }) => [
-                styles.logoutButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Ionicons color={musePalette.danger} name="log-out-outline" size={25} />
-              <Text style={styles.logoutText}>Cerrar sesion</Text>
-            </Pressable>
+            <View style={styles.footerSection}>
+              <View style={styles.footerDivider} />
+              <Pressable
+                onPress={() => {
+                  resetVisitorExperience()
+                    .then(() => router.replace("/" as never))
+                    .catch(() => undefined);
+                }}
+                style={({ pressed }) => [
+                  styles.logoutButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Ionicons color={musePalette.danger} name="log-out-outline" size={25} />
+                <Text style={styles.logoutText}>Cerrar sesion</Text>
+              </Pressable>
+            </View>
           </DrawerContentScrollView>
         );
       }}
@@ -201,33 +193,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  brandLockup: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 9,
-  },
   brandMark: {
-    height: 42,
-    width: 42,
-  },
-  drawerBrand: {
-    color: "#FFFFFF",
-    fontSize: 28,
-    fontWeight: "900",
-    letterSpacing: 0,
-  },
-  brandAccent: {
-    color: musePalette.primary,
-  },
-  closeButton: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(255,255,255,0.10)",
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
+    height: 30,
+    width: 30,
   },
   profileRow: {
     alignItems: "center",
@@ -248,6 +216,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
   },
+  visitorRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    width: "100%",
+  },
   visitorName: {
     color: "#FFFFFF",
     fontSize: 22,
@@ -258,11 +231,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
   },
-  drawerMuseum: {
-    color: "rgba(255,255,255,0.58)",
-    fontSize: 13,
-    fontWeight: "700",
-    lineHeight: 18,
+  headerDivider: {
+    backgroundColor: "rgba(255,255,255,0.16)",
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 30,
+    marginVertical: 2,
   },
   menuSection: {
     gap: 2,
@@ -302,6 +275,16 @@ const styles = StyleSheet.create({
   hiddenDrawerItem: {
     display: "none",
   },
+  footerSection: {
+    marginTop: "auto",
+    paddingBottom: 10,
+  },
+  footerDivider: {
+    backgroundColor: "rgba(255,255,255,0.16)",
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 30,
+    marginBottom: 12,
+  },
   logoutButton: {
     alignItems: "center",
     flexDirection: "row",
@@ -314,6 +297,18 @@ const styles = StyleSheet.create({
     color: musePalette.danger,
     fontSize: 17,
     fontWeight: "700",
+  },
+  closeButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.10)",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: "center",
+    marginLeft: "auto",
+    marginRight: -10,
+    width: 48,
   },
   pressed: {
     opacity: 0.84,

@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type SetupItem = {
@@ -14,7 +14,12 @@ type SetupItem = {
 };
 
 export default function PreparacionVisitaScreen() {
-  const { allPermissionsGranted, currentRoom, isDatabaseReady } = useMuseIQ();
+  const {
+    allPermissionsGranted,
+    currentRoom,
+    isDatabaseReady,
+    requestAllPermissions,
+  } = useMuseIQ();
 
   const setupItems: SetupItem[] = [
     {
@@ -52,8 +57,14 @@ export default function PreparacionVisitaScreen() {
     router.push("/home" as never);
   };
 
-  const openPermissions = () => {
-    router.push("/permissions-modal" as never);
+  const openPermissions = async () => {
+    const granted = await requestAllPermissions();
+    if (!granted) {
+      Alert.alert(
+        "Permisos pendientes",
+        "Falta conceder algunos permisos para usar todas las funciones de MuseIQ.",
+      );
+    }
   };
 
   return (
@@ -117,38 +128,6 @@ export default function PreparacionVisitaScreen() {
             ))}
           </View>
 
-          <View style={styles.qrCard}>
-            <View style={styles.qrIllustration}>
-              <Ionicons
-                color={musePalette.primary}
-                name="person-outline"
-                size={64}
-              />
-              <View style={styles.phoneOutline}>
-                <Ionicons
-                  color={musePalette.primary}
-                  name="phone-portrait-outline"
-                  size={26}
-                />
-              </View>
-              <View style={styles.frameOutline}>
-                <Ionicons
-                  color={musePalette.primary}
-                  name="qr-code-outline"
-                  size={48}
-                />
-              </View>
-            </View>
-            <View style={styles.qrCopyBlock}>
-              <Text style={styles.qrTitle}>
-                Asegurate de tener tu codigo QR a la mano
-              </Text>
-              <Text style={styles.qrCopy}>
-                Lo encontraras junto a cada obra en la sala.
-              </Text>
-            </View>
-          </View>
-
           <View style={styles.actions}>
             {!allPermissionsGranted ? (
               <Pressable
@@ -173,18 +152,6 @@ export default function PreparacionVisitaScreen() {
               ]}
             >
               <Text style={styles.primaryButtonText}>Iniciar visita AR</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={startVisit}
-              disabled={!isDatabaseReady}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && isDatabaseReady ? styles.pressed : null,
-                !isDatabaseReady ? styles.disabled : null,
-              ]}
-            >
-              <Text style={styles.secondaryButtonText}>Escanear QR ahora</Text>
             </Pressable>
           </View>
         </View>
@@ -296,57 +263,6 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginLeft: 62,
   },
-  qrCard: {
-    alignItems: "center",
-    backgroundColor: "rgba(8,14,20,0.72)",
-    borderColor: "rgba(255,255,255,0.24)",
-    borderRadius: 18,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 16,
-    marginTop: 16,
-    minHeight: 124,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-  },
-  qrIllustration: {
-    height: 90,
-    position: "relative",
-    width: 130,
-  },
-  phoneOutline: {
-    bottom: 12,
-    left: 42,
-    position: "absolute",
-  },
-  frameOutline: {
-    alignItems: "center",
-    borderColor: "rgba(22,137,206,0.56)",
-    borderRadius: 2,
-    borderWidth: 1.3,
-    height: 72,
-    justifyContent: "center",
-    position: "absolute",
-    right: 0,
-    top: 8,
-    width: 72,
-  },
-  qrCopyBlock: {
-    flex: 1,
-    gap: 7,
-  },
-  qrTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-    lineHeight: 22,
-  },
-  qrCopy: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 15,
-    fontWeight: "500",
-    lineHeight: 21,
-  },
   actions: {
     gap: 16,
     marginTop: 18,
@@ -382,21 +298,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "800",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    backgroundColor: "rgba(5,8,13,0.22)",
-    borderColor: "rgba(255,255,255,0.88)",
-    borderRadius: 999,
-    borderWidth: 1.3,
-    justifyContent: "center",
-    minHeight: 58,
-    paddingHorizontal: 22,
-  },
-  secondaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "600",
   },
   pressed: {
     opacity: 0.84,
