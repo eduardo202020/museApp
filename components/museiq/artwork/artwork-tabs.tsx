@@ -1,7 +1,7 @@
 import { musePalette } from "@/components/museiq/theme";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-type ArtworkTabKey = "details" | "images" | "context" | "sources";
+type ArtworkTabKey = "details" | "images";
 
 type ArtworkTabsProps = {
   activeTab: ArtworkTabKey;
@@ -11,8 +11,6 @@ type ArtworkTabsProps = {
 const tabs: { key: ArtworkTabKey; label: string }[] = [
   { key: "details", label: "Detalles" },
   { key: "images", label: "Imagenes" },
-  { key: "context", label: "Contexto" },
-  { key: "sources", label: "Fuentes" },
 ];
 
 export function ArtworkTabs({ activeTab, onSelect }: ArtworkTabsProps) {

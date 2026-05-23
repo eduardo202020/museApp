@@ -4,20 +4,14 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type ArtworkScreenHeaderProps = {
   cultureLabel: string;
-  isFavorite?: boolean;
   onBack: () => void;
-  onFavorite?: () => void;
-  onShare?: () => void;
   roomName: string;
   title: string;
 };
 
 export function ArtworkScreenHeader({
   cultureLabel,
-  isFavorite = false,
   onBack,
-  onFavorite,
-  onShare,
   roomName,
   title,
 }: ArtworkScreenHeaderProps) {
@@ -47,33 +41,6 @@ export function ArtworkScreenHeader({
             {cultureLabel}
           </Text>
         </View>
-      </View>
-
-      <View style={styles.actions}>
-        <Pressable
-          accessibilityLabel="Agregar a favoritos"
-          onPress={onFavorite}
-          style={({ pressed }) => [
-            styles.iconButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Ionicons
-            color={isFavorite ? musePalette.primary : "#FFFFFF"}
-            name={isFavorite ? "heart" : "heart-outline"}
-            size={29}
-          />
-        </Pressable>
-        <Pressable
-          accessibilityLabel="Compartir obra"
-          onPress={onShare}
-          style={({ pressed }) => [
-            styles.iconButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Ionicons color="#FFFFFF" name="share-social-outline" size={27} />
-        </Pressable>
       </View>
     </View>
   );
@@ -118,10 +85,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 7,
     width: 7,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: 8,
   },
   pressed: {
     opacity: 0.78,
