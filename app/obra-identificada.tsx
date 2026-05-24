@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: arColors.primaryGreen,
+    backgroundColor: arColors.primary,
     borderRadius: 12,
     flex: 1,
     justifyContent: "center",

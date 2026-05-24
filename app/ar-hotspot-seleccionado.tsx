@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
     top: "32%",
   },
   hotspotPulse: {
-    backgroundColor: "rgba(98,215,88,0.20)",
-    borderColor: "rgba(98,215,88,0.56)",
+    backgroundColor: "rgba(27,164,226,0.18)",
+    borderColor: "rgba(27,164,226,0.54)",
     borderRadius: 999,
     borderWidth: 1,
     height: 56,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   },
   hotspotCore: {
     backgroundColor: "rgba(8,10,14,0.78)",
-    borderColor: musePalette.success,
+    borderColor: arColors.primary,
     borderRadius: 999,
     borderWidth: 4,
     height: 25,
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: arColors.primaryGreen,
+    backgroundColor: arColors.primary,
     borderRadius: 13,
     flex: 1,
     flexDirection: "row",

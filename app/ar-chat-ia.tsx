@@ -169,13 +169,13 @@ export default function ArChatIaScreen() {
           <View style={styles.answerCard}>
             <View style={styles.answerHeader}>
               <Ionicons
-                color={musePalette.success}
+                color={arColors.primary}
                 name="sparkles-outline"
                 size={18}
               />
               <Text style={styles.answerHeaderText}>Respuesta IA</Text>
               {chatSheetProps.isLoading ? (
-                <ActivityIndicator color={musePalette.success} size="small" />
+                <ActivityIndicator color={arColors.primary} size="small" />
               ) : null}
             </View>
 
@@ -357,8 +357,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   topicChipActive: {
-    backgroundColor: "rgba(67,147,57,0.58)",
-    borderColor: "rgba(97,188,73,0.76)",
+    backgroundColor: "rgba(22,137,206,0.38)",
+    borderColor: "rgba(27,164,226,0.72)",
   },
   topicChipText: {
     color: "#FFFFFF",
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   topicChipTextActive: {
-    color: "#E7FFE4",
+    color: arColors.primarySoft,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -376,8 +376,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   questionBubble: {
-    backgroundColor: "rgba(70,130,60,0.35)",
-    borderColor: "rgba(97,188,73,0.4)",
+    backgroundColor: "rgba(22,137,206,0.24)",
+    borderColor: "rgba(27,164,226,0.38)",
     borderRadius: 12,
     borderWidth: 1,
     maxWidth: "100%",
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   sourceLabel: {
-    color: musePalette.success,
+    color: arColors.primary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   inputAction: {
     alignItems: "center",
-    backgroundColor: "rgba(67,147,57,0.72)",
+    backgroundColor: "rgba(22,137,206,0.72)",
     borderRadius: 999,
     height: 36,
     justifyContent: "center",

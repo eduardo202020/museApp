@@ -74,7 +74,7 @@ export default function ArNoDisponibleScreen() {
           </Pressable>
 
           <View style={styles.footerCard}>
-            <Ionicons color={musePalette.success} name="information-circle-outline" size={21} />
+            <Ionicons color={arColors.primary} name="information-circle-outline" size={21} />
             <Text style={styles.footerText}>
               Asegurate de tener la ultima version de la app e intenta nuevamente mas tarde.
             </Text>
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignItems: "center",
     alignSelf: "stretch",
-    backgroundColor: arColors.primaryGreen,
+    backgroundColor: arColors.primary,
     borderRadius: 18,
     flexDirection: "row",
     gap: 10,

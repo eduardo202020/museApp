@@ -1,7 +1,6 @@
 import {
   ArBottomHud,
   ArSceneBackground,
-  ArTopStatusHud,
   arColors,
 } from "@/components/museiq/ar-flow";
 import {
@@ -27,14 +26,10 @@ export default function CargandoArScreen() {
   const { artworkId } = useLocalSearchParams<{ artworkId?: string }>();
   const {
     currentArtwork,
-    currentRoom,
     findArtworkById,
-    findRoomById,
-    museumProfile,
     selectArtwork,
   } = useMuseIQ();
   const artwork = findArtworkById(artworkId) ?? currentArtwork;
-  const room = findRoomById(artwork?.roomId) ?? currentRoom;
   const [progress, setProgress] = useState(0);
   const [targetProgress, setTargetProgress] = useState(0);
   const [statusText, setStatusText] = useState("Iniciando carga del modelo 3D...");
@@ -149,9 +144,6 @@ export default function CargandoArScreen() {
     );
   }
 
-  const museumName = museumProfile?.name ?? "MuseIQ";
-  const roomName = room?.name ?? "Sala por confirmar";
-  const statusLabel = room?.statusLabel ?? "Senal estable";
   const loadingCopy = getLoadingCopy(artwork.title);
   const progressLabel = `${displayProgress}%`;
   const showReadyState = isModelReady && displayProgress >= 100;
@@ -162,13 +154,11 @@ export default function CargandoArScreen() {
       <ArSceneBackground dim="rgba(5,8,13,0.32)" />
 
       <SafeAreaView style={styles.safeArea}>
-        <ArTopStatusHud museumName={museumName} roomName={roomName} statusLabel={statusLabel} />
-
         <View style={styles.loadingCenter}>
           {showReadyState ? (
             <View style={styles.readyBlock}>
               <View style={styles.readyBadge}>
-                <Ionicons color={musePalette.success} name="checkmark-circle" size={54} />
+                <Ionicons color={arColors.primary} name="checkmark-circle" size={54} />
               </View>
               <Text style={styles.loadingTitle}>Modelo 3D listo</Text>
               <Text numberOfLines={2} style={styles.loadingSubtitle}>
@@ -184,14 +174,11 @@ export default function CargandoArScreen() {
               </View>
 
               <Text style={styles.loadingTitle}>Cargando experiencia AR...</Text>
-              <Text numberOfLines={2} style={styles.loadingSubtitle}>
-                {statusText || loadingCopy}
-              </Text>
 
               <View style={styles.tipCard}>
                 <View style={styles.tipCopy}>
                   <View style={styles.tipHeader}>
-                    <Ionicons color={musePalette.success} name="bulb-outline" size={20} />
+                    <Ionicons color={arColors.primary} name="bulb-outline" size={20} />
                     <Text style={styles.tipTitle}>Consejo</Text>
                   </View>
                   <Text style={styles.tipText}>
@@ -209,11 +196,11 @@ export default function CargandoArScreen() {
           bottomText={isModelReady ? "Modelo 3D listo." : "Cargando modelo 3D..."}
           centralActive
           centralLabel={isModelReady ? "Abriendo experiencia" : "Preparando modelo"}
+          hideBottomStatus
           onCentral={() => undefined}
           onExplore={() => router.push("/home" as never)}
           onQr={() => router.push("/home" as never)}
-          progress={displayProgress}
-          progressLabel={progressLabel}
+          style={styles.bottomHudOffset}
         />
       </SafeAreaView>
     </View>
@@ -233,6 +220,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
+  },
+  bottomHudOffset: {
+    paddingBottom: 30,
   },
   readyBlock: {
     alignItems: "center",
@@ -256,7 +246,7 @@ const styles = StyleSheet.create({
   },
   ringInner: {
     alignItems: "center",
-    borderColor: musePalette.success,
+    borderColor: arColors.primary,
     borderRadius: 999,
     borderWidth: 12,
     height: 128,

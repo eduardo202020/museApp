@@ -1,17 +1,20 @@
 import { SensorPanel } from "@/components/museiq/home/sensor-panel";
 import { QrScannerOverlay } from "@/components/museiq/home/qr-scanner-overlay";
+import { HomeBottomHud, HomeTopHud } from "@/features/home/components/home-hud";
 import { HomeExploreSheet } from "@/features/home/components/home-explore-sheet";
-import { HomeHud } from "@/features/home/components/home-hud";
 import { HomeSceneState } from "@/features/home/components/home-scene-state";
 import { useHomeScreenController } from "@/features/home/hooks/use-home-screen-controller";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
+import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const { openDrawer } = useLocalSearchParams<{ openDrawer?: string }>();
   const {
     activeSheet,
     artworkTitleForQr,
@@ -45,6 +48,19 @@ export default function HomeScreen() {
     handleViewSuggestedAr,
   } = useHomeScreenController();
 
+  useEffect(() => {
+    if (openDrawer !== "1") {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      navigation.dispatch(DrawerActions.openDrawer());
+      router.replace("/home" as never);
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [navigation, openDrawer]);
+
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
@@ -56,15 +72,10 @@ export default function HomeScreen() {
       />
       <View style={styles.cameraShade} />
       <SafeAreaView style={styles.safeArea}>
-        <HomeHud
-          centralLabel={centralLabel}
+        <HomeTopHud
           isArtworkNarrationPlaying={isArtworkNarrationPlaying}
-          onCentralAction={handleCentralAction}
-          onExplore={openExploreSheet}
           onOpenDrawer={() => navigation.dispatch(DrawerActions.openDrawer())}
-          onOpenQr={openQrScanner}
           onRepeatArtworkNarration={repeatArtworkNarration}
-          shouldShowSuggestionCta={shouldShowSuggestionCta}
           topRoomLabel={topRoomLabel}
         />
 
@@ -80,17 +91,26 @@ export default function HomeScreen() {
             roomName={roomName}
           />
         ) : (
-          <HomeSceneState
-            isRoomDetected={isRoomDetected}
-            isSuggestionVisible={isSuggestionVisible}
-            onCloseSuggestion={dismissSuggestion}
-            onExploreOtherSuggestions={handleExploreOtherSuggestions}
-            onViewSuggestedAr={handleViewSuggestedAr}
-            roomName={roomName}
-            shouldShowSuggestionCta={shouldShowSuggestionCta}
-            suggestedArtwork={suggestedArtwork}
-            suggestedArtworkImageSource={suggestedArtworkImageSource}
-          />
+          <>
+            <HomeSceneState
+              isRoomDetected={isRoomDetected}
+              isSuggestionVisible={isSuggestionVisible}
+              onCloseSuggestion={dismissSuggestion}
+              onExploreOtherSuggestions={handleExploreOtherSuggestions}
+              onViewSuggestedAr={handleViewSuggestedAr}
+              roomName={roomName}
+              shouldShowSuggestionCta={shouldShowSuggestionCta}
+              suggestedArtwork={suggestedArtwork}
+              suggestedArtworkImageSource={suggestedArtworkImageSource}
+            />
+            <HomeBottomHud
+              centralLabel={centralLabel}
+              onCentralAction={handleCentralAction}
+              onExplore={openExploreSheet}
+              onOpenQr={openQrScanner}
+              shouldShowSuggestionCta={shouldShowSuggestionCta}
+            />
+          </>
         )}
       </SafeAreaView>
 

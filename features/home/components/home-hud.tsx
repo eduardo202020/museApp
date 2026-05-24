@@ -2,16 +2,19 @@ import { musePalette } from "@/components/museiq/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
-type HomeHudProps = {
-  centralLabel: string;
+type HomeTopHudProps = {
   isArtworkNarrationPlaying: boolean;
+  onOpenDrawer: () => void;
+  onRepeatArtworkNarration: () => void;
+  topRoomLabel: string;
+};
+
+type HomeBottomHudProps = {
+  centralLabel: string;
   onCentralAction: () => void;
   onExplore: () => void;
-  onOpenDrawer: () => void;
   onOpenQr: () => void;
-  onRepeatArtworkNarration: () => void;
   shouldShowSuggestionCta: boolean;
-  topRoomLabel: string;
 };
 
 type HudActionButtonProps = {
@@ -33,81 +36,84 @@ function HudActionButton({ icon, label, onPress, style }: HudActionButtonProps) 
   );
 }
 
-export function HomeHud({
-  centralLabel,
+export function HomeTopHud({
   isArtworkNarrationPlaying,
+  onOpenDrawer,
+  onRepeatArtworkNarration,
+  topRoomLabel,
+}: HomeTopHudProps) {
+  return (
+    <View style={styles.topHud}>
+      <View pointerEvents="none" style={styles.topHudCenter}>
+        <Text numberOfLines={1} style={styles.topHudRoomLabel}>
+          {topRoomLabel}
+        </Text>
+      </View>
+
+      <Pressable
+        onPress={onOpenDrawer}
+        style={({ pressed }) => [styles.menuButton, pressed ? styles.pressed : null]}
+      >
+        <Ionicons color="#FFFFFF" name="menu" size={38} />
+      </Pressable>
+
+      <Pressable
+        onPress={onRepeatArtworkNarration}
+        style={({ pressed }) => [
+          styles.sideButton,
+          isArtworkNarrationPlaying ? styles.sideButtonActive : null,
+          pressed ? styles.pressed : null,
+        ]}
+      >
+        <Ionicons
+          color="#FFFFFF"
+          name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
+          size={26}
+        />
+        <Text style={styles.sideButtonLabel}>Audio</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+export function HomeBottomHud({
+  centralLabel,
   onCentralAction,
   onExplore,
-  onOpenDrawer,
   onOpenQr,
-  onRepeatArtworkNarration,
   shouldShowSuggestionCta,
-  topRoomLabel,
-}: HomeHudProps) {
+}: HomeBottomHudProps) {
   return (
-    <>
-      <View style={styles.topHud}>
-        <View pointerEvents="none" style={styles.topHudCenter}>
-          <Text numberOfLines={1} style={styles.topHudRoomLabel}>
-            {topRoomLabel}
-          </Text>
-        </View>
+    <View style={styles.bottomHud}>
+      <View style={styles.bottomActionsRow}>
+        <HudActionButton icon="navigate-outline" label="Explorar" onPress={onExplore} />
 
         <Pressable
-          onPress={onOpenDrawer}
-          style={({ pressed }) => [styles.menuButton, pressed ? styles.pressed : null]}
-        >
-          <Ionicons color="#FFFFFF" name="menu" size={38} />
-        </Pressable>
-
-        <Pressable
-          onPress={onRepeatArtworkNarration}
+          onPress={onCentralAction}
           style={({ pressed }) => [
-            styles.sideButton,
-            isArtworkNarrationPlaying ? styles.sideButtonActive : null,
+            styles.centralAction,
+            shouldShowSuggestionCta ? styles.centralActionSuggested : null,
             pressed ? styles.pressed : null,
           ]}
         >
           <Ionicons
-            color="#FFFFFF"
-            name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
-            size={26}
+            color={shouldShowSuggestionCta ? musePalette.primary : "#FFFFFF"}
+            name="sparkles-outline"
+            size={44}
           />
-          <Text style={styles.sideButtonLabel}>Audio</Text>
         </Pressable>
+
+        <HudActionButton icon="qr-code-outline" label="Escanear QR" onPress={onOpenQr} />
       </View>
-
-      <View style={styles.bottomHud}>
-        <View style={styles.bottomActionsRow}>
-          <HudActionButton icon="navigate-outline" label="Explorar" onPress={onExplore} />
-
-          <Pressable
-            onPress={onCentralAction}
-            style={({ pressed }) => [
-              styles.centralAction,
-              shouldShowSuggestionCta ? styles.centralActionSuggested : null,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Ionicons
-              color={shouldShowSuggestionCta ? musePalette.primary : "#FFFFFF"}
-              name="sparkles-outline"
-              size={44}
-            />
-          </Pressable>
-
-          <HudActionButton icon="qr-code-outline" label="Escanear QR" onPress={onOpenQr} />
-        </View>
-        <Text
-          style={[
-            styles.centralActionLabel,
-            shouldShowSuggestionCta ? styles.centralActionLabelSuggested : null,
-          ]}
-        >
-          {centralLabel}
-        </Text>
-      </View>
-    </>
+      <Text
+        style={[
+          styles.centralActionLabel,
+          shouldShowSuggestionCta ? styles.centralActionLabelSuggested : null,
+        ]}
+      >
+        {centralLabel}
+      </Text>
+    </View>
   );
 }
 

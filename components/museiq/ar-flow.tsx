@@ -80,7 +80,7 @@ export function ArTopStatusHud({
           <Ionicons color="#FFFFFF" name="menu" size={36} />
         </Pressable>
         <View style={styles.bleMiniBadge}>
-          <Ionicons color={musePalette.success} name="bluetooth-outline" size={24} />
+          <Ionicons color={arColors.primary} name="bluetooth-outline" size={24} />
         </View>
       </View>
     </View>
@@ -124,12 +124,16 @@ type ArBottomHudProps = {
   centralActive?: boolean;
   centralIcon?: keyof typeof Ionicons.glyphMap;
   centralLabel: string;
+  exploreIcon?: keyof typeof Ionicons.glyphMap;
+  exploreLabel?: string;
+  hideBottomStatus?: boolean;
   onCentral: () => void;
   onExplore: () => void;
   onQr: () => void;
   progress?: number;
   progressLabel?: string;
   qrLabel?: string;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function ArBottomHud({
@@ -138,17 +142,21 @@ export function ArBottomHud({
   centralActive = false,
   centralIcon = "sparkles-outline",
   centralLabel,
+  exploreIcon = "navigate-outline",
+  exploreLabel = "Explorar",
+  hideBottomStatus = false,
   onCentral,
   onExplore,
   onQr,
   progress,
   progressLabel,
   qrLabel = "Escanear QR",
+  style,
 }: ArBottomHudProps) {
   return (
-    <View style={styles.bottomHud}>
+    <View style={[styles.bottomHud, style]}>
       <View style={styles.bottomActionsRow}>
-        <HudActionButton icon="navigate-outline" label="Explorar" onPress={onExplore} />
+        <HudActionButton icon={exploreIcon} label={exploreLabel} onPress={onExplore} />
 
         <Pressable
           onPress={onCentral}
@@ -167,18 +175,20 @@ export function ArBottomHud({
         {centralLabel}
       </Text>
 
-      <View style={styles.bottomStatusBar}>
-        <Ionicons color={musePalette.success} name={bottomIcon} size={20} />
-        <Text numberOfLines={1} style={styles.bottomStatusText}>
-          {bottomText}
-        </Text>
-        {progressLabel ? (
-          <Text numberOfLines={1} style={styles.bottomStatusMeta}>
-            {progressLabel}
+      {!hideBottomStatus ? (
+        <View style={styles.bottomStatusBar}>
+          <Ionicons color={arColors.primary} name={bottomIcon} size={20} />
+          <Text numberOfLines={1} style={styles.bottomStatusText}>
+            {bottomText}
           </Text>
-        ) : null}
-      </View>
-      {typeof progress === "number" ? (
+          {progressLabel ? (
+            <Text numberOfLines={1} style={styles.bottomStatusMeta}>
+              {progressLabel}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+      {!hideBottomStatus && typeof progress === "number" ? (
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, progress))}%` }]} />
         </View>
@@ -207,36 +217,53 @@ function HudActionButton({ icon, label, onPress }: HudActionButtonProps) {
 
 type ArSideRailProps = {
   active?: "chat" | "audio";
+  audioLabel?: string;
+  chatLabel?: string;
+  showAudio?: boolean;
+  showChat?: boolean;
   onAudio: () => void;
   onChat: () => void;
   style?: StyleProp<ViewStyle>;
 };
 
-export function ArSideRail({ active, onAudio, onChat, style }: ArSideRailProps) {
+export function ArSideRail({
+  active,
+  audioLabel = "Audio",
+  chatLabel = "Chat",
+  showAudio = true,
+  showChat = true,
+  onAudio,
+  onChat,
+  style,
+}: ArSideRailProps) {
   return (
     <View style={[styles.sideRail, style]}>
-      <Pressable
-        onPress={onChat}
-        style={({ pressed }) => [
-          styles.sideButton,
-          active === "chat" ? styles.sideButtonActive : null,
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Ionicons color="#FFFFFF" name="chatbubble-ellipses-outline" size={27} />
-        <Text style={styles.sideButtonLabel}>Chat</Text>
-      </Pressable>
-      <Pressable
-        onPress={onAudio}
-        style={({ pressed }) => [
-          styles.sideButton,
-          active === "audio" ? styles.sideButtonActive : null,
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Ionicons color="#FFFFFF" name={active === "audio" ? "volume-high-outline" : "mic-outline"} size={29} />
-        <Text style={styles.sideButtonLabel}>Audio</Text>
-      </Pressable>
+      {showChat ? (
+        <Pressable
+          onPress={onChat}
+          style={({ pressed }) => [
+            styles.sideButton,
+            active === "chat" ? styles.sideButtonActive : null,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Ionicons color="#FFFFFF" name="chatbubble-ellipses-outline" size={27} />
+          <Text style={styles.sideButtonLabel}>{chatLabel}</Text>
+        </Pressable>
+      ) : null}
+      {showAudio ? (
+        <Pressable
+          onPress={onAudio}
+          style={({ pressed }) => [
+            styles.sideButton,
+            active === "audio" ? styles.sideButtonActive : null,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Ionicons color="#FFFFFF" name={active === "audio" ? "volume-high-outline" : "mic-outline"} size={29} />
+          <Text style={styles.sideButtonLabel}>{audioLabel}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -277,7 +304,8 @@ export const arColors = {
   glassBorder: "rgba(255,255,255,0.30)",
   glassFill: "rgba(8,10,14,0.68)",
   glassFillStrong: "rgba(8,10,14,0.94)",
-  primaryGreen: "#4E9B3E",
+  primary: musePalette.primary,
+  primarySoft: "#BFE7FB",
 };
 
 const styles = StyleSheet.create({
@@ -322,7 +350,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   signalDot: {
-    backgroundColor: musePalette.success,
+    backgroundColor: arColors.primary,
     borderRadius: 999,
     height: 7,
     width: 7,
@@ -409,7 +437,7 @@ const styles = StyleSheet.create({
     width: 118,
   },
   centralActionActive: {
-    backgroundColor: "rgba(78,155,62,0.84)",
+    backgroundColor: "rgba(22,137,206,0.84)",
     borderColor: "rgba(255,255,255,0.52)",
   },
   centralActionLabel: {
@@ -424,7 +452,7 @@ const styles = StyleSheet.create({
     width: 182,
   },
   centralActionLabelActive: {
-    color: "#9FDC7B",
+    color: arColors.primarySoft,
   },
   bottomStatusBar: {
     alignItems: "center",
@@ -458,7 +486,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: {
-    backgroundColor: musePalette.success,
+    backgroundColor: arColors.primary,
     height: "100%",
   },
   sideRail: {
@@ -479,7 +507,7 @@ const styles = StyleSheet.create({
     width: 68,
   },
   sideButtonActive: {
-    borderColor: musePalette.success,
+    borderColor: arColors.primary,
   },
   sideButtonLabel: {
     color: "#FFFFFF",

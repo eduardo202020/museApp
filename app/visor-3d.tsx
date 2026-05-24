@@ -65,7 +65,7 @@ export default function Visor3dScreen() {
         <Text style={styles.dragHint}>Arrastra para rotar. Pellizca para acercar.</Text>
 
         <View style={styles.footerCard}>
-          <Ionicons color={musePalette.success} name="information-circle-outline" size={21} />
+          <Ionicons color={arColors.primary} name="information-circle-outline" size={21} />
           <Text style={styles.footerText}>
             Este es el modelo 3D de la obra. El modo AR no esta disponible en este dispositivo.
           </Text>

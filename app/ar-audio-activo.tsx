@@ -77,7 +77,7 @@ export default function ArAudioActivoScreen() {
         <View style={styles.bottomSheet}>
           <View style={styles.sheetHandle} />
           <View style={styles.audioHeaderRow}>
-            <Ionicons color={musePalette.success} name="pulse-outline" size={17} />
+            <Ionicons color={arColors.primary} name="pulse-outline" size={17} />
             <Text style={styles.audioHeaderText}>Audio activo</Text>
           </View>
 
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   audioHeaderText: {
-    color: musePalette.success,
+    color: arColors.primary,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: {
-    backgroundColor: musePalette.success,
+    backgroundColor: arColors.primary,
     height: "100%",
     width: "54%",
   },
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   },
   mainPlayControl: {
     alignItems: "center",
-    backgroundColor: "#63AF46",
+    backgroundColor: arColors.primary,
     borderRadius: 999,
     gap: 2,
     height: 94,
