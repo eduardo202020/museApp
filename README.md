@@ -45,7 +45,7 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 - La cámara o fondo AR es el centro de la visita.
 - BLE detecta sala o zona y resume el estado en el HUD.
 - Explorar sala y Escanear QR son acciones flotantes, no tabs.
-- Chat y Audio viven como acciones laterales.
+- En `ar-activo`, `Audio` vive como acción lateral superior y abre un bottom sheet.
 - Las preguntas se abren como modal inferior, no como pantalla independiente.
 - El detalle de obra se simplifica a `Detalles` e `Imagenes`.
 - El color principal es el azul MuseIQ `#1689CE`.
@@ -64,7 +64,7 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 10. Detalle de obra con ficha, acciones AR/chat e imágenes relacionadas.
 11. Galería de imágenes relacionadas.
 12. Cargando AR, AR activo temporal y hotspot seleccionado.
-13. Chat IA y audio activo como estados de la experiencia AR.
+13. Chat IA como modal inferior y audio/QR como sheets dentro de `ar-activo`.
 14. AR no disponible con fallback a visor 3D.
 
 ## Flujo real en rutas
@@ -79,13 +79,14 @@ Ramas desde Home:
 - `Escanear QR` -> overlay simulado -> `obra-identificada`
 - `Preguntar` -> `pregunta-voz-modal`
 - `Ver en AR` -> `cargando-ar` -> `ar-activo` -> `ar-hotspot-seleccionado`
+- Dentro de `ar-activo`: `Audio` -> bottom sheet, `Escanear QR` -> bottom sheet, `Preguntar IA` -> modal inferior
 - Fallback AR -> `ar-no-disponible` -> `visor-3d`
 
 ## Cobertura contra `pantallas/flujo.png`
 
 El flujo visual completo incluye mas pantallas que el MVP actual. La cobertura real queda asi:
 
-- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` como overlay simulado, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, `R Cargando AR`, `10 AR activo`, `11 Hotspot seleccionado`, `12 Chat IA` como modal inferior, `9 Audio activo`, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
+- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` como overlay simulado en Home y como sheet contextual en `ar-activo`, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, `R Cargando AR`, `10 AR activo`, `11 Hotspot seleccionado`, `12 Chat IA` como modal inferior, `9 Audio activo` como sheet contextual y pantalla dedicada legada, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
 - Parcial: `W Modelo 3D no disponible`. El visor 3D y el fallback de AR existen, pero falta una pantalla dedicada para el estado de modelo no disponible.
 - Faltante: `T Actualizacion` y pantalla dedicada completa de `W Modelo 3D no disponible`.
 
@@ -116,7 +117,7 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `sin-conexion.tsx`: Estado sin conexión para continuar con contenido offline
 - `error-conexion.tsx`: Estado de error MuseRAG/backend con reintento
 - `ar-activo.tsx`: Home AR - AR activo
-- `ar-audio-activo.tsx`: Estado de audio activo
+- `ar-audio-activo.tsx`: Pantalla legada de audio activo; el flujo principal actual usa sheet dentro de `ar-activo`
 - `ar-chat-ia.tsx`: Vista AR del flujo de preguntar
 - `obra-identificada.tsx`: Pantalla que muestra obra identificada
 - `artwork-detail.tsx`: Detalle de obra simplificado (tabs de Detalles e Imagenes)
@@ -149,11 +150,12 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 
 ## Arquitectura visual reciente
 
-- `app/(drawer)/home.tsx`: Home AR y orquestación de estados.
-- `components/museiq/home/`: HUD, sugerencia BLE, explorar sala, QR y componentes de home.
-- `components/museiq/artwork/`: encabezado, tabs, filas de ficha y galería reutilizable.
+- `features/home/screens/home-screen.tsx`: Home AR como ruta fina con HUD superior/inferior separados.
+- `features/home/components/`: HUD, explorar sala y escena central del Home.
+- `components/museiq/home/`: overlay QR reutilizable y componentes visuales compartidos del Home.
+- `components/museiq/ar-flow.tsx`: HUD compartido de AR, side rail y modelo 3D reutilizable.
 - `hooks/use-home-ble-status.ts`: estado BLE resumido para Home AR.
-- `hooks/use-artwork-chat-controller.ts`: controlador compartido para chat, RAG y voz.
+- `features/chat/hooks/use-artwork-chat-controller.ts`: controlador compartido para chat, RAG y voz.
 
 ## Stack tecnológico
 
@@ -180,6 +182,10 @@ npm run dev:client
 La base AR-first ya está montada para el flujo visual principal y para las pantallas auxiliares del drawer. El drawer actual queda deliberadamente compacto: Inicio, Explorar salas, Cambiar museo, Configuracion, Ayuda, Modo tecnico, Perfil desde el encabezado e Idioma desde Configuracion. `Mis visitas`, `Favoritos` e `Historial` se conservan como rutas internas ocultas, pero ya no saturan el menu.
 
 El Home fue depurado para dejar solo las acciones esenciales del HUD: menu, nombre de sala, audio, explorar, preguntar y QR. `Preguntar` ahora abre un modal que sube desde abajo, prioriza la interacción por voz y renderiza la respuesta en Markdown.
+
+En `ar-activo`, la experiencia tambien se simplificó: boton de retroceso superior izquierdo, accion `Audio` superior derecha, `Preguntar IA` como CTA principal inferior y `Escanear QR` como sheet contextual para saltar a otra obra sin abandonar la escena.
+
+`obra-identificada` tambien se simplificó: boton de retroceso superior izquierdo, `Audio` superior derecho, card central mas grande y un unico CTA horizontal de `Ver en AR`.
 
 El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
 

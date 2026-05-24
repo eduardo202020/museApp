@@ -10,8 +10,9 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - BLE detecta sala/zona; no debe afirmar obra exacta sin QR o selección explícita.
 - QR identifica una obra exacta.
 - Info y fuentes no son acciones permanentes del Home ni tabs persistentes del detalle.
-- Chat y Audio sí pueden estar visibles como acciones laterales.
+- En AR activo, `Audio` puede vivir como acción lateral superior; `Preguntar IA` queda como CTA inferior principal.
 - Preguntar debe sentirse como un modal contextual que emerge sobre la experiencia.
+- Escanear QR dentro de AR debe sentirse como sheet contextual, no como salida a otra pantalla.
 - La interfaz usa azul MuseIQ como color primario, con botones de borde en el HUD.
 - El modo técnico queda separado del visitante común.
 
@@ -40,11 +41,12 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 ### Identificación y ficha de obra
 
 - [x] `7 Explorar sala` / `03-01.png`: bottom sheet de obras de la sala.
-- [x] `8 Escanear QR` / `03-02.png`: overlay visual de QR.
+- [x] `8 Escanear QR` / `03-02.png`: overlay visual de QR en Home y sheet contextual en `ar-activo`.
 - [ ] QR real con cámara y parsing de códigos de obra.
 - [x] `X Resultado de QR inválido`: error de QR, causas y reintento (`app/qr-invalido.tsx`).
 - [x] Entrada manual de código QR (`app/codigo-manual.tsx`).
 - [x] `9 Obra identificada` / `03-03.png`: resultado tras QR simulado (`app/obra-identificada.tsx`).
+- [x] `9 Obra identificada`: layout simplificado con back superior, `Audio` superior derecho y CTA unico `Ver en AR`.
 - [x] `A Detalles de la obra` / `05-02.png`: ficha base (`app/artwork-detail.tsx`).
 - [x] `B Imágenes relacionadas` / `05-03.png`: galería (`app/artwork-images.tsx`).
 - [x] Detalle simplificado a tabs de `Detalles` e `Imagenes`.
@@ -56,7 +58,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] `10 AR activo (obra 3D)`: escena AR temporal con modelo 3D (`app/ar-activo.tsx`).
 - [x] `11 Hotspot seleccionado`: detalle de hotspot (`app/ar-hotspot-seleccionado.tsx`).
 - [x] `12 Chat IA (bottom sheet/modal)`: flujo de preguntar como modal inferior (`app/pregunta-voz-modal.tsx`).
-- [x] `9 Audio activo`: pantalla de reproducción (`app/ar-audio-activo.tsx`).
+- [x] `9 Audio activo`: sheet contextual dentro de `ar-activo`; `app/ar-audio-activo.tsx` queda como pantalla legada de apoyo.
 - [x] `V AR no disponible`: fallback a visor 3D (`app/ar-no-disponible.tsx`).
 - [x] `U Visor 3D sin AR`: visor 3D (`app/visor-3d.tsx`).
 - [ ] AR real con ARCore/ARKit o librería equivalente.
@@ -111,7 +113,8 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] AR activo / obra 3D (`ar-activo.tsx`, `visor-3d.tsx`, `cargando-ar.tsx`).
 - [x] Hotspot seleccionado (`ar-hotspot-seleccionado.tsx`).
 - [x] Chat IA como modal inferior con voz prioritaria (`pregunta-voz-modal.tsx`).
-- [x] Audio activo con control básico (`ar-audio-activo.tsx`).
+- [x] Audio activo con control básico como sheet en `ar-activo`.
+- [x] QR contextual en `ar-activo` como sheet para cambiar de obra.
 - [x] Estados de QR invalido, error de conexión y sin conexión (`X`, `S`, `P`) como pantallas de flujo.
 - [ ] Estado de actualización (`T`) integrado al flujo.
 

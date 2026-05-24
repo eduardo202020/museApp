@@ -63,6 +63,14 @@ Referencia rápida: [ARCHITECTURE.md](ARCHITECTURE.md)
 5. La respuesta vuelve con texto, metadatos y, cuando hay fuentes, imágenes asociadas.
 6. El usuario puede escuchar la respuesta y seguir el texto mientras se reproduce.
 
+En el flujo AR actual:
+
+- `cargando-ar` muestra solo la carga circular principal y acciones inferiores.
+- `ar-activo` mantiene al modelo 3D a pantalla completa.
+- `Preguntar IA` abre `pregunta-voz-modal`.
+- `Audio` abre un bottom sheet local dentro de `ar-activo`.
+- `Escanear QR` abre otro bottom sheet local y permite saltar a otra obra sin ir a una pantalla de escáner separada.
+
 ## Variables de entorno
 
 En la raíz del proyecto crea `.env` con la URL accesible desde el móvil:
@@ -216,6 +224,8 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 - visor con zoom y arrastre
 - memoria local por obra
 - panel de sensores
+- sheets contextuales en `ar-activo` para audio y QR
+- CTA inferior de `Preguntar IA` como único acceso principal al modal de preguntas dentro del flujo AR
 
 ## Roadmap técnico sugerido
 
@@ -226,6 +236,12 @@ El roadmap activo de producto y flujo vive en [ROADMAP.md](ROADMAP.md). A nivel 
 - implementar el estado `T` de actualización disponible
 - implementar la pantalla dedicada `W Modelo 3D no disponible`
 - integrar AR real con ARCore/ARKit o alternativa compatible
+
+Notas de implementación vigentes:
+
+- `ar-audio-activo.tsx` sigue existiendo como pantalla legada, pero el flujo principal ya usa un sheet de audio dentro de `ar-activo`.
+- `QrScannerOverlay` se reutiliza tanto en Home como dentro del sheet QR de `ar-activo`.
+- `components/museiq/ar-flow.tsx` concentra colores, HUD compartido y `ArSideRail`.
 
 ## Troubleshooting
 

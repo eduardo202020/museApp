@@ -2,7 +2,6 @@ import {
   ArBottomHud,
   ArSceneBackground,
   ArSideRail,
-  ArTopStatusHud,
   arColors,
   arSceneImage,
 } from "@/components/museiq/ar-flow";
@@ -14,7 +13,7 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 function getCultureLabel(period?: string, author?: string) {
   const source = `${period ?? ""} ${author ?? ""}`.toLowerCase();
@@ -28,18 +27,15 @@ function getCultureLabel(period?: string, author?: string) {
 }
 
 export default function ObraIdentificadaScreen() {
+  const insets = useSafeAreaInsets();
   const { artworkId } = useLocalSearchParams<{ artworkId?: string }>();
   const {
     currentArtwork,
-    currentRoom,
     findArtworkById,
-    findRoomById,
-    museumProfile,
     repeatArtworkNarration,
     selectArtwork,
   } = useMuseIQ();
   const artwork = findArtworkById(artworkId) ?? currentArtwork;
-  const room = findRoomById(artwork?.roomId) ?? currentRoom;
 
   if (!artwork) {
     return (
@@ -59,19 +55,11 @@ export default function ObraIdentificadaScreen() {
   }
 
   const imageSource = getArtworkImageSource(artwork.image);
-  const roomName = room?.name ?? "Sala por confirmar";
-  const statusLabel = room?.statusLabel ?? "Senal estable";
   const cultureLabel = getCultureLabel(artwork.period, artwork.author);
-  const museumName = museumProfile?.name ?? "MuseIQ";
 
   const openArLoading = () => {
     selectArtwork(artwork.id);
     router.push({ pathname: "/cargando-ar", params: { artworkId: artwork.id } } as never);
-  };
-
-  const openQuestion = () => {
-    selectArtwork(artwork.id);
-    router.push({ pathname: "/pregunta-voz-modal", params: { artworkId: artwork.id } } as never);
   };
 
   return (
@@ -80,7 +68,16 @@ export default function ObraIdentificadaScreen() {
       <ArSceneBackground dim="rgba(5,8,13,0.28)" />
 
       <SafeAreaView style={styles.safeArea}>
-        <ArTopStatusHud museumName={museumName} roomName={roomName} statusLabel={statusLabel} />
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.topBackButton,
+            { top: insets.top + 10 },
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Ionicons color="#FFFFFF" name="arrow-back" size={28} />
+        </Pressable>
 
         <View style={styles.content}>
           <View style={styles.identificationCard}>
@@ -113,19 +110,14 @@ export default function ObraIdentificadaScreen() {
             >
               <Text style={styles.primaryButtonText}>Ver en AR</Text>
             </Pressable>
-            <Pressable
-              onPress={openQuestion}
-              style={({ pressed }) => [styles.secondaryButton, pressed ? styles.pressed : null]}
-            >
-              <Text style={styles.secondaryButtonText}>Preguntar</Text>
-            </Pressable>
           </View>
         </View>
 
         <ArSideRail
+          showChat={false}
           onAudio={repeatArtworkNarration}
-          onChat={openQuestion}
-          style={styles.sideRail}
+          onChat={() => undefined}
+          style={[styles.sideRail, { top: insets.top + 10 }]}
         />
 
         <ArBottomHud
@@ -133,6 +125,7 @@ export default function ObraIdentificadaScreen() {
           bottomText="Consejo: puedes escuchar una explicacion de esta obra."
           centralActive
           centralLabel="Ver en AR"
+          hideBottomStatus
           onCentral={openArLoading}
           onExplore={() => router.push("/home" as never)}
           onQr={() => router.push("/home" as never)}
@@ -150,86 +143,88 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  topBackButton: {
+    alignItems: "center",
+    backgroundColor: arColors.glassFill,
+    borderColor: arColors.glassBorder,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 58,
+    justifyContent: "center",
+    left: 22,
+    position: "absolute",
+    width: 58,
+    zIndex: 30,
+  },
   content: {
+    alignItems: "center",
     flex: 1,
-    justifyContent: "flex-end",
-    paddingBottom: 20,
+    justifyContent: "center",
     paddingHorizontal: 34,
+    paddingTop: 94,
   },
   identificationCard: {
     backgroundColor: arColors.glassFillStrong,
     borderColor: "rgba(255,255,255,0.18)",
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 14,
-    padding: 12,
+    gap: 18,
+    maxWidth: 520,
+    minHeight: 224,
+    padding: 18,
+    width: "100%",
   },
   artworkThumb: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 12,
-    height: 132,
-    width: 92,
+    borderRadius: 16,
+    height: 188,
+    width: 132,
   },
   identificationCopy: {
     flex: 1,
-    gap: 4,
+    gap: 6,
     justifyContent: "center",
     minWidth: 0,
   },
   artworkTitle: {
     color: "#FFFFFF",
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "800",
-    lineHeight: 25,
+    lineHeight: 30,
   },
   meta: {
     color: "rgba(255,255,255,0.82)",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
   },
   summary: {
     color: "rgba(255,255,255,0.82)",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "500",
-    lineHeight: 17,
-    marginTop: 4,
+    lineHeight: 19,
+    marginTop: 6,
   },
   actionRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
+    marginTop: 16,
+    width: "100%",
   },
   primaryButton: {
     alignItems: "center",
     backgroundColor: arColors.primary,
-    borderRadius: 12,
-    flex: 1,
+    borderRadius: 14,
     justifyContent: "center",
-    minHeight: 42,
+    minHeight: 52,
+    width: "100%",
   },
   primaryButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderColor: "rgba(255,255,255,0.24)",
-    borderRadius: 12,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 42,
-  },
-  secondaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "800",
   },
   sideRail: {
-    top: "36%",
+    right: 22,
+    zIndex: 20,
   },
   backOnly: {
     alignItems: "center",
