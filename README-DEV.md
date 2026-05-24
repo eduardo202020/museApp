@@ -1,6 +1,6 @@
 # README-DEV
 
-Guía técnica de museApp para desarrollo local, pruebas de sala, integración con MuseRAG y mantenimiento del MVP.
+Guía técnica de MuseIQ para desarrollo local, pruebas de sala, integración con MuseRAG y mantenimiento del MVP.
 
 ## Alcance actual
 
@@ -37,7 +37,22 @@ Para pruebas rápidas, el scanner acepta fallback por nombre BLE:
 - [hooks/use-ble-scanner.ts](hooks/use-ble-scanner.ts): escaneo BLE
 - [hooks/use-guide-narrator.ts](hooks/use-guide-narrator.ts): narración y voz
 - [hooks/use-home-sensors.ts](hooks/use-home-sensors.ts): acelerómetro, brújula y pasos
-- [providers/museiq-provider.tsx](providers/museiq-provider.tsx): estado compartido y memoria local
+- [providers/museiq-provider.tsx](providers/museiq-provider.tsx): composición del estado compartido
+- [providers/museiq/](providers/museiq): módulos internos del provider
+- [features/](features): implementación por dominio
+
+## Arquitectura modular
+
+La app ya no concentra la mayor parte de la implementación dentro de `app/`. El patrón actual es:
+
+- `app/`: rutas finas de Expo Router que reexportan pantallas
+- `features/home/`: Home AR, HUD, escena y explorar sala
+- `features/explore/`: exploración por salas y obras
+- `features/artwork/`: detalle de obra e imágenes relacionadas
+- `features/chat/`: modal de preguntas, sugerencias, composer y respuesta
+- `providers/museiq/`: slices internos del estado global compartido
+
+Referencia rápida: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Flujo de la app
 
@@ -207,10 +222,10 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 El roadmap activo de producto y flujo vive en [ROADMAP.md](ROADMAP.md). A nivel técnico, las prioridades inmediatas son:
 
 - conectar QR real con cámara y códigos de obra
-- completar el estado de obra identificada
-- convertir el chat en bottom sheet dentro del Home AR
 - definir el contrato `model_3d` y `hotspots` con MuseRAG
-- preparar fallback de visor 3D sin AR
+- implementar el estado `T` de actualización disponible
+- implementar la pantalla dedicada `W Modelo 3D no disponible`
+- integrar AR real con ARCore/ARKit o alternativa compatible
 
 ## Troubleshooting
 

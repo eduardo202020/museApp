@@ -11,7 +11,7 @@
     <img src="./docs/screenshots/muse-experience.png" alt="MuseIQ mostrando detección de sala, escaneo y ficha de obra" width="900" />
 </p>
 
-<h1 align="center">museApp · MuseIQ</h1>
+<h1 align="center">museiqApp · MuseIQ</h1>
 
 <p align="center">
     Guía móvil contextual para museos que combina <strong>BLE</strong>, <strong>voz</strong> e <strong>IA</strong> para acompañar al visitante en tiempo real.
@@ -31,6 +31,14 @@
 > Guía móvil contextual e inmersiva para museos, con experiencia AR-first apoyada por BLE, QR, voz, MuseRAG e imágenes.
 
 MuseIQ está evolucionando desde una guía conversacional tradicional hacia una experiencia de mediación cultural centrada en la cámara o vista AR. La pantalla principal ya no se organiza como una app de tabs, sino como una visita inmersiva con controles flotantes, bottom sheets y paneles secundarios cuando el visitante necesita más detalle.
+
+## Fuente de verdad del flujo
+
+- `README.md`: visión general y flujo visible del producto.
+- `ROADMAP.md`: prioridades activas y cobertura por estados del recorrido.
+- `README-DEV.md`: setup técnico, integración con MuseRAG y operación local.
+
+Si las referencias visuales de `pantallas/` no están presentes en tu copia del repo, toma como fuente de verdad las rutas de `app/` y la cobertura documentada en este README y en `ROADMAP.md`.
 
 ## Enfoque actual
 
@@ -58,6 +66,20 @@ MuseIQ está evolucionando desde una guía conversacional tradicional hacia una 
 12. Cargando AR, AR activo temporal y hotspot seleccionado.
 13. Chat IA y audio activo como estados de la experiencia AR.
 14. AR no disponible con fallback a visor 3D.
+
+## Flujo real en rutas
+
+Secuencia principal actual:
+
+`index` -> `seleccionar-museo` -> `preparacion-visita` -> `/(drawer)/home`
+
+Ramas desde Home:
+
+- `Explorar` -> bottom sheet de sala -> `artwork-detail` -> `artwork-images`
+- `Escanear QR` -> overlay simulado -> `obra-identificada`
+- `Preguntar` -> `pregunta-voz-modal`
+- `Ver en AR` -> `cargando-ar` -> `ar-activo` -> `ar-hotspot-seleccionado`
+- Fallback AR -> `ar-no-disponible` -> `visor-3d`
 
 ## Cobertura contra `pantallas/flujo.png`
 

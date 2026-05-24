@@ -1,8 +1,8 @@
 # Roadmap MuseIQ AR-first
 
-Actualizado: 2026-05-22
+Actualizado: 2026-05-23
 
-Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de referencia incluidas en `pantallas/`. El objetivo es convertir MuseIQ en una guía inmersiva, sobria y museográfica, sin perder las funciones ya existentes de BLE, MuseRAG, voz, imágenes y modo técnico.
+Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real presente en `app/`. Si las referencias de `pantallas/` no están disponibles en el repo local, usa este archivo y `README.md` como fuente de verdad operativa. El objetivo es convertir MuseIQ en una guía inmersiva, sobria y museográfica, sin perder las funciones ya existentes de BLE, MuseRAG, voz, imágenes y modo técnico.
 
 ## Principios de producto
 
@@ -14,6 +14,17 @@ Este roadmap sigue el flujo visual de `pantallas/flujo.png` y las pantallas de r
 - Preguntar debe sentirse como un modal contextual que emerge sobre la experiencia.
 - La interfaz usa azul MuseIQ como color primario, con botones de borde en el HUD.
 - El modo técnico queda separado del visitante común.
+
+## Flujo base vigente
+
+1. `index`: entrada inmersiva y arranque de visita.
+2. `seleccionar-museo`: selección de museo actual y futuros museos.
+3. `preparacion-visita`: permisos, conectividad y estado base.
+4. `/(drawer)/home`: HUD principal con BLE, explorar, preguntar y QR.
+5. `obra-identificada` y `artwork-detail`: confirmación y ficha de obra.
+6. `pregunta-voz-modal`: consulta contextual por voz o texto.
+7. `cargando-ar`, `ar-activo`, `ar-hotspot-seleccionado`: recorrido AR temporal.
+8. `ar-no-disponible` y `visor-3d`: degradación cuando AR no está disponible.
 
 ## Cobertura por `flujo.png`
 
