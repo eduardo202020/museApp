@@ -229,6 +229,7 @@ const identityQuaternion = new THREE.Quaternion();
 
 const embeddedTextureFileCache = new Map<string, Promise<EmbeddedTextureAsset>>();
 const preparedModelCache = new Map<ModelAsset, Promise<PreparedModelSource>>();
+const preparedModelTemplateCache = new Map<ModelAsset, Promise<THREE.Object3D>>();
 
 export const getCabezaClavaModelAssetForArtwork = getArtworkModelAssetForArtwork;
 
@@ -236,14 +237,8 @@ export function prepareCabezaClavaModel(
   modelAsset: ModelAsset,
   onProgress?: ModelPreparationProgress,
 ) {
-  const cachedPreparation = preparedModelCache.get(modelAsset);
-  if (cachedPreparation) {
-    return cachedPreparation;
-  }
-
-  const preparation = loadCabezaClavaModelSource(modelAsset, onProgress);
-  preparedModelCache.set(modelAsset, preparation);
-  return preparation;
+  const sourcePreparation = getPreparedModelSource(modelAsset, onProgress);
+  return getPreparedModelTemplate(modelAsset, sourcePreparation, onProgress);
 }
 
 export function CabezaClavaModelView({
@@ -1232,14 +1227,43 @@ function patchUnsupportedPixelStore(gl: ExpoWebGLRenderingContext) {
 }
 
 async function loadCabezaClavaModel(modelAsset: ModelAsset) {
-  const preparedModel = preparedModelCache.get(modelAsset);
-  if (preparedModel) {
-    const preparedSource = await preparedModel;
-    return buildSceneFromPreparedModel(preparedSource);
+  const preparedTemplate = await getPreparedModelTemplate(modelAsset);
+  return clonePreparedModelTemplate(preparedTemplate);
+}
+
+function getPreparedModelSource(
+  modelAsset: ModelAsset,
+  onProgress?: ModelPreparationProgress,
+) {
+  const cachedPreparation = preparedModelCache.get(modelAsset);
+  if (cachedPreparation) {
+    return cachedPreparation;
   }
 
-  const preparedSource = await loadCabezaClavaModelSource(modelAsset);
-  return buildSceneFromPreparedModel(preparedSource);
+  const preparation = loadCabezaClavaModelSource(modelAsset, onProgress);
+  preparedModelCache.set(modelAsset, preparation);
+  return preparation;
+}
+
+function getPreparedModelTemplate(
+  modelAsset: ModelAsset,
+  sourcePreparation = getPreparedModelSource(modelAsset),
+  onProgress?: ModelPreparationProgress,
+) {
+  const cachedTemplate = preparedModelTemplateCache.get(modelAsset);
+  if (cachedTemplate) {
+    return cachedTemplate;
+  }
+
+  const templatePreparation = sourcePreparation.then((preparedSource) => {
+    onProgress?.(88);
+    const template = buildSceneFromPreparedModel(preparedSource);
+    markObjectAsSharedTemplate(template);
+    onProgress?.(100);
+    return template;
+  });
+  preparedModelTemplateCache.set(modelAsset, templatePreparation);
+  return templatePreparation;
 }
 
 async function loadCabezaClavaModelSource(
@@ -1256,7 +1280,7 @@ async function loadCabezaClavaModelSource(
 
   onProgress?.(62);
   const modelSource = await parseGlbGeometry(arrayBuffer);
-  onProgress?.(100);
+  onProgress?.(80);
   return modelSource;
 }
 
@@ -1312,6 +1336,12 @@ function buildSceneFromPreparedModel(preparedSource: PreparedModelSource) {
     preparedSource.binStart,
     preparedSource.resources,
   );
+}
+
+function clonePreparedModelTemplate(template: THREE.Object3D) {
+  const clone = template.clone(true);
+  markObjectAsSharedTemplate(clone);
+  return clone;
 }
 
 function buildSceneFromGltf(
@@ -1542,6 +1572,23 @@ async function readAssetArrayBuffer(uri: string) {
       bytes.byteOffset + bytes.byteLength,
     );
   }
+}
+
+function markObjectAsSharedTemplate(object: THREE.Object3D) {
+  object.traverse((child) => {
+    const mesh = child as THREE.Mesh & {
+      userData: { museiqSharedTemplate?: boolean };
+    };
+
+    if (!("geometry" in mesh)) {
+      return;
+    }
+
+    mesh.userData = {
+      ...mesh.userData,
+      museiqSharedTemplate: true,
+    };
+  });
 }
 
 async function writeEmbeddedTextureFile(
@@ -2090,7 +2137,13 @@ function enableDoubleSidedMaterials(object: THREE.Object3D) {
 
 function disposeObject(object: THREE.Object3D) {
   object.traverse((child) => {
-    const mesh = child as THREE.Mesh;
+    const mesh = child as THREE.Mesh & {
+      userData?: { museiqSharedTemplate?: boolean };
+    };
+    if (mesh.userData?.museiqSharedTemplate) {
+      return;
+    }
+
     mesh.geometry?.dispose();
 
     const material = mesh.material;

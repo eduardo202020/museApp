@@ -15,7 +15,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,7 +28,6 @@ type MotionCapabilities = {
 
 export default function SalaInmersivaScreen() {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const { roomId } = useLocalSearchParams<{ roomId?: string }>();
   const experience = getRoomImmersiveExperience(roomId);
   const [headTrackingDebug, setHeadTrackingDebug] = useState<HeadTrackingDebugState | null>(null);
@@ -312,31 +310,12 @@ export default function SalaInmersivaScreen() {
     );
   }
 
-  const usesLandscapeFallback = Platform.OS === "android" && windowWidth < windowHeight;
-  const effectiveViewerWidth = usesLandscapeFallback ? windowHeight : windowWidth;
-  const effectiveViewerHeight = usesLandscapeFallback ? windowWidth : windowHeight;
-  const viewerStageStyle = usesLandscapeFallback
-    ? [
-        styles.viewerStage,
-        styles.viewerStageLandscapeFallback,
-        {
-          height: effectiveViewerHeight,
-          left: (windowWidth - effectiveViewerWidth) / 2,
-          top: (windowHeight - effectiveViewerHeight) / 2,
-          width: effectiveViewerWidth,
-        },
-      ]
-    : styles.viewerStage;
-
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
       <ArSceneBackground dim="rgba(5,8,13,0.14)" />
-      <View style={viewerStageStyle}>
+      <View style={styles.viewerStage}>
         <CabezaClavaModelView
-          key={`${effectiveViewerWidth}x${effectiveViewerHeight}-${
-            motionPermissionState === "granted" ? "tracked" : "manual"
-          }`}
           headTracking={motionPermissionState === "granted"}
           interactive={motionPermissionState !== "granted"}
           modelAsset={experience.modelAsset}
@@ -367,7 +346,7 @@ export default function SalaInmersivaScreen() {
               {`permiso=${motionPermissionState} source=${headTrackingDebug?.source ?? "none"}`}
             </Text>
             <Text style={styles.debugLine}>
-              {`native_landscape=${nativeLandscapeLockReady ? "si" : "no"} fallback=${usesLandscapeFallback ? "si" : "no"}`}
+              {`native_landscape=${nativeLandscapeLockReady ? "si" : "no"}`}
             </Text>
             <Text style={styles.debugLine}>
               {`dm_avail=${formatFlag(headTrackingDebug?.deviceMotionAvailable ?? motionCapabilities.deviceMotionAvailable)} dm_events=${headTrackingDebug?.deviceMotionEvents ?? 0}`}
@@ -494,11 +473,6 @@ const styles = StyleSheet.create({
   viewerStage: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#000000",
-  },
-  viewerStageLandscapeFallback: {
-    bottom: "auto",
-    right: "auto",
-    transform: [{ rotate: "90deg" }],
   },
   model: {
     ...StyleSheet.absoluteFillObject,
