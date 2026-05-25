@@ -21,11 +21,13 @@ export default function RootLayout() {
             <Stack.Screen name="sin-conexion" />
             <Stack.Screen name="error-conexion" />
             <Stack.Screen name="cargando-ar" />
+            <Stack.Screen name="cargando-inmersivo" />
             <Stack.Screen name="ar-no-disponible" />
             <Stack.Screen name="ar-activo" />
             <Stack.Screen name="ar-chat-ia" />
             <Stack.Screen name="ar-hotspot-seleccionado" />
             <Stack.Screen name="ar-audio-activo" />
+            <Stack.Screen name="sala-inmersiva" />
             <Stack.Screen name="visor-3d" />
             <Stack.Screen name="artwork-detail" />
             <Stack.Screen name="artwork-images" />

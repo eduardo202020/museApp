@@ -2,6 +2,7 @@ import { SensorPanel } from "@/components/museiq/home/sensor-panel";
 import { QrScannerOverlay } from "@/components/museiq/home/qr-scanner-overlay";
 import { HomeBottomHud, HomeTopHud } from "@/features/home/components/home-hud";
 import { HomeExploreSheet } from "@/features/home/components/home-explore-sheet";
+import { HomeImmersiveSheet } from "@/features/home/components/home-immersive-sheet";
 import { HomeSceneState } from "@/features/home/components/home-scene-state";
 import { useHomeScreenController } from "@/features/home/hooks/use-home-screen-controller";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
@@ -21,7 +22,9 @@ export default function HomeScreen() {
     centralLabel,
     currentArtworkId,
     debugModeEnabled,
+    dismissImmersivePrompt,
     dismissSuggestion,
+    immersiveExperience,
     isArtworkNarrationPlaying,
     isRoomDetected,
     isSuggestionVisible,
@@ -29,6 +32,8 @@ export default function HomeScreen() {
     museumName,
     openArtworkDetail,
     openExploreSheet,
+    openImmersivePrompt,
+    openImmersiveExperience,
     openManualCodeEntry,
     openQrScanner,
     repeatArtworkNarration,
@@ -74,6 +79,7 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safeArea}>
         <HomeTopHud
           isArtworkNarrationPlaying={isArtworkNarrationPlaying}
+          onOpenImmersiveTest={openImmersivePrompt}
           onOpenDrawer={() => navigation.dispatch(DrawerActions.openDrawer())}
           onRepeatArtworkNarration={repeatArtworkNarration}
           topRoomLabel={topRoomLabel}
@@ -123,6 +129,17 @@ export default function HomeScreen() {
           roomArtworks={roomArtworks}
           roomName={roomName}
           visitedArtworkIds={visitedArtworkIds}
+        />
+      ) : null}
+
+      {activeSheet === "immersive" && immersiveExperience ? (
+        <HomeImmersiveSheet
+          ctaLabel={immersiveExperience.ctaLabel}
+          description={immersiveExperience.description}
+          onClose={dismissImmersivePrompt}
+          onEnter={openImmersiveExperience}
+          roomName={roomName}
+          title={immersiveExperience.promptTitle}
         />
       ) : null}
 

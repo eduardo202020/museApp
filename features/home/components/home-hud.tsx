@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 
 type HomeTopHudProps = {
   isArtworkNarrationPlaying: boolean;
+  onOpenImmersiveTest: () => void;
   onOpenDrawer: () => void;
   onRepeatArtworkNarration: () => void;
   topRoomLabel: string;
@@ -38,6 +39,7 @@ function HudActionButton({ icon, label, onPress, style }: HudActionButtonProps) 
 
 export function HomeTopHud({
   isArtworkNarrationPlaying,
+  onOpenImmersiveTest,
   onOpenDrawer,
   onRepeatArtworkNarration,
   topRoomLabel,
@@ -57,21 +59,34 @@ export function HomeTopHud({
         <Ionicons color="#FFFFFF" name="menu" size={38} />
       </Pressable>
 
-      <Pressable
-        onPress={onRepeatArtworkNarration}
-        style={({ pressed }) => [
-          styles.sideButton,
-          isArtworkNarrationPlaying ? styles.sideButtonActive : null,
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Ionicons
-          color="#FFFFFF"
-          name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
-          size={26}
-        />
-        <Text style={styles.sideButtonLabel}>Audio</Text>
-      </Pressable>
+      <View style={styles.topHudRightStack}>
+        <Pressable
+          onPress={onRepeatArtworkNarration}
+          style={({ pressed }) => [
+            styles.sideButton,
+            isArtworkNarrationPlaying ? styles.sideButtonActive : null,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Ionicons
+            color="#FFFFFF"
+            name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
+            size={26}
+          />
+          <Text style={styles.sideButtonLabel}>Audio</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={onOpenImmersiveTest}
+          style={({ pressed }) => [
+            styles.sideButton,
+            styles.immersiveTestButton,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Ionicons color="#FFFFFF" name="glasses-outline" size={24} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -135,6 +150,10 @@ const styles = StyleSheet.create({
     right: 92,
     top: 14,
   },
+  topHudRightStack: {
+    alignItems: "center",
+    gap: 10,
+  },
   topHudRoomLabel: {
     color: "#FFFFFF",
     fontSize: 18,
@@ -164,6 +183,9 @@ const styles = StyleSheet.create({
     height: 66,
     justifyContent: "center",
     width: 66,
+  },
+  immersiveTestButton: {
+    gap: 0,
   },
   sideButtonActive: {
     borderColor: musePalette.primary,

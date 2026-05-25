@@ -1,11 +1,12 @@
 import { useHomeBleStatus } from "@/hooks/use-home-ble-status";
 import { useHomeSensors } from "@/hooks/use-home-sensors";
 import { getArtworkImageSource } from "@/lib/artwork-images";
+import { getRoomImmersiveExperience } from "@/lib/room-experiences";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
-type ActiveSheet = "explore" | "qr" | null;
+type ActiveSheet = "explore" | "immersive" | "qr" | null;
 
 export function useHomeScreenController() {
   const {
@@ -68,6 +69,7 @@ export function useHomeScreenController() {
   const roomName = activeRoom?.name ?? "Buscando sala";
   const topRoomLabel = isRoomDetected ? roomName : "Reconociendo sala";
   const centralLabel = shouldShowSuggestionCta ? "Ver sugerencia" : "Preguntar";
+  const immersiveExperience = getRoomImmersiveExperience(activeRoom?.id);
 
   useEffect(() => {
     if (!hasNearbySuggestion || !suggestedArtwork?.id || isSuggestionDismissed) {
@@ -129,6 +131,30 @@ export function useHomeScreenController() {
     setActiveSheet(null);
   };
 
+  const dismissImmersivePrompt = () => {
+    setActiveSheet(null);
+  };
+
+  const openImmersivePrompt = () => {
+    if (!immersiveExperience) {
+      return;
+    }
+
+    setActiveSheet("immersive");
+  };
+
+  const openImmersiveExperience = () => {
+    if (!immersiveExperience) {
+      return;
+    }
+
+    setActiveSheet(null);
+    router.push({
+      pathname: "/cargando-inmersivo",
+      params: { roomId: immersiveExperience.roomId },
+    } as never);
+  };
+
   const openManualCodeEntry = () => {
     setActiveSheet(null);
     setIsTorchOn(false);
@@ -165,6 +191,7 @@ export function useHomeScreenController() {
     centralLabel,
     currentArtworkId,
     debugModeEnabled,
+    dismissImmersivePrompt,
     isArtworkNarrationPlaying,
     isRoomDetected,
     isSensorPanelOpen,
@@ -174,6 +201,7 @@ export function useHomeScreenController() {
     repeatArtworkNarration,
     roomArtworks,
     roomName,
+    immersiveExperience,
     sensorPanelProps: {
       accelerometerStatus,
       bleStatus: bleError ? `error - ${bleError}` : bleStatusLabel,
@@ -197,6 +225,8 @@ export function useHomeScreenController() {
     handleViewSuggestedAr,
     openArtworkDetail,
     openExploreSheet,
+    openImmersivePrompt,
+    openImmersiveExperience,
     openManualCodeEntry,
     openQrScanner,
     setIsTorchOn,

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   PanResponder,
+  Platform,
   StyleSheet,
   Text,
   View,
@@ -17,14 +18,20 @@ import * as THREE from "three";
 
 type CabezaClavaModelViewProps = {
   autoRotate?: boolean;
+  headTracking?: boolean;
   interactive?: boolean;
   modelAsset?: ModelAsset;
   modelLabel?: string;
+  onHeadTrackingDebug?: (snapshot: HeadTrackingDebugState) => void;
+  recenterSignal?: number;
   showStatus?: boolean;
+  stereo?: boolean;
   style?: StyleProp<ViewStyle>;
+  viewMode?: ModelViewMode;
 };
 
 type ModelAsset = number;
+type ModelViewMode = "object" | "immersive";
 
 type GltfJson = {
   accessors: GltfAccessor[];
@@ -106,6 +113,13 @@ type GltfResources = {
   textures: Map<number, THREE.Texture>;
 };
 
+type PreparedModelSource = {
+  arrayBuffer: ArrayBuffer;
+  binStart: number;
+  json: GltfJson;
+  resources: GltfResources;
+};
+
 type EmbeddedTextureAsset = {
   height: number;
   localUri: string;
@@ -117,6 +131,50 @@ type CameraFit = {
   far: number;
   near: number;
   target: THREE.Vector3;
+};
+
+type ImmersiveCameraRig = {
+  baseYaw: number;
+  far: number;
+  lookDistance: number;
+  near: number;
+  origin: THREE.Vector3;
+};
+
+type ImmersiveObserverPlacement = {
+  baseYaw: number;
+  lookDistance: number;
+  minClearance: number;
+  origin: THREE.Vector3;
+  score: number;
+};
+
+export type HeadTrackingDebugState = {
+  alpha: number | null;
+  accelerometerAvailable: boolean | null;
+  accelerometerEvents: number;
+  accelX: number | null;
+  accelY: number | null;
+  accelZ: number | null;
+  beta: number | null;
+  deviceMotionAvailable: boolean | null;
+  deviceMotionEvents: number;
+  error: string | null;
+  gyroX: number | null;
+  gyroY: number | null;
+  gyroZ: number | null;
+  gyroscopeAvailable: boolean | null;
+  gyroscopeEvents: number;
+  headTrackingEnabled: boolean;
+  magnetometerAvailable: boolean | null;
+  magnetometerEvents: number;
+  magX: number | null;
+  magY: number | null;
+  magZ: number | null;
+  pitch: number;
+  platform: string;
+  source: "none" | "device-motion" | "gyroscope" | "compass";
+  yaw: number;
 };
 
 type ModelPreparationProgress = (progress: number) => void;
@@ -153,9 +211,24 @@ const MODEL_WIDTH_FILL_RATIO = 0.98;
 const MAX_MODEL_ZOOM = 3.4;
 const MIN_MODEL_ZOOM = 0.72;
 const MAX_VERTICAL_ROTATION = Math.PI * 0.32;
+const MAX_IMMERSIVE_PITCH = Math.PI * 0.42;
+const VR_EYE_SEPARATION = 0.064;
+const IMMERSIVE_HORIZONTAL_SAMPLE_FRACTIONS = [0.18, 0.5, 0.82];
+const IMMERSIVE_HEIGHT_SAMPLE_FRACTIONS = [0.16, 0.26, 0.38, 0.5];
+
+const deviceOrientationAxis = new THREE.Vector3(0, 0, 1);
+const deviceOrientationEuler = new THREE.Euler();
+const deviceOrientationScreenQuaternion = new THREE.Quaternion();
+const deviceOrientationTransformQuaternion = new THREE.Quaternion(
+  -Math.sqrt(0.5),
+  0,
+  0,
+  Math.sqrt(0.5),
+);
+const identityQuaternion = new THREE.Quaternion();
 
 const embeddedTextureFileCache = new Map<string, Promise<EmbeddedTextureAsset>>();
-const preparedModelCache = new Map<ModelAsset, Promise<THREE.Object3D>>();
+const preparedModelCache = new Map<ModelAsset, Promise<PreparedModelSource>>();
 
 export const getCabezaClavaModelAssetForArtwork = getArtworkModelAssetForArtwork;
 
@@ -175,19 +248,26 @@ export function prepareCabezaClavaModel(
 
 export function CabezaClavaModelView({
   autoRotate = true,
+  headTracking = false,
   interactive = false,
   modelAsset = DEFAULT_ARTWORK_MODEL.asset,
   modelLabel = DEFAULT_ARTWORK_MODEL.label,
+  onHeadTrackingDebug,
+  recenterSignal = 0,
   showStatus = true,
+  stereo = false,
   style,
+  viewMode = "object",
 }: CabezaClavaModelViewProps) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const isMountedRef = useRef(true);
-  const manualRotationYRef = useRef(0);
-  const manualRotationXRef = useRef(0);
+  const objectRotationYRef = useRef(0);
+  const objectRotationXRef = useRef(0);
+  const observerYawRef = useRef(0);
+  const observerPitchRef = useRef(0);
   const lastGestureDxRef = useRef(0);
   const lastGestureDyRef = useRef(0);
   const modelZoomRef = useRef(1);
@@ -195,10 +275,571 @@ export function CabezaClavaModelView({
   const initialPinchZoomRef = useRef(1);
   const autoRotateRef = useRef(autoRotate);
   const hasUserInteractedRef = useRef(false);
+  const deviceOrientationRef = useRef<THREE.Quaternion | null>(null);
+  const deviceOrientationReferenceRef = useRef<THREE.Quaternion | null>(null);
+  const gyroscopeOrientationRef = useRef<THREE.Quaternion | null>(null);
+  const gyroscopeLastTimestampRef = useRef<number | null>(null);
+  const accelerometerReadingRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const magnetometerReadingRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const headTrackingSourceRef = useRef<"none" | "device-motion" | "gyroscope" | "compass">("none");
+  const debugAccelerometerAvailableRef = useRef<boolean | null>(null);
+  const debugAccelerometerEventsRef = useRef(0);
+  const debugAccelXRef = useRef<number | null>(null);
+  const debugAccelYRef = useRef<number | null>(null);
+  const debugAccelZRef = useRef<number | null>(null);
+  const debugDeviceMotionAvailableRef = useRef<boolean | null>(null);
+  const debugDeviceMotionEventsRef = useRef(0);
+  const debugErrorRef = useRef<string | null>(null);
+  const debugGyroscopeAvailableRef = useRef<boolean | null>(null);
+  const debugGyroscopeEventsRef = useRef(0);
+  const debugLastAlphaRef = useRef<number | null>(null);
+  const debugLastBetaRef = useRef<number | null>(null);
+  const debugLastEmitAtRef = useRef(0);
+  const debugLastGyroXRef = useRef<number | null>(null);
+  const debugLastGyroYRef = useRef<number | null>(null);
+  const debugLastGyroZRef = useRef<number | null>(null);
+  const debugMagnetometerAvailableRef = useRef<boolean | null>(null);
+  const debugMagnetometerEventsRef = useRef(0);
+  const debugMagXRef = useRef<number | null>(null);
+  const debugMagYRef = useRef<number | null>(null);
+  const debugMagZRef = useRef<number | null>(null);
+  const trackedYawRef = useRef(0);
+  const trackedPitchRef = useRef(0);
+  const trackedRotationReferenceRef = useRef<
+    { alpha: number; beta: number } | { yaw: number; pitch: number } | null
+  >(null);
+  const isImmersive = viewMode === "immersive";
+  const usesHeadTracking = isImmersive && headTracking;
+  const usesStereo = isImmersive && stereo;
+  const usesAndroidHeadTracking = usesHeadTracking && Platform.OS === "android";
 
   useEffect(() => {
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
+
+  const emitDebugSnapshot = useCallback(
+    (force = false) => {
+      if (!onHeadTrackingDebug) {
+        return;
+      }
+
+      const now = Date.now();
+      if (!force && now - debugLastEmitAtRef.current < 120) {
+        return;
+      }
+
+      debugLastEmitAtRef.current = now;
+      onHeadTrackingDebug({
+        alpha: debugLastAlphaRef.current,
+        accelerometerAvailable: debugAccelerometerAvailableRef.current,
+        accelerometerEvents: debugAccelerometerEventsRef.current,
+        accelX: debugAccelXRef.current,
+        accelY: debugAccelYRef.current,
+        accelZ: debugAccelZRef.current,
+        beta: debugLastBetaRef.current,
+        deviceMotionAvailable: debugDeviceMotionAvailableRef.current,
+        deviceMotionEvents: debugDeviceMotionEventsRef.current,
+        error: debugErrorRef.current,
+        gyroX: debugLastGyroXRef.current,
+        gyroY: debugLastGyroYRef.current,
+        gyroZ: debugLastGyroZRef.current,
+        gyroscopeAvailable: debugGyroscopeAvailableRef.current,
+        gyroscopeEvents: debugGyroscopeEventsRef.current,
+        headTrackingEnabled: usesHeadTracking,
+        magnetometerAvailable: debugMagnetometerAvailableRef.current,
+        magnetometerEvents: debugMagnetometerEventsRef.current,
+        magX: debugMagXRef.current,
+        magY: debugMagYRef.current,
+        magZ: debugMagZRef.current,
+        pitch: trackedPitchRef.current,
+        platform: Platform.OS,
+        source: headTrackingSourceRef.current,
+        yaw: trackedYawRef.current,
+      });
+    },
+    [onHeadTrackingDebug, usesHeadTracking],
+  );
+
+  useEffect(() => {
+    emitDebugSnapshot(true);
+  }, [emitDebugSnapshot]);
+
+  useEffect(() => {
+    if (!usesHeadTracking) {
+      return;
+    }
+
+    trackedYawRef.current = 0;
+    trackedPitchRef.current = 0;
+    trackedRotationReferenceRef.current = null;
+
+    if (deviceOrientationRef.current) {
+      deviceOrientationReferenceRef.current = deviceOrientationRef.current.clone().invert();
+    } else {
+      deviceOrientationReferenceRef.current = null;
+    }
+
+    if (gyroscopeOrientationRef.current) {
+      gyroscopeOrientationRef.current = new THREE.Quaternion();
+    }
+    gyroscopeLastTimestampRef.current = null;
+    emitDebugSnapshot(true);
+  }, [emitDebugSnapshot, recenterSignal, usesHeadTracking]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let accelerometerSubscription: { remove: () => void } | null = null;
+    let deviceMotionSubscription: { remove: () => void } | null = null;
+    let gyroscopeSubscription: { remove: () => void } | null = null;
+    let gyroscopeFallbackTimeout: ReturnType<typeof setTimeout> | null = null;
+    let magnetometerSubscription: { remove: () => void } | null = null;
+
+    accelerometerReadingRef.current = null;
+    deviceOrientationRef.current = null;
+    deviceOrientationReferenceRef.current = null;
+    gyroscopeOrientationRef.current = null;
+    gyroscopeLastTimestampRef.current = null;
+    headTrackingSourceRef.current = "none";
+    magnetometerReadingRef.current = null;
+    debugAccelerometerAvailableRef.current = null;
+    debugAccelerometerEventsRef.current = 0;
+    debugAccelXRef.current = null;
+    debugAccelYRef.current = null;
+    debugAccelZRef.current = null;
+    debugDeviceMotionAvailableRef.current = null;
+    debugDeviceMotionEventsRef.current = 0;
+    debugErrorRef.current = null;
+    debugGyroscopeAvailableRef.current = null;
+    debugGyroscopeEventsRef.current = 0;
+    debugLastAlphaRef.current = null;
+    debugLastBetaRef.current = null;
+    debugLastGyroXRef.current = null;
+    debugLastGyroYRef.current = null;
+    debugLastGyroZRef.current = null;
+    debugMagnetometerAvailableRef.current = null;
+    debugMagnetometerEventsRef.current = 0;
+    debugMagXRef.current = null;
+    debugMagYRef.current = null;
+    debugMagZRef.current = null;
+    trackedYawRef.current = 0;
+    trackedPitchRef.current = 0;
+    trackedRotationReferenceRef.current = null;
+    emitDebugSnapshot(true);
+
+    if (!usesHeadTracking) {
+      return;
+    }
+
+    const startHeadTracking = async () => {
+      try {
+        const sensorsModule = await import("expo-sensors");
+        const Accelerometer = sensorsModule.Accelerometer;
+        const DeviceMotion = sensorsModule.DeviceMotion;
+        const Gyroscope = sensorsModule.Gyroscope;
+        const Magnetometer = sensorsModule.Magnetometer;
+        const accelerometerAvailable = usesAndroidHeadTracking
+          ? await Accelerometer.isAvailableAsync().catch(() => false)
+          : false;
+        const sensorAvailable = await DeviceMotion.isAvailableAsync().catch(() => false);
+        const gyroscopeAvailable = usesAndroidHeadTracking
+          ? await Gyroscope.isAvailableAsync().catch(() => false)
+          : false;
+        const magnetometerAvailable = usesAndroidHeadTracking
+          ? await Magnetometer.isAvailableAsync().catch(() => false)
+          : false;
+        debugAccelerometerAvailableRef.current = accelerometerAvailable;
+        debugDeviceMotionAvailableRef.current = sensorAvailable;
+        debugGyroscopeAvailableRef.current = gyroscopeAvailable;
+        debugMagnetometerAvailableRef.current = magnetometerAvailable;
+        emitDebugSnapshot(true);
+
+        const updateCompassTracking = () => {
+          if (!accelerometerReadingRef.current || !magnetometerReadingRef.current) {
+            return;
+          }
+
+          const orientation = getCompassOrientation(
+            accelerometerReadingRef.current,
+            magnetometerReadingRef.current,
+          );
+          if (!orientation) {
+            return;
+          }
+
+          headTrackingSourceRef.current = "compass";
+          if (
+            !trackedRotationReferenceRef.current ||
+            !("yaw" in trackedRotationReferenceRef.current)
+          ) {
+            trackedRotationReferenceRef.current = {
+              yaw: orientation.yaw,
+              pitch: orientation.pitch,
+            };
+          }
+
+          const reference = trackedRotationReferenceRef.current;
+          if (!reference || !("yaw" in reference)) {
+            return;
+          }
+
+          trackedYawRef.current = normalizeAngle(orientation.yaw - reference.yaw);
+          trackedPitchRef.current = clamp(
+            orientation.pitch - reference.pitch,
+            -MAX_IMMERSIVE_PITCH,
+            MAX_IMMERSIVE_PITCH,
+          );
+          emitDebugSnapshot();
+        };
+
+        const startCompassFallback = () => {
+          if (
+            !accelerometerAvailable ||
+            !magnetometerAvailable ||
+            accelerometerSubscription ||
+            magnetometerSubscription
+          ) {
+            return;
+          }
+
+          Accelerometer.setUpdateInterval(40);
+          Magnetometer.setUpdateInterval(40);
+
+          accelerometerSubscription = Accelerometer.addListener((reading) => {
+            debugAccelerometerEventsRef.current += 1;
+            debugAccelXRef.current = reading.x ?? null;
+            debugAccelYRef.current = reading.y ?? null;
+            debugAccelZRef.current = reading.z ?? null;
+            debugErrorRef.current = null;
+            accelerometerReadingRef.current = {
+              x: reading.x ?? 0,
+              y: reading.y ?? 0,
+              z: reading.z ?? 0,
+            };
+            updateCompassTracking();
+          });
+
+          magnetometerSubscription = Magnetometer.addListener((reading) => {
+            debugMagnetometerEventsRef.current += 1;
+            debugMagXRef.current = reading.x ?? null;
+            debugMagYRef.current = reading.y ?? null;
+            debugMagZRef.current = reading.z ?? null;
+            debugErrorRef.current = null;
+            magnetometerReadingRef.current = {
+              x: reading.x ?? 0,
+              y: reading.y ?? 0,
+              z: reading.z ?? 0,
+            };
+            updateCompassTracking();
+          });
+
+          emitDebugSnapshot(true);
+        };
+
+        const startGyroscopeFallback = () => {
+          if (!gyroscopeAvailable || gyroscopeSubscription) {
+            return;
+          }
+
+          headTrackingSourceRef.current = "gyroscope";
+          gyroscopeOrientationRef.current = new THREE.Quaternion();
+          gyroscopeLastTimestampRef.current = null;
+          Gyroscope.setUpdateInterval(24);
+          gyroscopeSubscription = Gyroscope.addListener((reading) => {
+            if (!gyroscopeOrientationRef.current) {
+              gyroscopeOrientationRef.current = new THREE.Quaternion();
+            }
+            debugGyroscopeEventsRef.current += 1;
+            debugLastGyroXRef.current = reading.x ?? null;
+            debugLastGyroYRef.current = reading.y ?? null;
+            debugLastGyroZRef.current = reading.z ?? null;
+            debugErrorRef.current = null;
+
+            const lastTimestamp = gyroscopeLastTimestampRef.current;
+            gyroscopeLastTimestampRef.current = reading.timestamp;
+            if (lastTimestamp === null) {
+              emitDebugSnapshot();
+              return;
+            }
+
+            const deltaTime = clamp(reading.timestamp - lastTimestamp, 0, 0.05);
+            const angularSpeed = Math.hypot(reading.x ?? 0, reading.y ?? 0, reading.z ?? 0);
+            if (angularSpeed <= 0.0001) {
+              return;
+            }
+
+            const rotationAxis = new THREE.Vector3(
+              reading.x ?? 0,
+              reading.y ?? 0,
+              reading.z ?? 0,
+            ).normalize();
+            const deltaQuaternion = new THREE.Quaternion().setFromAxisAngle(
+              rotationAxis,
+              angularSpeed * deltaTime,
+            );
+
+            gyroscopeOrientationRef.current.multiply(deltaQuaternion);
+            emitDebugSnapshot();
+          });
+          emitDebugSnapshot(true);
+        };
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (usesAndroidHeadTracking && !sensorAvailable && gyroscopeAvailable) {
+          startGyroscopeFallback();
+          return;
+        }
+
+        if (
+          usesAndroidHeadTracking &&
+          !sensorAvailable &&
+          !gyroscopeAvailable &&
+          accelerometerAvailable &&
+          magnetometerAvailable
+        ) {
+          startCompassFallback();
+          return;
+        }
+
+        if (!sensorAvailable) {
+          return;
+        }
+
+        if (Platform.OS !== "android") {
+          const permissions = await DeviceMotion.getPermissionsAsync();
+          const permissionResponse = permissions.granted
+            ? permissions
+            : permissions.canAskAgain
+              ? await DeviceMotion.requestPermissionsAsync()
+              : permissions;
+
+          if (!isMounted || !permissionResponse.granted) {
+            return;
+          }
+        }
+
+        DeviceMotion.setUpdateInterval(24);
+        deviceMotionSubscription = DeviceMotion.addListener((motion) => {
+          headTrackingSourceRef.current = "device-motion";
+          debugDeviceMotionEventsRef.current += 1;
+          debugLastAlphaRef.current = motion.rotation?.alpha ?? null;
+          debugLastBetaRef.current = motion.rotation?.beta ?? null;
+          debugErrorRef.current = null;
+          if (usesAndroidHeadTracking) {
+            const alpha = motion.rotation?.alpha ?? 0;
+            const beta = motion.rotation?.beta ?? 0;
+
+            if (!trackedRotationReferenceRef.current) {
+              trackedRotationReferenceRef.current = { alpha, beta };
+            }
+
+            const reference = trackedRotationReferenceRef.current;
+            if (!reference || !("alpha" in reference)) {
+              return;
+            }
+            trackedYawRef.current = normalizeAngle(alpha - reference.alpha);
+            trackedPitchRef.current = clamp(
+              beta - reference.beta,
+              -MAX_IMMERSIVE_PITCH,
+              MAX_IMMERSIVE_PITCH,
+            );
+            emitDebugSnapshot();
+            return;
+          }
+
+          const nextOrientation = getDeviceMotionQuaternion(
+            motion.rotation,
+            motion.orientation,
+          );
+
+          deviceOrientationRef.current = nextOrientation;
+          if (!deviceOrientationReferenceRef.current) {
+            deviceOrientationReferenceRef.current = nextOrientation.clone().invert();
+          }
+          emitDebugSnapshot();
+        });
+
+        if (usesAndroidHeadTracking && gyroscopeAvailable) {
+          gyroscopeFallbackTimeout = setTimeout(() => {
+            if (headTrackingSourceRef.current === "none") {
+              startGyroscopeFallback();
+            }
+          }, 700);
+        } else if (usesAndroidHeadTracking && accelerometerAvailable && magnetometerAvailable) {
+          gyroscopeFallbackTimeout = setTimeout(() => {
+            if (headTrackingSourceRef.current === "none") {
+              startCompassFallback();
+            }
+          }, 700);
+        }
+      } catch {
+        deviceOrientationRef.current = null;
+        deviceOrientationReferenceRef.current = null;
+        debugErrorRef.current = "device-motion-error";
+        emitDebugSnapshot(true);
+        if (usesAndroidHeadTracking) {
+          try {
+            const sensorsModule = await import("expo-sensors");
+            const Accelerometer = sensorsModule.Accelerometer;
+            const Gyroscope = sensorsModule.Gyroscope;
+            const Magnetometer = sensorsModule.Magnetometer;
+            const accelerometerAvailable = await Accelerometer.isAvailableAsync().catch(() => false);
+            const gyroscopeAvailable = await Gyroscope.isAvailableAsync().catch(() => false);
+            const magnetometerAvailable = await Magnetometer.isAvailableAsync().catch(() => false);
+            debugAccelerometerAvailableRef.current = accelerometerAvailable;
+            debugGyroscopeAvailableRef.current = gyroscopeAvailable;
+            debugMagnetometerAvailableRef.current = magnetometerAvailable;
+
+            if (gyroscopeAvailable) {
+              headTrackingSourceRef.current = "gyroscope";
+              gyroscopeOrientationRef.current = new THREE.Quaternion();
+              gyroscopeLastTimestampRef.current = null;
+              Gyroscope.setUpdateInterval(24);
+              gyroscopeSubscription = Gyroscope.addListener((reading) => {
+                if (!gyroscopeOrientationRef.current) {
+                  gyroscopeOrientationRef.current = new THREE.Quaternion();
+                }
+                debugGyroscopeEventsRef.current += 1;
+                debugLastGyroXRef.current = reading.x ?? null;
+                debugLastGyroYRef.current = reading.y ?? null;
+                debugLastGyroZRef.current = reading.z ?? null;
+                debugErrorRef.current = null;
+
+                const lastTimestamp = gyroscopeLastTimestampRef.current;
+                gyroscopeLastTimestampRef.current = reading.timestamp;
+                if (lastTimestamp === null) {
+                  emitDebugSnapshot();
+                  return;
+                }
+
+                const deltaTime = clamp(reading.timestamp - lastTimestamp, 0, 0.05);
+                const angularSpeed = Math.hypot(reading.x ?? 0, reading.y ?? 0, reading.z ?? 0);
+                if (angularSpeed <= 0.0001) {
+                  return;
+                }
+
+                const rotationAxis = new THREE.Vector3(
+                  reading.x ?? 0,
+                  reading.y ?? 0,
+                  reading.z ?? 0,
+                ).normalize();
+                const deltaQuaternion = new THREE.Quaternion().setFromAxisAngle(
+                  rotationAxis,
+                  angularSpeed * deltaTime,
+                );
+
+                gyroscopeOrientationRef.current.multiply(deltaQuaternion);
+                emitDebugSnapshot();
+              });
+              emitDebugSnapshot(true);
+            } else if (accelerometerAvailable && magnetometerAvailable) {
+              const updateCompassTracking = () => {
+                if (!accelerometerReadingRef.current || !magnetometerReadingRef.current) {
+                  return;
+                }
+
+                const orientation = getCompassOrientation(
+                  accelerometerReadingRef.current,
+                  magnetometerReadingRef.current,
+                );
+                if (!orientation) {
+                  return;
+                }
+
+                headTrackingSourceRef.current = "compass";
+                if (
+                  !trackedRotationReferenceRef.current ||
+                  !("yaw" in trackedRotationReferenceRef.current)
+                ) {
+                  trackedRotationReferenceRef.current = {
+                    yaw: orientation.yaw,
+                    pitch: orientation.pitch,
+                  };
+                }
+
+                const reference = trackedRotationReferenceRef.current;
+                if (!reference || !("yaw" in reference)) {
+                  return;
+                }
+
+                trackedYawRef.current = normalizeAngle(orientation.yaw - reference.yaw);
+                trackedPitchRef.current = clamp(
+                  orientation.pitch - reference.pitch,
+                  -MAX_IMMERSIVE_PITCH,
+                  MAX_IMMERSIVE_PITCH,
+                );
+                emitDebugSnapshot();
+              };
+
+              Accelerometer.setUpdateInterval(40);
+              Magnetometer.setUpdateInterval(40);
+
+              accelerometerSubscription = Accelerometer.addListener((reading) => {
+                debugAccelerometerEventsRef.current += 1;
+                debugAccelXRef.current = reading.x ?? null;
+                debugAccelYRef.current = reading.y ?? null;
+                debugAccelZRef.current = reading.z ?? null;
+                debugErrorRef.current = null;
+                accelerometerReadingRef.current = {
+                  x: reading.x ?? 0,
+                  y: reading.y ?? 0,
+                  z: reading.z ?? 0,
+                };
+                updateCompassTracking();
+              });
+
+              magnetometerSubscription = Magnetometer.addListener((reading) => {
+                debugMagnetometerEventsRef.current += 1;
+                debugMagXRef.current = reading.x ?? null;
+                debugMagYRef.current = reading.y ?? null;
+                debugMagZRef.current = reading.z ?? null;
+                debugErrorRef.current = null;
+                magnetometerReadingRef.current = {
+                  x: reading.x ?? 0,
+                  y: reading.y ?? 0,
+                  z: reading.z ?? 0,
+                };
+                updateCompassTracking();
+              });
+
+              emitDebugSnapshot(true);
+            }
+          } catch {
+            headTrackingSourceRef.current = "none";
+            debugErrorRef.current = "gyroscope-error";
+            emitDebugSnapshot(true);
+          }
+        }
+      }
+    };
+
+    startHeadTracking().catch(() => {
+      deviceOrientationRef.current = null;
+      deviceOrientationReferenceRef.current = null;
+    });
+
+    return () => {
+      isMounted = false;
+      accelerometerSubscription?.remove();
+      deviceMotionSubscription?.remove();
+      gyroscopeSubscription?.remove();
+      if (gyroscopeFallbackTimeout) {
+        clearTimeout(gyroscopeFallbackTimeout);
+      }
+      magnetometerSubscription?.remove();
+      accelerometerReadingRef.current = null;
+      deviceOrientationRef.current = null;
+      deviceOrientationReferenceRef.current = null;
+      gyroscopeOrientationRef.current = null;
+      gyroscopeLastTimestampRef.current = null;
+      headTrackingSourceRef.current = "none";
+      magnetometerReadingRef.current = null;
+      trackedRotationReferenceRef.current = null;
+      emitDebugSnapshot(true);
+    };
+  }, [emitDebugSnapshot, usesAndroidHeadTracking, usesHeadTracking]);
 
   useEffect(() => {
     return () => {
@@ -213,8 +854,8 @@ export function CabezaClavaModelView({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: () => interactive,
-        onStartShouldSetPanResponder: () => interactive,
+        onMoveShouldSetPanResponder: () => interactive && !usesHeadTracking,
+        onStartShouldSetPanResponder: () => interactive && !usesHeadTracking,
         onPanResponderGrant: (event) => {
           hasUserInteractedRef.current = true;
           lastGestureDxRef.current = 0;
@@ -230,6 +871,12 @@ export function CabezaClavaModelView({
 
           const pinchDistance = getTouchDistance(event.nativeEvent.touches);
           if (pinchDistance) {
+            if (isImmersive) {
+              lastGestureDxRef.current = gesture.dx;
+              lastGestureDyRef.current = gesture.dy;
+              return;
+            }
+
             if (!initialPinchDistanceRef.current) {
               initialPinchDistanceRef.current = pinchDistance;
               initialPinchZoomRef.current = modelZoomRef.current;
@@ -250,9 +897,20 @@ export function CabezaClavaModelView({
           const deltaY = gesture.dy - lastGestureDyRef.current;
           lastGestureDxRef.current = gesture.dx;
           lastGestureDyRef.current = gesture.dy;
-          manualRotationYRef.current += delta * 0.012;
-          manualRotationXRef.current = clamp(
-            manualRotationXRef.current + deltaY * 0.01,
+
+          if (isImmersive) {
+            observerYawRef.current += delta * 0.012;
+            observerPitchRef.current = clamp(
+              observerPitchRef.current - deltaY * 0.008,
+              -MAX_IMMERSIVE_PITCH,
+              MAX_IMMERSIVE_PITCH,
+            );
+            return;
+          }
+
+          objectRotationYRef.current += delta * 0.012;
+          objectRotationXRef.current = clamp(
+            objectRotationXRef.current + deltaY * 0.01,
             -MAX_VERTICAL_ROTATION,
             MAX_VERTICAL_ROTATION,
           );
@@ -270,7 +928,7 @@ export function CabezaClavaModelView({
           initialPinchZoomRef.current = modelZoomRef.current;
         },
       }),
-    [interactive],
+    [interactive, isImmersive, usesHeadTracking],
   );
 
   const handleContextCreate = useCallback(async (gl: ExpoWebGLRenderingContext) => {
@@ -278,6 +936,8 @@ export function CabezaClavaModelView({
     let model: THREE.Object3D | null = null;
     let modelBaseScale = new THREE.Vector3(1, 1, 1);
     let cameraFit: CameraFit | null = null;
+    let immersiveRig: ImmersiveCameraRig | null = null;
+    let stereoCamera: THREE.StereoCamera | null = null;
 
     try {
       setStatus("loading");
@@ -287,11 +947,16 @@ export function CabezaClavaModelView({
       const width = gl.drawingBufferWidth;
       const height = gl.drawingBufferHeight;
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(44, width / height, 0.01, 100);
+      const eyeAspectRatio = usesStereo ? width / 2 / height : width / height;
+      const camera = new THREE.PerspectiveCamera(44, eyeAspectRatio, 0.01, 100);
       camera.position.set(0, 0.08, 3.2);
       camera.lookAt(0, 0, 0);
 
       renderer = createRenderer(gl, width, height);
+      if (usesStereo) {
+        stereoCamera = new THREE.StereoCamera();
+        stereoCamera.eyeSep = VR_EYE_SEPARATION;
+      }
 
       scene.add(new THREE.HemisphereLight(0xfff2dc, 0x2b2118, 1.9));
       const keyLight = new THREE.DirectionalLight(0xfff3df, 2.4);
@@ -303,9 +968,15 @@ export function CabezaClavaModelView({
 
       const loadStartedAt = Date.now();
       model = await loadCabezaClavaModel(modelAsset);
-      normalizeModel(model, 2.55);
-      modelBaseScale = model.scale.clone();
-      cameraFit = fitCameraToObject(camera, model, width / height);
+      if (isImmersive) {
+        enableDoubleSidedMaterials(model);
+        modelBaseScale = model.scale.clone();
+        immersiveRig = fitCameraInsideObject(camera, model);
+      } else {
+        normalizeModel(model, 2.55);
+        modelBaseScale = model.scale.clone();
+        cameraFit = fitCameraToObject(camera, model, width / height);
+      }
       applyTextureQuality(model, renderer.capabilities.getMaxAnisotropy());
       scene.add(model);
       console.log(`[MuseIQ][3D] ${modelLabel} listo en ${Date.now() - loadStartedAt}ms`);
@@ -315,22 +986,75 @@ export function CabezaClavaModelView({
       const animate = () => {
         animationFrameRef.current = requestAnimationFrame(animate);
         if (model) {
-          if (
-            autoRotateRef.current &&
-            !hasUserInteractedRef.current &&
-            spin < INTRO_ROTATION_RADIANS
-          ) {
-            spin = Math.min(INTRO_ROTATION_RADIANS, spin + INTRO_ROTATION_SPEED);
-          }
-          model.rotation.x = manualRotationXRef.current;
-          model.rotation.y = spin + manualRotationYRef.current;
           model.scale.copy(modelBaseScale);
+
+          if (isImmersive) {
+            if (immersiveRig) {
+              if (
+                usesAndroidHeadTracking &&
+                headTrackingSourceRef.current === "gyroscope" &&
+                gyroscopeOrientationRef.current
+              ) {
+                applyTrackedImmersiveCameraPose(
+                  camera,
+                  immersiveRig,
+                  identityQuaternion,
+                  gyroscopeOrientationRef.current,
+                );
+              } else if (
+                usesAndroidHeadTracking &&
+                immersiveRig
+              ) {
+                applyImmersiveCameraPose(
+                  camera,
+                  immersiveRig,
+                  trackedYawRef.current,
+                  trackedPitchRef.current,
+                );
+              } else if (
+                usesHeadTracking &&
+                deviceOrientationRef.current &&
+                deviceOrientationReferenceRef.current
+              ) {
+                applyTrackedImmersiveCameraPose(
+                  camera,
+                  immersiveRig,
+                  deviceOrientationReferenceRef.current,
+                  deviceOrientationRef.current,
+                );
+              } else {
+                applyImmersiveCameraPose(
+                  camera,
+                  immersiveRig,
+                  observerYawRef.current,
+                  observerPitchRef.current,
+                );
+              }
+            }
+          } else {
+            if (
+              autoRotateRef.current &&
+              !hasUserInteractedRef.current &&
+              spin < INTRO_ROTATION_RADIANS
+            ) {
+              spin = Math.min(INTRO_ROTATION_RADIANS, spin + INTRO_ROTATION_SPEED);
+            }
+
+            model.rotation.x = objectRotationXRef.current;
+            model.rotation.y = spin + objectRotationYRef.current;
+          }
+
           if (cameraFit) {
             applyCameraZoom(camera, cameraFit, modelZoomRef.current);
           }
         }
-        renderer?.clear();
-        renderer?.render(scene, camera);
+        if (renderer) {
+          if (usesStereo && stereoCamera) {
+            renderStereoScene(renderer, scene, camera, stereoCamera, width, height);
+          } else {
+            renderMonoScene(renderer, scene, camera, width, height);
+          }
+        }
         gl.endFrameEXP();
 
         if (!hasRenderedFirstFrame && isMountedRef.current) {
@@ -357,12 +1081,24 @@ export function CabezaClavaModelView({
       }
       renderer?.dispose();
     }
-  }, [modelAsset, modelLabel]);
+  }, [
+    isImmersive,
+    modelAsset,
+    modelLabel,
+    usesAndroidHeadTracking,
+    usesHeadTracking,
+    usesStereo,
+  ]);
 
   return (
-    <View style={[styles.container, style]} {...(interactive ? panResponder.panHandlers : {})}>
+    <View
+      style={[styles.container, style]}
+      {...(interactive && !usesHeadTracking ? panResponder.panHandlers : {})}
+    >
       <GLView
-        key={modelLabel}
+        key={`${modelLabel}-${viewMode}-${usesStereo ? "stereo" : "mono"}-${
+          usesHeadTracking ? "tracked" : "manual"
+        }`}
         onContextCreate={handleContextCreate}
         style={StyleSheet.absoluteFill}
       />
@@ -410,9 +1146,62 @@ function createRenderer(
   renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(1);
   renderer.setSize(width, height, false);
-  renderer.autoClear = true;
+  renderer.autoClear = false;
 
   return renderer;
+}
+
+function renderMonoScene(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.PerspectiveCamera,
+  width: number,
+  height: number,
+) {
+  const aspectRatio = width / height;
+  if (Math.abs(camera.aspect - aspectRatio) > 0.0001) {
+    camera.aspect = aspectRatio;
+    camera.updateProjectionMatrix();
+  }
+
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, width, height);
+  renderer.clear();
+  renderer.render(scene, camera);
+}
+
+function renderStereoScene(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.PerspectiveCamera,
+  stereoCamera: THREE.StereoCamera,
+  width: number,
+  height: number,
+) {
+  const leftWidth = Math.floor(width / 2);
+  const rightWidth = width - leftWidth;
+  const eyeAspectRatio = leftWidth / height;
+
+  if (Math.abs(camera.aspect - eyeAspectRatio) > 0.0001) {
+    camera.aspect = eyeAspectRatio;
+    camera.updateProjectionMatrix();
+  }
+
+  stereoCamera.update(camera);
+
+  renderer.setScissorTest(true);
+  renderer.clear();
+
+  renderer.setViewport(0, 0, leftWidth, height);
+  renderer.setScissor(0, 0, leftWidth, height);
+  renderer.render(scene, stereoCamera.cameraL);
+
+  renderer.clearDepth();
+  renderer.setViewport(leftWidth, 0, rightWidth, height);
+  renderer.setScissor(leftWidth, 0, rightWidth, height);
+  renderer.render(scene, stereoCamera.cameraR);
+
+  renderer.setScissorTest(false);
 }
 
 function patchUnsupportedPixelStore(gl: ExpoWebGLRenderingContext) {
@@ -445,11 +1234,12 @@ function patchUnsupportedPixelStore(gl: ExpoWebGLRenderingContext) {
 async function loadCabezaClavaModel(modelAsset: ModelAsset) {
   const preparedModel = preparedModelCache.get(modelAsset);
   if (preparedModel) {
-    preparedModelCache.delete(modelAsset);
-    return preparedModel;
+    const preparedSource = await preparedModel;
+    return buildSceneFromPreparedModel(preparedSource);
   }
 
-  return loadCabezaClavaModelSource(modelAsset);
+  const preparedSource = await loadCabezaClavaModelSource(modelAsset);
+  return buildSceneFromPreparedModel(preparedSource);
 }
 
 async function loadCabezaClavaModelSource(
@@ -460,21 +1250,14 @@ async function loadCabezaClavaModelSource(
   const asset = Asset.fromModule(modelAsset);
   await asset.downloadAsync();
 
-  onProgress?.(42);
   const uri = asset.localUri ?? asset.uri;
-  const base64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: "base64",
-  });
-  const bytes = Buffer.from(base64, "base64");
-  const arrayBuffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  );
+  onProgress?.(36);
+  const arrayBuffer = await readAssetArrayBuffer(uri);
 
-  onProgress?.(76);
-  const model = await parseGlbGeometry(arrayBuffer);
+  onProgress?.(62);
+  const modelSource = await parseGlbGeometry(arrayBuffer);
   onProgress?.(100);
-  return model;
+  return modelSource;
 }
 
 async function parseGlbGeometry(arrayBuffer: ArrayBuffer) {
@@ -514,7 +1297,21 @@ async function parseGlbGeometry(arrayBuffer: ArrayBuffer) {
   }
 
   const resources = await loadGltfResources(json, arrayBuffer, binStart);
-  return buildSceneFromGltf(json, arrayBuffer, binStart, resources);
+  return {
+    arrayBuffer,
+    binStart,
+    json,
+    resources,
+  };
+}
+
+function buildSceneFromPreparedModel(preparedSource: PreparedModelSource) {
+  return buildSceneFromGltf(
+    preparedSource.json,
+    preparedSource.arrayBuffer,
+    preparedSource.binStart,
+    preparedSource.resources,
+  );
 }
 
 function buildSceneFromGltf(
@@ -723,6 +1520,28 @@ function createMaterial(
   }
 
   return material;
+}
+
+async function readAssetArrayBuffer(uri: string) {
+  try {
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`No se pudo leer el asset (${response.status})`);
+    }
+
+    return await response.arrayBuffer();
+  } catch (error) {
+    console.warn("[MuseIQ][3D] Fallback a lectura base64 para asset GLB", error);
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: "base64",
+    });
+    const bytes = Buffer.from(base64, "base64");
+
+    return bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    );
+  }
 }
 
 async function writeEmbeddedTextureFile(
@@ -983,6 +1802,263 @@ function applyCameraZoom(
   camera.updateProjectionMatrix();
 }
 
+function fitCameraInsideObject(camera: THREE.PerspectiveCamera, model: THREE.Object3D) {
+  model.updateWorldMatrix(true, true);
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const maxDimension = Math.max(size.x, size.y, size.z) || 1;
+  const placement = findImmersiveObserverPlacement(model, box);
+  const rig = {
+    baseYaw: placement.baseYaw,
+    far: Math.max(maxDimension * 12, 60),
+    lookDistance: Math.max(placement.lookDistance, Math.max(maxDimension * 0.18, 1.2)),
+    near: Math.max(maxDimension * 0.0025, 0.02),
+    origin: placement.origin.clone(),
+  };
+
+  console.log("[MuseIQ][VR] rig", {
+    baseYaw: Number(placement.baseYaw.toFixed(2)),
+    lookDistance: Number(rig.lookDistance.toFixed(2)),
+    minClearance: Number(placement.minClearance.toFixed(2)),
+    origin: [
+      Number(rig.origin.x.toFixed(2)),
+      Number(rig.origin.y.toFixed(2)),
+      Number(rig.origin.z.toFixed(2)),
+    ],
+    score: Number(placement.score.toFixed(2)),
+  });
+  applyImmersiveCameraPose(camera, rig, 0, 0);
+  return rig;
+}
+
+function findImmersiveObserverPlacement(
+  model: THREE.Object3D,
+  box: THREE.Box3,
+): ImmersiveObserverPlacement {
+  const size = box.getSize(new THREE.Vector3());
+  const diagonal = Math.max(size.length(), 2);
+  const candidateDirections = getImmersiveSampleDirections();
+  const raycaster = new THREE.Raycaster();
+  const preferredEyeHeight = box.min.y + size.y * 0.3;
+  const minimumHeadroom = Math.max(diagonal * 0.04, 0.14);
+  let bestPlacement: ImmersiveObserverPlacement | null = null;
+
+  IMMERSIVE_HEIGHT_SAMPLE_FRACTIONS.forEach((heightFraction) => {
+    const y = THREE.MathUtils.lerp(box.min.y, box.max.y, heightFraction);
+
+    IMMERSIVE_HORIZONTAL_SAMPLE_FRACTIONS.forEach((xFraction) => {
+      const x = THREE.MathUtils.lerp(box.min.x, box.max.x, xFraction);
+
+      IMMERSIVE_HORIZONTAL_SAMPLE_FRACTIONS.forEach((zFraction) => {
+        const z = THREE.MathUtils.lerp(box.min.z, box.max.z, zFraction);
+        const origin = new THREE.Vector3(x, y, z);
+        const horizontalDistances = candidateDirections.map(({ direction }) =>
+          measureClearance(raycaster, model, origin, direction, diagonal),
+        );
+        const upClearance = measureClearance(
+          raycaster,
+          model,
+          origin,
+          new THREE.Vector3(0, 1, 0),
+          diagonal,
+        );
+        const downClearance = measureClearance(
+          raycaster,
+          model,
+          origin,
+          new THREE.Vector3(0, -1, 0),
+          diagonal,
+        );
+        const minClearance = Math.min(...horizontalDistances);
+        const averageClearance =
+          horizontalDistances.reduce((total, distance) => total + distance, 0) /
+          horizontalDistances.length;
+        const bestDirectionIndex = horizontalDistances.reduce(
+          (bestIndex, distance, index, distances) =>
+            distance > distances[bestIndex] ? index : bestIndex,
+          0,
+        );
+        const bestDirection = candidateDirections[bestDirectionIndex];
+        const bestDirectionClearance = horizontalDistances[bestDirectionIndex];
+        const normalizedHeightOffset =
+          Math.abs(y - preferredEyeHeight) / Math.max(size.y, 0.001);
+        const headroomPenalty =
+          upClearance < minimumHeadroom ? (minimumHeadroom - upClearance) * 6 : 0;
+        const floorPenalty =
+          downClearance < minimumHeadroom * 0.28 ? (minimumHeadroom * 0.28 - downClearance) * 3 : 0;
+        const score =
+          minClearance * 2.2 +
+          averageClearance * 0.65 +
+          bestDirectionClearance * 0.35 +
+          Math.min(upClearance, diagonal) * 0.18 -
+          normalizedHeightOffset * diagonal * 0.55 -
+          headroomPenalty -
+          floorPenalty;
+        const lookDistance = clamp(
+          bestDirectionClearance * 0.78,
+          Math.max(diagonal * 0.16, 1.2),
+          Math.max(diagonal * 0.55, 2.4),
+        );
+        const placement = {
+          baseYaw: bestDirection.yaw,
+          lookDistance,
+          minClearance,
+          origin,
+          score,
+        };
+
+        if (!bestPlacement || placement.score > bestPlacement.score) {
+          bestPlacement = placement;
+        }
+      });
+    });
+  });
+
+  if (bestPlacement) {
+    return bestPlacement;
+  }
+
+  const center = box.getCenter(new THREE.Vector3());
+  return {
+    baseYaw: 0,
+    lookDistance: Math.max(diagonal * 0.36, 1.5),
+    minClearance: 0,
+    origin: center,
+    score: 0,
+  };
+}
+
+function applyImmersiveCameraPose(
+  camera: THREE.PerspectiveCamera,
+  rig: ImmersiveCameraRig,
+  yaw: number,
+  pitch: number,
+) {
+  const resolvedYaw = rig.baseYaw + yaw;
+  const lookDirection = new THREE.Vector3(
+    Math.sin(resolvedYaw) * Math.cos(pitch),
+    Math.sin(pitch),
+    -Math.cos(resolvedYaw) * Math.cos(pitch),
+  ).normalize();
+  const lookTarget = rig.origin.clone().add(lookDirection.multiplyScalar(rig.lookDistance));
+
+  camera.position.copy(rig.origin);
+  camera.near = rig.near;
+  camera.far = rig.far;
+  camera.lookAt(lookTarget);
+  camera.updateProjectionMatrix();
+}
+
+function applyTrackedImmersiveCameraPose(
+  camera: THREE.PerspectiveCamera,
+  rig: ImmersiveCameraRig,
+  referenceOrientation: THREE.Quaternion,
+  currentOrientation: THREE.Quaternion,
+) {
+  const baseOrientation = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    rig.baseYaw,
+  );
+  const viewerOrientation = baseOrientation.multiply(
+    referenceOrientation.clone().multiply(currentOrientation),
+  );
+
+  camera.position.copy(rig.origin);
+  camera.near = rig.near;
+  camera.far = rig.far;
+  camera.quaternion.copy(viewerOrientation);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+}
+
+function getDeviceMotionQuaternion(
+  rotation: { alpha: number; beta: number; gamma: number },
+  orientation: number,
+) {
+  const alpha = rotation.alpha ?? 0;
+  const beta = rotation.beta ?? 0;
+  const gamma = rotation.gamma ?? 0;
+  const screenOrientation = THREE.MathUtils.degToRad(orientation ?? 0);
+
+  deviceOrientationEuler.set(beta, alpha, -gamma, "YXZ");
+
+  return new THREE.Quaternion()
+    .setFromEuler(deviceOrientationEuler)
+    .multiply(deviceOrientationTransformQuaternion)
+    .multiply(
+      deviceOrientationScreenQuaternion.setFromAxisAngle(
+        deviceOrientationAxis,
+        -screenOrientation,
+      ),
+    );
+}
+
+function getCompassOrientation(
+  accelerometer: { x: number; y: number; z: number },
+  magnetometer: { x: number; y: number; z: number },
+) {
+  const ax = accelerometer.x;
+  const ay = accelerometer.y;
+  const az = accelerometer.z;
+  const accelNorm = Math.hypot(ax, ay, az);
+  if (accelNorm <= 0.0001) {
+    return null;
+  }
+
+  const pitch = Math.atan2(-ax, Math.sqrt(ay * ay + az * az));
+  const roll = Math.atan2(ay, az || 0.0001);
+
+  const mx = magnetometer.x;
+  const my = magnetometer.y;
+  const mz = magnetometer.z;
+  const magNorm = Math.hypot(mx, my, mz);
+  if (magNorm <= 0.0001) {
+    return null;
+  }
+
+  const compensatedX = mx * Math.cos(pitch) + mz * Math.sin(pitch);
+  const compensatedY =
+    mx * Math.sin(roll) * Math.sin(pitch) +
+    my * Math.cos(roll) -
+    mz * Math.sin(roll) * Math.cos(pitch);
+  const yaw = Math.atan2(-compensatedY, compensatedX);
+
+  return { pitch, yaw };
+}
+
+function getImmersiveSampleDirections() {
+  return [
+    new THREE.Vector3(0, 0, -1),
+    new THREE.Vector3(1, 0, -1).normalize(),
+    new THREE.Vector3(1, 0, 0),
+    new THREE.Vector3(1, 0, 1).normalize(),
+    new THREE.Vector3(0, 0, 1),
+    new THREE.Vector3(-1, 0, 1).normalize(),
+    new THREE.Vector3(-1, 0, 0),
+    new THREE.Vector3(-1, 0, -1).normalize(),
+  ].map((direction) => ({
+    direction,
+    yaw: Math.atan2(direction.x, -direction.z),
+  }));
+}
+
+function measureClearance(
+  raycaster: THREE.Raycaster,
+  model: THREE.Object3D,
+  origin: THREE.Vector3,
+  direction: THREE.Vector3,
+  far: number,
+) {
+  raycaster.near = 0;
+  raycaster.far = far;
+  raycaster.set(origin, direction);
+  const hit = raycaster
+    .intersectObject(model, true)
+    .find((intersection) => intersection.distance > 0.001);
+
+  return hit?.distance ?? far;
+}
+
 function applyTextureQuality(object: THREE.Object3D, maxAnisotropy: number) {
   const anisotropy = Math.max(1, Math.min(maxAnisotropy, 8));
 
@@ -996,6 +2072,18 @@ function applyTextureQuality(object: THREE.Object3D, maxAnisotropy: number) {
         texturedMaterial.map.anisotropy = anisotropy;
         texturedMaterial.map.needsUpdate = true;
       }
+    });
+  });
+}
+
+function enableDoubleSidedMaterials(object: THREE.Object3D) {
+  object.traverse((child) => {
+    const material = (child as THREE.Mesh).material;
+    const materials = Array.isArray(material) ? material : material ? [material] : [];
+
+    materials.forEach((item) => {
+      item.side = THREE.DoubleSide;
+      item.needsUpdate = true;
     });
   });
 }
@@ -1037,6 +2125,12 @@ function getTouchDistance(touches: readonly { pageX: number; pageY: number }[]) 
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function normalizeAngle(value: number) {
+  const fullTurn = Math.PI * 2;
+  const wrappedValue = (value + Math.PI) % fullTurn;
+  return (wrappedValue < 0 ? wrappedValue + fullTurn : wrappedValue) - Math.PI;
 }
 
 function getEmbeddedImageDimensions(bytes: Buffer, mimeType?: string) {
