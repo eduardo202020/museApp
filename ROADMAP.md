@@ -13,6 +13,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - En AR activo, `Audio` puede vivir como acción lateral superior; `Preguntar IA` queda como CTA inferior principal.
 - Preguntar debe sentirse como un modal contextual que emerge sobre la experiencia.
 - Escanear QR dentro de AR debe sentirse como sheet contextual, no como salida a otra pantalla.
+- Algunas salas pueden declarar una capability de `modo inmersivo`, ofrecer `Entrar / Saltar` y cargar un modelo 3D del espacio.
 - La interfaz usa azul MuseIQ como color primario, con botones de borde en el HUD.
 - El modo técnico queda separado del visitante común.
 
@@ -26,6 +27,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 6. `pregunta-voz-modal`: consulta contextual por voz o texto.
 7. `cargando-ar`, `ar-activo`, `ar-hotspot-seleccionado`: recorrido AR temporal.
 8. `ar-no-disponible` y `visor-3d`: degradación cuando AR no está disponible.
+9. `cargando-inmersivo`, `sala-inmersiva`: experiencia 3D de sala cuando la capability inmersiva esta disponible.
 
 ## Cobertura por `flujo.png`
 
@@ -59,6 +61,8 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] `11 Hotspot seleccionado`: detalle de hotspot (`app/ar-hotspot-seleccionado.tsx`).
 - [x] `12 Chat IA (bottom sheet/modal)`: flujo de preguntar como modal inferior (`app/pregunta-voz-modal.tsx`).
 - [x] `9 Audio activo`: sheet contextual dentro de `ar-activo`; `app/ar-audio-activo.tsx` queda como pantalla legada de apoyo.
+- [x] `Y Modo inmersivo por sala`: prompt `Entrar / Saltar` disparado por capability de sala en Home.
+- [x] `Z Sala inmersiva 3D`: carga y render de `assets/models/immersive/lugar.glb` en `app/sala-inmersiva.tsx`.
 - [x] `V AR no disponible`: fallback a visor 3D (`app/ar-no-disponible.tsx`).
 - [x] `U Visor 3D sin AR`: visor 3D (`app/visor-3d.tsx`).
 - [ ] AR real con ARCore/ARKit o librería equivalente.
@@ -115,6 +119,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Chat IA como modal inferior con voz prioritaria (`pregunta-voz-modal.tsx`).
 - [x] Audio activo con control básico como sheet en `ar-activo`.
 - [x] QR contextual en `ar-activo` como sheet para cambiar de obra.
+- [x] Capability inmersiva por sala, con entrada manual en desarrollo sobre `SALA_1`.
 - [x] Estados de QR invalido, error de conexión y sin conexión (`X`, `S`, `P`) como pantallas de flujo.
 - [ ] Estado de actualización (`T`) integrado al flujo.
 
@@ -123,6 +128,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [ ] Tipos de datos para `model_3d` y `hotspots`.
 - [ ] Endpoint o payload MuseRAG con recursos AR.
 - [ ] Descarga/carga de GLB por obra, no solo assets locales de prueba.
+- [ ] Definir contrato de sala inmersiva: `immersive_mode`, `room_model_3d`, `room_hotspots`.
 - [ ] Estado dedicado `W Modelo 3D no disponible`.
 - [x] Visor 3D sin AR base (`visor-3d.tsx`).
 - [x] Fallback base si ARCore/ARKit no está disponible (`ar-no-disponible.tsx`).
@@ -135,14 +141,24 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [ ] Pruebas en dispositivo físico.
 - [ ] Optimización de peso, carga y degradación offline.
 
+### Fase 6. Modo inmersivo / Cardboard
+
+- [x] Prompt contextual por sala con decision `Entrar / Saltar`.
+- [x] Pipeline base de carga para modelo de entorno (`cargando-inmersivo` -> `sala-inmersiva`).
+- [ ] Multiplicar la capability inmersiva a mas salas.
+- [ ] Separar modo inmersivo movil de modo Cardboard estereoscópico.
+- [ ] Evaluar renderer VR/Cardboard compatible con Expo/React Native.
+- [ ] Definir navegacion interna, hotspots espaciales y narrativa para edificaciones 3D.
+
 ## Próximos pasos recomendados
 
 1. Integrar estado `T`: actualización disponible.
 2. Implementar pantalla dedicada `W Modelo 3D no disponible`.
 3. Implementar QR real: cámara, parsing y mapping a obra usando las pantallas ya creadas de resultado inválido y entrada manual.
 4. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
-5. Integrar AR real con ARCore/ARKit o alternativa compatible y probar en dispositivo físico.
-6. Reemplazar los datos locales de Idioma/Cambiar museo por persistencia y selección real cuando haya multi-museo.
+5. Definir contrato de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
+6. Integrar AR real con ARCore/ARKit o alternativa compatible y probar en dispositivo físico.
+7. Reemplazar los datos locales de Idioma/Cambiar museo por persistencia y selección real cuando haya multi-museo.
 
 ## Validación esperada
 

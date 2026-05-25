@@ -49,6 +49,7 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 - Las preguntas se abren como modal inferior, no como pantalla independiente.
 - El detalle de obra se simplifica a `Detalles` e `Imagenes`.
 - El color principal es el azul MuseIQ `#1689CE`.
+- Algunas salas pueden anunciar un `modo inmersivo` a partir del contexto de sala y cargar una reconstruccion 3D propia.
 
 ## Flujo implementado
 
@@ -66,6 +67,7 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 12. Cargando AR, AR activo temporal y hotspot seleccionado.
 13. Chat IA como modal inferior y audio/QR como sheets dentro de `ar-activo`.
 14. AR no disponible con fallback a visor 3D.
+15. Modo inmersivo por sala: entrar o saltar, cargar `lugar.glb` y recorrer el espacio 3D.
 
 ## Flujo real en rutas
 
@@ -80,13 +82,14 @@ Ramas desde Home:
 - `Preguntar` -> `pregunta-voz-modal`
 - `Ver en AR` -> `cargando-ar` -> `ar-activo` -> `ar-hotspot-seleccionado`
 - Dentro de `ar-activo`: `Audio` -> bottom sheet, `Escanear QR` -> bottom sheet, `Preguntar IA` -> modal inferior
+- Sala con capability inmersiva -> prompt `Entrar / Saltar` -> `cargando-inmersivo` -> `sala-inmersiva`
 - Fallback AR -> `ar-no-disponible` -> `visor-3d`
 
 ## Cobertura contra `pantallas/flujo.png`
 
 El flujo visual completo incluye mas pantallas que el MVP actual. La cobertura real queda asi:
 
-- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` como overlay simulado en Home y como sheet contextual en `ar-activo`, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, `R Cargando AR`, `10 AR activo`, `11 Hotspot seleccionado`, `12 Chat IA` como modal inferior, `9 Audio activo` como sheet contextual y pantalla dedicada legada, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
+- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` como overlay simulado en Home y como sheet contextual en `ar-activo`, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, `R Cargando AR`, `10 AR activo`, `11 Hotspot seleccionado`, `12 Chat IA` como modal inferior, `9 Audio activo` como sheet contextual y pantalla dedicada legada, `Y Modo inmersivo por sala` con entrada `Entrar / Saltar`, `Z Sala inmersiva 3D` con `lugar.glb`, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
 - Parcial: `W Modelo 3D no disponible`. El visor 3D y el fallback de AR existen, pero falta una pantalla dedicada para el estado de modelo no disponible.
 - Faltante: `T Actualizacion` y pantalla dedicada completa de `W Modelo 3D no disponible`.
 
@@ -123,7 +126,9 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `artwork-detail.tsx`: Detalle de obra simplificado (tabs de Detalles e Imagenes)
 - `artwork-images.tsx`: Galería / imágenes relacionadas
 - `cargando-ar.tsx`: Indicador de carga de AR
+- `cargando-inmersivo.tsx`: Carga de reconstruccion 3D para modo inmersivo
 - `visor-3d.tsx`: Visor 3D (sin integrar AR completo)
+- `sala-inmersiva.tsx`: Experiencia inmersiva por sala basada en un modelo 3D de entorno
 - `ar-hotspot-seleccionado.tsx`: Hotspot seleccionado (estado)
 - `pregunta-voz-modal.tsx`: Modal inferior de preguntas con voz prioritaria, markdown y fuentes
 
@@ -133,6 +138,7 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - Estado de resiliencia: Actualización disponible.
 - Detección automática de conectividad para abrir Sin conexión/Error de conexión sin depender de una acción manual.
 - Estado dedicado de Modelo 3D no disponible.
+- Extender el modo inmersivo de sala a mas de una sala y decidir si evoluciona a Cardboard/VR estereoscópico.
 - Sincronización de idioma, museo seleccionado, favoritos y actividad local con backend.
 - Descarga y renderizado final de modelos 3D por obra en AR.
 
@@ -186,6 +192,8 @@ El Home fue depurado para dejar solo las acciones esenciales del HUD: menu, nomb
 En `ar-activo`, la experiencia tambien se simplificó: boton de retroceso superior izquierdo, accion `Audio` superior derecha, `Preguntar IA` como CTA principal inferior y `Escanear QR` como sheet contextual para saltar a otra obra sin abandonar la escena.
 
 `obra-identificada` tambien se simplificó: boton de retroceso superior izquierdo, `Audio` superior derecho, card central mas grande y un unico CTA horizontal de `Ver en AR`.
+
+En desarrollo, `SALA_1` ya expone una capability local de `modo inmersivo`. Cuando la app reconoce esa sala en el estado actual del recorrido, ofrece `Entrar` o `Saltar`, precarga `assets/models/immersive/lugar.glb` y abre una vista 3D del espacio.
 
 El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
 
