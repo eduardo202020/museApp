@@ -134,19 +134,25 @@ type CameraFit = {
 };
 
 type ImmersiveCameraRig = {
+  basePitch: number;
   baseYaw: number;
   far: number;
   lookDistance: number;
   near: number;
   origin: THREE.Vector3;
+  target: THREE.Vector3;
+  tourPoints: ImmersiveTourPoint[];
 };
 
-type ImmersiveObserverPlacement = {
-  baseYaw: number;
-  lookDistance: number;
-  minClearance: number;
-  origin: THREE.Vector3;
-  score: number;
+type ImmersiveTourPoint = {
+  duration: number;
+  position: THREE.Vector3;
+  target: THREE.Vector3;
+};
+
+type ImmersiveTourFrame = {
+  position: THREE.Vector3;
+  target: THREE.Vector3;
 };
 
 export type HeadTrackingDebugState = {
@@ -212,10 +218,18 @@ const MAX_MODEL_ZOOM = 3.4;
 const MIN_MODEL_ZOOM = 0.72;
 const MAX_VERTICAL_ROTATION = Math.PI * 0.32;
 const MAX_IMMERSIVE_PITCH = Math.PI * 0.42;
-const VR_EYE_SEPARATION = 0.064;
-const IMMERSIVE_HORIZONTAL_SAMPLE_FRACTIONS = [0.18, 0.5, 0.82];
-const IMMERSIVE_HEIGHT_SAMPLE_FRACTIONS = [0.16, 0.26, 0.38, 0.5];
-
+const IMMERSIVE_TRACKING_PITCH_SENSITIVITY = 1.55;
+const IMMERSIVE_TRACKING_YAW_SENSITIVITY = 1.35;
+const IMMERSIVE_TRACKING_ROLL_SENSITIVITY = 0.85;
+const IMMERSIVE_TRACKING_SMOOTHING = 0.42;
+const IMMERSIVE_TILT_YAW_ASSIST = 0.72;
+const IMMERSIVE_COMPASS_YAW_WEIGHT = 0.78;
+const IMMERSIVE_TOUR_HEAD_LOOK_WEIGHT = 0.28;
+const IMMERSIVE_TOUR_ROLL_WEIGHT = 0;
+const ENABLE_3D_TERMINAL_LOGS = false;
+const ENABLE_VR_PERFORMANCE_LOGS = false;
+const VR_PERFORMANCE_LOG_INTERVAL_MS = 1000;
+const VR_EYE_SEPARATION = 0.024;
 const deviceOrientationAxis = new THREE.Vector3(0, 0, 1);
 const deviceOrientationEuler = new THREE.Euler();
 const deviceOrientationScreenQuaternion = new THREE.Quaternion();
@@ -231,6 +245,18 @@ const embeddedTextureFileCache = new Map<string, Promise<EmbeddedTextureAsset>>(
 const preparedModelCache = new Map<ModelAsset, Promise<PreparedModelSource>>();
 const preparedModelTemplateCache = new Map<ModelAsset, Promise<THREE.Object3D>>();
 
+function log3d(...args: Parameters<typeof console.log>) {
+  if (ENABLE_3D_TERMINAL_LOGS) {
+    console.log(...args);
+  }
+}
+
+function warn3d(...args: Parameters<typeof console.warn>) {
+  if (ENABLE_3D_TERMINAL_LOGS) {
+    console.warn(...args);
+  }
+}
+
 export const getCabezaClavaModelAssetForArtwork = getArtworkModelAssetForArtwork;
 
 export function prepareCabezaClavaModel(
@@ -239,6 +265,46 @@ export function prepareCabezaClavaModel(
 ) {
   const sourcePreparation = getPreparedModelSource(modelAsset, onProgress);
   return getPreparedModelTemplate(modelAsset, sourcePreparation, onProgress);
+}
+
+function getPreparedModelSource(
+  modelAsset: ModelAsset,
+  onProgress?: ModelPreparationProgress,
+) {
+  const cachedPreparation = preparedModelCache.get(modelAsset);
+  if (cachedPreparation) {
+    return cachedPreparation;
+  }
+
+  const preparation = loadCabezaClavaModelSource(modelAsset, onProgress);
+  preparedModelCache.set(modelAsset, preparation);
+  return preparation;
+}
+
+function getPreparedModelTemplate(
+  modelAsset: ModelAsset,
+  sourcePreparation = getPreparedModelSource(modelAsset),
+  onProgress?: ModelPreparationProgress,
+) {
+  const cachedTemplate = preparedModelTemplateCache.get(modelAsset);
+  if (cachedTemplate) {
+    return cachedTemplate;
+  }
+
+  const templatePreparation = sourcePreparation.then((preparedSource) => {
+    const startedAt = Date.now();
+    log3d("[MuseIQ][3D] Construyendo template 3D");
+    onProgress?.(88);
+    const template = buildSceneFromPreparedModel(preparedSource);
+    markObjectAsSharedTemplate(template);
+    log3d("[MuseIQ][3D] Template 3D listo", {
+      elapsedMs: Date.now() - startedAt,
+    });
+    onProgress?.(100);
+    return template;
+  });
+  preparedModelTemplateCache.set(modelAsset, templatePreparation);
+  return templatePreparation;
 }
 
 export function CabezaClavaModelView({
@@ -298,10 +364,25 @@ export function CabezaClavaModelView({
   const debugMagXRef = useRef<number | null>(null);
   const debugMagYRef = useRef<number | null>(null);
   const debugMagZRef = useRef<number | null>(null);
+  const lastSensorEventAtRef = useRef<number | null>(null);
+  const perfFrameCountRef = useRef(0);
+  const perfLastAccelEventsRef = useRef(0);
+  const perfLastDeviceMotionEventsRef = useRef(0);
+  const perfLastGyroscopeEventsRef = useRef(0);
+  const perfLastLogAtRef = useRef(0);
+  const perfLastMagnetometerEventsRef = useRef(0);
+  const perfLastRenderFrameAtRef = useRef(0);
+  const perfMaxFrameMsRef = useRef(0);
+  const perfSlowFrameCountRef = useRef(0);
+  const guidedTourStartAtRef = useRef<number | null>(null);
+  const renderedPitchRef = useRef(0);
+  const renderedRollRef = useRef(0);
+  const renderedYawRef = useRef(0);
   const trackedYawRef = useRef(0);
   const trackedPitchRef = useRef(0);
+  const trackedRollRef = useRef(0);
   const trackedRotationReferenceRef = useRef<
-    { alpha: number; beta: number } | { yaw: number; pitch: number } | null
+    { alpha: number; beta: number } | { yaw: number; pitch: number; roll: number } | null
   >(null);
   const isImmersive = viewMode === "immersive";
   const usesHeadTracking = isImmersive && headTracking;
@@ -359,6 +440,74 @@ export function CabezaClavaModelView({
     emitDebugSnapshot(true);
   }, [emitDebugSnapshot]);
 
+  const emitPerformanceSnapshot = useCallback(() => {
+    if (!ENABLE_VR_PERFORMANCE_LOGS || !isImmersive) {
+      return;
+    }
+
+    const now = Date.now();
+    const lastFrameAt = perfLastRenderFrameAtRef.current;
+    if (lastFrameAt > 0) {
+      const frameMs = now - lastFrameAt;
+      perfMaxFrameMsRef.current = Math.max(perfMaxFrameMsRef.current, frameMs);
+      if (frameMs > 34) {
+        perfSlowFrameCountRef.current += 1;
+      }
+    }
+    perfLastRenderFrameAtRef.current = now;
+    perfFrameCountRef.current += 1;
+
+    const lastLogAt = perfLastLogAtRef.current;
+    if (!lastLogAt) {
+      perfLastLogAtRef.current = now;
+      return;
+    }
+
+    const elapsedMs = now - lastLogAt;
+    if (elapsedMs < VR_PERFORMANCE_LOG_INTERVAL_MS) {
+      return;
+    }
+
+    const elapsedSeconds = elapsedMs / 1000;
+    const accelEvents = debugAccelerometerEventsRef.current;
+    const deviceMotionEvents = debugDeviceMotionEventsRef.current;
+    const gyroscopeEvents = debugGyroscopeEventsRef.current;
+    const magnetometerEvents = debugMagnetometerEventsRef.current;
+    const sensorAgeMs =
+      lastSensorEventAtRef.current === null ? null : now - lastSensorEventAtRef.current;
+
+    console.log("[MuseIQ][VR_PERF]", {
+      accelHz: Number(((accelEvents - perfLastAccelEventsRef.current) / elapsedSeconds).toFixed(1)),
+      dmHz: Number(
+        ((deviceMotionEvents - perfLastDeviceMotionEventsRef.current) / elapsedSeconds).toFixed(1),
+      ),
+      fps: Number((perfFrameCountRef.current / elapsedSeconds).toFixed(1)),
+      gyroHz: Number(
+        ((gyroscopeEvents - perfLastGyroscopeEventsRef.current) / elapsedSeconds).toFixed(1),
+      ),
+      magHz: Number(
+        ((magnetometerEvents - perfLastMagnetometerEventsRef.current) / elapsedSeconds).toFixed(1),
+      ),
+      maxFrameMs: perfMaxFrameMsRef.current,
+      pitch: Number(trackedPitchRef.current.toFixed(3)),
+      roll: Number(trackedRollRef.current.toFixed(3)),
+      sensorAgeMs,
+      slowFrames: perfSlowFrameCountRef.current,
+      source: headTrackingSourceRef.current,
+      stereo: usesStereo,
+      yaw: Number(trackedYawRef.current.toFixed(3)),
+    });
+
+    perfFrameCountRef.current = 0;
+    perfLastAccelEventsRef.current = accelEvents;
+    perfLastDeviceMotionEventsRef.current = deviceMotionEvents;
+    perfLastGyroscopeEventsRef.current = gyroscopeEvents;
+    perfLastLogAtRef.current = now;
+    perfLastMagnetometerEventsRef.current = magnetometerEvents;
+    perfMaxFrameMsRef.current = 0;
+    perfSlowFrameCountRef.current = 0;
+  }, [isImmersive, usesStereo]);
+
   useEffect(() => {
     if (!usesHeadTracking) {
       return;
@@ -366,6 +515,11 @@ export function CabezaClavaModelView({
 
     trackedYawRef.current = 0;
     trackedPitchRef.current = 0;
+    trackedRollRef.current = 0;
+    renderedYawRef.current = 0;
+    renderedPitchRef.current = 0;
+    renderedRollRef.current = 0;
+    guidedTourStartAtRef.current = null;
     trackedRotationReferenceRef.current = null;
 
     if (deviceOrientationRef.current) {
@@ -416,8 +570,23 @@ export function CabezaClavaModelView({
     debugMagXRef.current = null;
     debugMagYRef.current = null;
     debugMagZRef.current = null;
+    lastSensorEventAtRef.current = null;
+    perfFrameCountRef.current = 0;
+    perfLastAccelEventsRef.current = 0;
+    perfLastDeviceMotionEventsRef.current = 0;
+    perfLastGyroscopeEventsRef.current = 0;
+    perfLastLogAtRef.current = 0;
+    perfLastMagnetometerEventsRef.current = 0;
+    perfLastRenderFrameAtRef.current = 0;
+    perfMaxFrameMsRef.current = 0;
+    perfSlowFrameCountRef.current = 0;
+    guidedTourStartAtRef.current = null;
+    renderedYawRef.current = 0;
+    renderedPitchRef.current = 0;
+    renderedRollRef.current = 0;
     trackedYawRef.current = 0;
     trackedPitchRef.current = 0;
+    trackedRollRef.current = 0;
     trackedRotationReferenceRef.current = null;
     emitDebugSnapshot(true);
 
@@ -432,6 +601,7 @@ export function CabezaClavaModelView({
         const DeviceMotion = sensorsModule.DeviceMotion;
         const Gyroscope = sensorsModule.Gyroscope;
         const Magnetometer = sensorsModule.Magnetometer;
+        const MagnetometerUncalibrated = sensorsModule.MagnetometerUncalibrated;
         const accelerometerAvailable = usesAndroidHeadTracking
           ? await Accelerometer.isAvailableAsync().catch(() => false)
           : false;
@@ -439,36 +609,36 @@ export function CabezaClavaModelView({
         const gyroscopeAvailable = usesAndroidHeadTracking
           ? await Gyroscope.isAvailableAsync().catch(() => false)
           : false;
-        const magnetometerAvailable = usesAndroidHeadTracking
+        const regularMagnetometerAvailable = usesAndroidHeadTracking
           ? await Magnetometer.isAvailableAsync().catch(() => false)
           : false;
+        const uncalibratedMagnetometerAvailable = usesAndroidHeadTracking
+          ? await MagnetometerUncalibrated.isAvailableAsync().catch(() => false)
+          : false;
+        const magnetometerAvailable =
+          regularMagnetometerAvailable || uncalibratedMagnetometerAvailable;
+        const compassSensor = uncalibratedMagnetometerAvailable
+          ? MagnetometerUncalibrated
+          : Magnetometer;
         debugAccelerometerAvailableRef.current = accelerometerAvailable;
         debugDeviceMotionAvailableRef.current = sensorAvailable;
         debugGyroscopeAvailableRef.current = gyroscopeAvailable;
         debugMagnetometerAvailableRef.current = magnetometerAvailable;
         emitDebugSnapshot(true);
 
-        const updateCompassTracking = () => {
-          if (!accelerometerReadingRef.current || !magnetometerReadingRef.current) {
-            return;
-          }
-
-          const orientation = getCompassOrientation(
-            accelerometerReadingRef.current,
-            magnetometerReadingRef.current,
-          );
-          if (!orientation) {
-            return;
-          }
-
+        const applyAndroidTrackingOrientation = (
+          orientation: { pitch: number; roll: number; yaw?: number },
+          updateYaw: boolean,
+        ) => {
           headTrackingSourceRef.current = "compass";
           if (
             !trackedRotationReferenceRef.current ||
             !("yaw" in trackedRotationReferenceRef.current)
           ) {
             trackedRotationReferenceRef.current = {
-              yaw: orientation.yaw,
+              yaw: orientation.yaw ?? trackedYawRef.current,
               pitch: orientation.pitch,
+              roll: orientation.roll,
             };
           }
 
@@ -477,13 +647,65 @@ export function CabezaClavaModelView({
             return;
           }
 
-          trackedYawRef.current = normalizeAngle(orientation.yaw - reference.yaw);
+          const pitchDelta = orientation.pitch - reference.pitch;
+          const rollDelta = normalizeAngle(orientation.roll - reference.roll);
+          const tiltYawAssist = clamp(
+            rollDelta * IMMERSIVE_TILT_YAW_ASSIST,
+            -Math.PI * 0.65,
+            Math.PI * 0.65,
+          );
+          if (updateYaw && typeof orientation.yaw === "number") {
+            const compassYaw = normalizeAngle(orientation.yaw - reference.yaw);
+            trackedYawRef.current = lerpAngle(
+              tiltYawAssist,
+              compassYaw,
+              IMMERSIVE_COMPASS_YAW_WEIGHT,
+            );
+          } else {
+            trackedYawRef.current = lerpAngle(
+              trackedYawRef.current,
+              tiltYawAssist,
+              IMMERSIVE_TRACKING_SMOOTHING,
+            );
+          }
+          trackedRollRef.current = rollDelta;
           trackedPitchRef.current = clamp(
-            orientation.pitch - reference.pitch,
+            pitchDelta + rollDelta * 0.25,
             -MAX_IMMERSIVE_PITCH,
             MAX_IMMERSIVE_PITCH,
           );
           emitDebugSnapshot();
+        };
+
+        const updateTiltTracking = () => {
+          if (!accelerometerReadingRef.current) {
+            return;
+          }
+
+          const orientation = getTiltOrientation(accelerometerReadingRef.current);
+          if (!orientation) {
+            return;
+          }
+
+          applyAndroidTrackingOrientation(orientation, false);
+        };
+
+        const updateCompassTracking = () => {
+          if (!accelerometerReadingRef.current || !magnetometerReadingRef.current) {
+            updateTiltTracking();
+            return;
+          }
+
+          const orientation = getCompassOrientation(
+            accelerometerReadingRef.current,
+            magnetometerReadingRef.current,
+          );
+          if (!orientation) {
+            updateTiltTracking();
+            return;
+          }
+
+          applyAndroidTrackingOrientation(orientation, true);
         };
 
         const startCompassFallback = () => {
@@ -496,8 +718,8 @@ export function CabezaClavaModelView({
             return;
           }
 
-          Accelerometer.setUpdateInterval(40);
-          Magnetometer.setUpdateInterval(40);
+          Accelerometer.setUpdateInterval(16);
+          compassSensor.setUpdateInterval(16);
 
           accelerometerSubscription = Accelerometer.addListener((reading) => {
             debugAccelerometerEventsRef.current += 1;
@@ -505,6 +727,7 @@ export function CabezaClavaModelView({
             debugAccelYRef.current = reading.y ?? null;
             debugAccelZRef.current = reading.z ?? null;
             debugErrorRef.current = null;
+            lastSensorEventAtRef.current = Date.now();
             accelerometerReadingRef.current = {
               x: reading.x ?? 0,
               y: reading.y ?? 0,
@@ -513,12 +736,13 @@ export function CabezaClavaModelView({
             updateCompassTracking();
           });
 
-          magnetometerSubscription = Magnetometer.addListener((reading) => {
+          magnetometerSubscription = compassSensor.addListener((reading) => {
             debugMagnetometerEventsRef.current += 1;
             debugMagXRef.current = reading.x ?? null;
             debugMagYRef.current = reading.y ?? null;
             debugMagZRef.current = reading.z ?? null;
             debugErrorRef.current = null;
+            lastSensorEventAtRef.current = Date.now();
             magnetometerReadingRef.current = {
               x: reading.x ?? 0,
               y: reading.y ?? 0,
@@ -548,6 +772,7 @@ export function CabezaClavaModelView({
             debugLastGyroYRef.current = reading.y ?? null;
             debugLastGyroZRef.current = reading.z ?? null;
             debugErrorRef.current = null;
+            lastSensorEventAtRef.current = Date.now();
 
             const lastTimestamp = gyroscopeLastTimestampRef.current;
             gyroscopeLastTimestampRef.current = reading.timestamp;
@@ -622,6 +847,7 @@ export function CabezaClavaModelView({
           debugLastAlphaRef.current = motion.rotation?.alpha ?? null;
           debugLastBetaRef.current = motion.rotation?.beta ?? null;
           debugErrorRef.current = null;
+          lastSensorEventAtRef.current = Date.now();
           if (usesAndroidHeadTracking) {
             const alpha = motion.rotation?.alpha ?? 0;
             const beta = motion.rotation?.beta ?? 0;
@@ -680,9 +906,17 @@ export function CabezaClavaModelView({
             const Accelerometer = sensorsModule.Accelerometer;
             const Gyroscope = sensorsModule.Gyroscope;
             const Magnetometer = sensorsModule.Magnetometer;
+            const MagnetometerUncalibrated = sensorsModule.MagnetometerUncalibrated;
             const accelerometerAvailable = await Accelerometer.isAvailableAsync().catch(() => false);
             const gyroscopeAvailable = await Gyroscope.isAvailableAsync().catch(() => false);
-            const magnetometerAvailable = await Magnetometer.isAvailableAsync().catch(() => false);
+            const regularMagnetometerAvailable = await Magnetometer.isAvailableAsync().catch(() => false);
+            const uncalibratedMagnetometerAvailable =
+              await MagnetometerUncalibrated.isAvailableAsync().catch(() => false);
+            const magnetometerAvailable =
+              regularMagnetometerAvailable || uncalibratedMagnetometerAvailable;
+            const compassSensor = uncalibratedMagnetometerAvailable
+              ? MagnetometerUncalibrated
+              : Magnetometer;
             debugAccelerometerAvailableRef.current = accelerometerAvailable;
             debugGyroscopeAvailableRef.current = gyroscopeAvailable;
             debugMagnetometerAvailableRef.current = magnetometerAvailable;
@@ -701,6 +935,7 @@ export function CabezaClavaModelView({
                 debugLastGyroYRef.current = reading.y ?? null;
                 debugLastGyroZRef.current = reading.z ?? null;
                 debugErrorRef.current = null;
+                lastSensorEventAtRef.current = Date.now();
 
                 const lastTimestamp = gyroscopeLastTimestampRef.current;
                 gyroscopeLastTimestampRef.current = reading.timestamp;
@@ -730,27 +965,19 @@ export function CabezaClavaModelView({
               });
               emitDebugSnapshot(true);
             } else if (accelerometerAvailable && magnetometerAvailable) {
-              const updateCompassTracking = () => {
-                if (!accelerometerReadingRef.current || !magnetometerReadingRef.current) {
-                  return;
-                }
-
-                const orientation = getCompassOrientation(
-                  accelerometerReadingRef.current,
-                  magnetometerReadingRef.current,
-                );
-                if (!orientation) {
-                  return;
-                }
-
+              const applyAndroidTrackingOrientation = (
+                orientation: { pitch: number; roll: number; yaw?: number },
+                updateYaw: boolean,
+              ) => {
                 headTrackingSourceRef.current = "compass";
                 if (
                   !trackedRotationReferenceRef.current ||
                   !("yaw" in trackedRotationReferenceRef.current)
                 ) {
                   trackedRotationReferenceRef.current = {
-                    yaw: orientation.yaw,
+                    yaw: orientation.yaw ?? trackedYawRef.current,
                     pitch: orientation.pitch,
+                    roll: orientation.roll,
                   };
                 }
 
@@ -759,17 +986,69 @@ export function CabezaClavaModelView({
                   return;
                 }
 
-                trackedYawRef.current = normalizeAngle(orientation.yaw - reference.yaw);
+                const pitchDelta = orientation.pitch - reference.pitch;
+                const rollDelta = normalizeAngle(orientation.roll - reference.roll);
+                const tiltYawAssist = clamp(
+                  rollDelta * IMMERSIVE_TILT_YAW_ASSIST,
+                  -Math.PI * 0.65,
+                  Math.PI * 0.65,
+                );
+                if (updateYaw && typeof orientation.yaw === "number") {
+                  const compassYaw = normalizeAngle(orientation.yaw - reference.yaw);
+                  trackedYawRef.current = lerpAngle(
+                    tiltYawAssist,
+                    compassYaw,
+                    IMMERSIVE_COMPASS_YAW_WEIGHT,
+                  );
+                } else {
+                  trackedYawRef.current = lerpAngle(
+                    trackedYawRef.current,
+                    tiltYawAssist,
+                    IMMERSIVE_TRACKING_SMOOTHING,
+                  );
+                }
+                trackedRollRef.current = rollDelta;
                 trackedPitchRef.current = clamp(
-                  orientation.pitch - reference.pitch,
+                  pitchDelta + rollDelta * 0.25,
                   -MAX_IMMERSIVE_PITCH,
                   MAX_IMMERSIVE_PITCH,
                 );
                 emitDebugSnapshot();
               };
 
-              Accelerometer.setUpdateInterval(40);
-              Magnetometer.setUpdateInterval(40);
+              const updateTiltTracking = () => {
+                if (!accelerometerReadingRef.current) {
+                  return;
+                }
+
+                const orientation = getTiltOrientation(accelerometerReadingRef.current);
+                if (!orientation) {
+                  return;
+                }
+
+                applyAndroidTrackingOrientation(orientation, false);
+              };
+
+              const updateCompassTracking = () => {
+                if (!accelerometerReadingRef.current || !magnetometerReadingRef.current) {
+                  updateTiltTracking();
+                  return;
+                }
+
+                const orientation = getCompassOrientation(
+                  accelerometerReadingRef.current,
+                  magnetometerReadingRef.current,
+                );
+                if (!orientation) {
+                  updateTiltTracking();
+                  return;
+                }
+
+                applyAndroidTrackingOrientation(orientation, true);
+              };
+
+              Accelerometer.setUpdateInterval(16);
+              compassSensor.setUpdateInterval(16);
 
               accelerometerSubscription = Accelerometer.addListener((reading) => {
                 debugAccelerometerEventsRef.current += 1;
@@ -777,6 +1056,7 @@ export function CabezaClavaModelView({
                 debugAccelYRef.current = reading.y ?? null;
                 debugAccelZRef.current = reading.z ?? null;
                 debugErrorRef.current = null;
+                lastSensorEventAtRef.current = Date.now();
                 accelerometerReadingRef.current = {
                   x: reading.x ?? 0,
                   y: reading.y ?? 0,
@@ -785,12 +1065,13 @@ export function CabezaClavaModelView({
                 updateCompassTracking();
               });
 
-              magnetometerSubscription = Magnetometer.addListener((reading) => {
+              magnetometerSubscription = compassSensor.addListener((reading) => {
                 debugMagnetometerEventsRef.current += 1;
                 debugMagXRef.current = reading.x ?? null;
                 debugMagYRef.current = reading.y ?? null;
                 debugMagZRef.current = reading.z ?? null;
                 debugErrorRef.current = null;
+                lastSensorEventAtRef.current = Date.now();
                 magnetometerReadingRef.current = {
                   x: reading.x ?? 0,
                   y: reading.y ?? 0,
@@ -831,6 +1112,12 @@ export function CabezaClavaModelView({
       gyroscopeLastTimestampRef.current = null;
       headTrackingSourceRef.current = "none";
       magnetometerReadingRef.current = null;
+      lastSensorEventAtRef.current = null;
+      guidedTourStartAtRef.current = null;
+      renderedYawRef.current = 0;
+      renderedPitchRef.current = 0;
+      renderedRollRef.current = 0;
+      trackedRollRef.current = 0;
       trackedRotationReferenceRef.current = null;
       emitDebugSnapshot(true);
     };
@@ -943,7 +1230,12 @@ export function CabezaClavaModelView({
       const height = gl.drawingBufferHeight;
       const scene = new THREE.Scene();
       const eyeAspectRatio = usesStereo ? width / 2 / height : width / height;
-      const camera = new THREE.PerspectiveCamera(44, eyeAspectRatio, 0.01, 100);
+      const camera = new THREE.PerspectiveCamera(
+        isImmersive ? 36 : 44,
+        eyeAspectRatio,
+        0.01,
+        100,
+      );
       camera.position.set(0, 0.08, 3.2);
       camera.lookAt(0, 0, 0);
 
@@ -963,10 +1255,19 @@ export function CabezaClavaModelView({
 
       const loadStartedAt = Date.now();
       model = await loadCabezaClavaModel(modelAsset);
+      log3d("[MuseIQ][3D] Modelo cargado en GLView", {
+        elapsedMs: Date.now() - loadStartedAt,
+      });
       if (isImmersive) {
         enableDoubleSidedMaterials(model);
         modelBaseScale = model.scale.clone();
         immersiveRig = fitCameraInsideObject(camera, model);
+        if (stereoCamera) {
+          stereoCamera.eyeSep = Math.min(VR_EYE_SEPARATION, immersiveRig.lookDistance * 0.012);
+        }
+        log3d("[MuseIQ][3D] Camara inmersiva lista", {
+          elapsedMs: Date.now() - loadStartedAt,
+        });
       } else {
         normalizeModel(model, 2.55);
         modelBaseScale = model.scale.clone();
@@ -974,7 +1275,7 @@ export function CabezaClavaModelView({
       }
       applyTextureQuality(model, renderer.capabilities.getMaxAnisotropy());
       scene.add(model);
-      console.log(`[MuseIQ][3D] ${modelLabel} listo en ${Date.now() - loadStartedAt}ms`);
+      log3d(`[MuseIQ][3D] ${modelLabel} listo en ${Date.now() - loadStartedAt}ms`);
 
       let spin = 0;
       let hasRenderedFirstFrame = false;
@@ -985,7 +1286,73 @@ export function CabezaClavaModelView({
 
           if (isImmersive) {
             if (immersiveRig) {
+              if (guidedTourStartAtRef.current === null) {
+                guidedTourStartAtRef.current = Date.now();
+              }
+
+              const tourFrame = getImmersiveTourFrame(
+                immersiveRig,
+                (Date.now() - guidedTourStartAtRef.current) / 1000,
+              );
+
               if (
+                tourFrame &&
+                usesAndroidHeadTracking &&
+                headTrackingSourceRef.current === "gyroscope" &&
+                gyroscopeOrientationRef.current
+              ) {
+                applyTrackedImmersiveTourCameraPose(
+                  camera,
+                  immersiveRig,
+                  tourFrame,
+                  identityQuaternion,
+                  gyroscopeOrientationRef.current,
+                );
+              } else if (
+                tourFrame &&
+                usesHeadTracking &&
+                !usesAndroidHeadTracking &&
+                deviceOrientationRef.current &&
+                deviceOrientationReferenceRef.current
+              ) {
+                applyTrackedImmersiveTourCameraPose(
+                  camera,
+                  immersiveRig,
+                  tourFrame,
+                  deviceOrientationReferenceRef.current,
+                  deviceOrientationRef.current,
+                );
+              } else if (tourFrame) {
+                const source = headTrackingSourceRef.current;
+                const targetYaw =
+                  source === "compass" || source === "device-motion"
+                    ? trackedYawRef.current
+                    : observerYawRef.current;
+                const targetPitch =
+                  source === "compass" || source === "device-motion"
+                    ? trackedPitchRef.current
+                    : observerPitchRef.current;
+                const targetRoll = source === "compass" ? trackedRollRef.current : 0;
+                renderedYawRef.current = lerpAngle(
+                  renderedYawRef.current,
+                  targetYaw,
+                  IMMERSIVE_TRACKING_SMOOTHING,
+                );
+                renderedPitchRef.current +=
+                  (targetPitch - renderedPitchRef.current) *
+                  IMMERSIVE_TRACKING_SMOOTHING;
+                renderedRollRef.current +=
+                  normalizeAngle(targetRoll - renderedRollRef.current) *
+                  IMMERSIVE_TRACKING_SMOOTHING;
+                applyImmersiveTourCameraPose(
+                  camera,
+                  immersiveRig,
+                  tourFrame,
+                  renderedYawRef.current,
+                  renderedPitchRef.current,
+                  renderedRollRef.current,
+                );
+              } else if (
                 usesAndroidHeadTracking &&
                 headTrackingSourceRef.current === "gyroscope" &&
                 gyroscopeOrientationRef.current
@@ -998,24 +1365,14 @@ export function CabezaClavaModelView({
                 );
               } else if (
                 usesAndroidHeadTracking &&
-                immersiveRig
+                headTrackingSourceRef.current === "compass"
               ) {
-                applyImmersiveCameraPose(
+                applyCompassImmersiveCameraPose(
                   camera,
                   immersiveRig,
-                  trackedYawRef.current,
-                  trackedPitchRef.current,
-                );
-              } else if (
-                usesHeadTracking &&
-                deviceOrientationRef.current &&
-                deviceOrientationReferenceRef.current
-              ) {
-                applyTrackedImmersiveCameraPose(
-                  camera,
-                  immersiveRig,
-                  deviceOrientationReferenceRef.current,
-                  deviceOrientationRef.current,
+                  renderedYawRef.current,
+                  renderedPitchRef.current,
+                  renderedRollRef.current,
                 );
               } else {
                 applyImmersiveCameraPose(
@@ -1051,6 +1408,7 @@ export function CabezaClavaModelView({
           }
         }
         gl.endFrameEXP();
+        emitPerformanceSnapshot();
 
         if (!hasRenderedFirstFrame && isMountedRef.current) {
           hasRenderedFirstFrame = true;
@@ -1069,7 +1427,7 @@ export function CabezaClavaModelView({
         renderer?.dispose();
       };
     } catch (error) {
-      console.warn("No se pudo cargar cabeza_clava.glb", error);
+      warn3d("No se pudo cargar cabeza_clava.glb", error);
       if (isMountedRef.current) {
         setErrorMessage(error instanceof Error ? error.message : "Error desconocido");
         setStatus("error");
@@ -1077,6 +1435,7 @@ export function CabezaClavaModelView({
       renderer?.dispose();
     }
   }, [
+    emitPerformanceSnapshot,
     isImmersive,
     modelAsset,
     modelLabel,
@@ -1184,6 +1543,7 @@ function renderStereoScene(
 
   stereoCamera.update(camera);
 
+  renderer.setClearColor(0x000000, 1);
   renderer.setScissorTest(true);
   renderer.clear();
 
@@ -1227,60 +1587,45 @@ function patchUnsupportedPixelStore(gl: ExpoWebGLRenderingContext) {
 }
 
 async function loadCabezaClavaModel(modelAsset: ModelAsset) {
+  const startedAt = Date.now();
+  log3d("[MuseIQ][3D] Clonando template preparado");
   const preparedTemplate = await getPreparedModelTemplate(modelAsset);
-  return clonePreparedModelTemplate(preparedTemplate);
-}
-
-function getPreparedModelSource(
-  modelAsset: ModelAsset,
-  onProgress?: ModelPreparationProgress,
-) {
-  const cachedPreparation = preparedModelCache.get(modelAsset);
-  if (cachedPreparation) {
-    return cachedPreparation;
-  }
-
-  const preparation = loadCabezaClavaModelSource(modelAsset, onProgress);
-  preparedModelCache.set(modelAsset, preparation);
-  return preparation;
-}
-
-function getPreparedModelTemplate(
-  modelAsset: ModelAsset,
-  sourcePreparation = getPreparedModelSource(modelAsset),
-  onProgress?: ModelPreparationProgress,
-) {
-  const cachedTemplate = preparedModelTemplateCache.get(modelAsset);
-  if (cachedTemplate) {
-    return cachedTemplate;
-  }
-
-  const templatePreparation = sourcePreparation.then((preparedSource) => {
-    onProgress?.(88);
-    const template = buildSceneFromPreparedModel(preparedSource);
-    markObjectAsSharedTemplate(template);
-    onProgress?.(100);
-    return template;
+  const clone = clonePreparedModelTemplate(preparedTemplate);
+  log3d("[MuseIQ][3D] Template clonado", {
+    elapsedMs: Date.now() - startedAt,
   });
-  preparedModelTemplateCache.set(modelAsset, templatePreparation);
-  return templatePreparation;
+  return clone;
 }
 
 async function loadCabezaClavaModelSource(
   modelAsset: ModelAsset,
   onProgress?: ModelPreparationProgress,
 ) {
+  const startedAt = Date.now();
   onProgress?.(12);
   const asset = Asset.fromModule(modelAsset);
+  log3d("[MuseIQ][3D] downloadAsync inicio");
   await asset.downloadAsync();
+  log3d("[MuseIQ][3D] downloadAsync listo", {
+    elapsedMs: Date.now() - startedAt,
+    hasLocalUri: Boolean(asset.localUri),
+    uri: asset.localUri ?? asset.uri,
+  });
 
   const uri = asset.localUri ?? asset.uri;
   onProgress?.(36);
   const arrayBuffer = await readAssetArrayBuffer(uri);
+  log3d("[MuseIQ][3D] arrayBuffer listo", {
+    bytes: arrayBuffer.byteLength,
+    elapsedMs: Date.now() - startedAt,
+  });
 
   onProgress?.(62);
   const modelSource = await parseGlbGeometry(arrayBuffer);
-  onProgress?.(80);
+  log3d("[MuseIQ][3D] parse GLB listo", {
+    elapsedMs: Date.now() - startedAt,
+  });
+  onProgress?.(100);
   return modelSource;
 }
 
@@ -1492,7 +1837,7 @@ async function loadGltfResources(
         );
         textures.set(textureIndex, createTextureFromEmbeddedAsset(asset));
       } catch (error) {
-        console.warn("No se pudo aplicar la textura del GLB", error);
+        warn3d("No se pudo aplicar la textura del GLB", error);
       }
     }),
   );
@@ -1553,15 +1898,28 @@ function createMaterial(
 }
 
 async function readAssetArrayBuffer(uri: string) {
+  if (uri.startsWith("file://")) {
+    log3d("[MuseIQ][3D] Leyendo GLB local con FileSystem");
+    return readAssetArrayBufferFromFile(uri);
+  }
+
   try {
-    const response = await fetch(uri);
+    log3d("[MuseIQ][3D] Leyendo GLB con fetch");
+    const response = await Promise.race([
+      fetch(uri),
+      new Promise<Response>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Timeout leyendo asset GLB con fetch"));
+        }, 5000);
+      }),
+    ]);
     if (!response.ok) {
       throw new Error(`No se pudo leer el asset (${response.status})`);
     }
 
     return await response.arrayBuffer();
   } catch (error) {
-    console.warn("[MuseIQ][3D] Fallback a lectura base64 para asset GLB", error);
+    warn3d("[MuseIQ][3D] Fallback a lectura base64 para asset GLB", error);
     const base64 = await FileSystem.readAsStringAsync(uri, {
       encoding: "base64",
     });
@@ -1572,6 +1930,18 @@ async function readAssetArrayBuffer(uri: string) {
       bytes.byteOffset + bytes.byteLength,
     );
   }
+}
+
+async function readAssetArrayBufferFromFile(uri: string) {
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: "base64",
+  });
+  const bytes = Buffer.from(base64, "base64");
+
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  );
 }
 
 function markObjectAsSharedTemplate(object: THREE.Object3D) {
@@ -1852,126 +2222,135 @@ function applyCameraZoom(
 function fitCameraInsideObject(camera: THREE.PerspectiveCamera, model: THREE.Object3D) {
   model.updateWorldMatrix(true, true);
   const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const maxDimension = Math.max(size.x, size.y, size.z) || 1;
-  const placement = findImmersiveObserverPlacement(model, box);
+  const origin = new THREE.Vector3(
+    center.x,
+    box.max.y + size.y * 0.42,
+    center.z + size.z * 0.32,
+  );
   const rig = {
-    baseYaw: placement.baseYaw,
+    basePitch: -Math.PI * 0.36,
+    baseYaw: 0,
     far: Math.max(maxDimension * 12, 60),
-    lookDistance: Math.max(placement.lookDistance, Math.max(maxDimension * 0.18, 1.2)),
+    lookDistance: Math.max(maxDimension * 0.46, 1.8),
     near: Math.max(maxDimension * 0.0025, 0.02),
-    origin: placement.origin.clone(),
+    origin,
+    target: center.clone(),
+    tourPoints: createImmersiveTourPoints(box, center, size),
   };
 
-  console.log("[MuseIQ][VR] rig", {
-    baseYaw: Number(placement.baseYaw.toFixed(2)),
+  log3d("[MuseIQ][VR] rig simple", {
+    basePitch: Number(rig.basePitch.toFixed(2)),
+    baseYaw: rig.baseYaw,
     lookDistance: Number(rig.lookDistance.toFixed(2)),
-    minClearance: Number(placement.minClearance.toFixed(2)),
+    modelSize: [
+      Number(size.x.toFixed(2)),
+      Number(size.y.toFixed(2)),
+      Number(size.z.toFixed(2)),
+    ],
     origin: [
       Number(rig.origin.x.toFixed(2)),
       Number(rig.origin.y.toFixed(2)),
       Number(rig.origin.z.toFixed(2)),
     ],
-    score: Number(placement.score.toFixed(2)),
   });
   applyImmersiveCameraPose(camera, rig, 0, 0);
   return rig;
 }
 
-function findImmersiveObserverPlacement(
-  model: THREE.Object3D,
+function createImmersiveTourPoints(
   box: THREE.Box3,
-): ImmersiveObserverPlacement {
-  const size = box.getSize(new THREE.Vector3());
-  const diagonal = Math.max(size.length(), 2);
-  const candidateDirections = getImmersiveSampleDirections();
-  const raycaster = new THREE.Raycaster();
-  const preferredEyeHeight = box.min.y + size.y * 0.3;
-  const minimumHeadroom = Math.max(diagonal * 0.04, 0.14);
-  let bestPlacement: ImmersiveObserverPlacement | null = null;
+  center: THREE.Vector3,
+  size: THREE.Vector3,
+) {
+  const safeWidth = Math.max(size.x, 1);
+  const safeHeight = Math.max(size.y, 1);
+  const safeDepth = Math.max(size.z, 1);
+  const wideDimension = Math.max(safeWidth, safeDepth);
+  const highY = box.max.y + Math.max(safeHeight * 1.35, wideDimension * 0.28);
+  const flyY = box.max.y + Math.max(safeHeight * 1.05, wideDimension * 0.22);
+  const targetY = center.y + safeHeight * 0.12;
+  const position = (x: number, y: number, z: number) =>
+    new THREE.Vector3(center.x + safeWidth * x, y, center.z + safeDepth * z);
+  const target = (x: number, z: number, y = targetY) =>
+    new THREE.Vector3(center.x + safeWidth * x, y, center.z + safeDepth * z);
 
-  IMMERSIVE_HEIGHT_SAMPLE_FRACTIONS.forEach((heightFraction) => {
-    const y = THREE.MathUtils.lerp(box.min.y, box.max.y, heightFraction);
+  return [
+    {
+      duration: 8,
+      position: position(0, highY, 0.42),
+      target: target(0, 0.04),
+    },
+    {
+      duration: 8,
+      position: position(-0.28, flyY, 0.26),
+      target: target(-0.04, 0.02),
+    },
+    {
+      duration: 9,
+      position: position(-0.1, flyY, -0.02),
+      target: target(0.06, -0.02, targetY + safeHeight * 0.04),
+    },
+    {
+      duration: 8,
+      position: position(0.28, flyY, -0.24),
+      target: target(0.04, -0.04),
+    },
+    {
+      duration: 8,
+      position: position(0.06, highY, -0.42),
+      target: target(0, -0.06),
+    },
+    {
+      duration: 8,
+      position: position(0, highY, 0.42),
+      target: target(0, 0.04),
+    },
+  ];
+}
 
-    IMMERSIVE_HORIZONTAL_SAMPLE_FRACTIONS.forEach((xFraction) => {
-      const x = THREE.MathUtils.lerp(box.min.x, box.max.x, xFraction);
-
-      IMMERSIVE_HORIZONTAL_SAMPLE_FRACTIONS.forEach((zFraction) => {
-        const z = THREE.MathUtils.lerp(box.min.z, box.max.z, zFraction);
-        const origin = new THREE.Vector3(x, y, z);
-        const horizontalDistances = candidateDirections.map(({ direction }) =>
-          measureClearance(raycaster, model, origin, direction, diagonal),
-        );
-        const upClearance = measureClearance(
-          raycaster,
-          model,
-          origin,
-          new THREE.Vector3(0, 1, 0),
-          diagonal,
-        );
-        const downClearance = measureClearance(
-          raycaster,
-          model,
-          origin,
-          new THREE.Vector3(0, -1, 0),
-          diagonal,
-        );
-        const minClearance = Math.min(...horizontalDistances);
-        const averageClearance =
-          horizontalDistances.reduce((total, distance) => total + distance, 0) /
-          horizontalDistances.length;
-        const bestDirectionIndex = horizontalDistances.reduce(
-          (bestIndex, distance, index, distances) =>
-            distance > distances[bestIndex] ? index : bestIndex,
-          0,
-        );
-        const bestDirection = candidateDirections[bestDirectionIndex];
-        const bestDirectionClearance = horizontalDistances[bestDirectionIndex];
-        const normalizedHeightOffset =
-          Math.abs(y - preferredEyeHeight) / Math.max(size.y, 0.001);
-        const headroomPenalty =
-          upClearance < minimumHeadroom ? (minimumHeadroom - upClearance) * 6 : 0;
-        const floorPenalty =
-          downClearance < minimumHeadroom * 0.28 ? (minimumHeadroom * 0.28 - downClearance) * 3 : 0;
-        const score =
-          minClearance * 2.2 +
-          averageClearance * 0.65 +
-          bestDirectionClearance * 0.35 +
-          Math.min(upClearance, diagonal) * 0.18 -
-          normalizedHeightOffset * diagonal * 0.55 -
-          headroomPenalty -
-          floorPenalty;
-        const lookDistance = clamp(
-          bestDirectionClearance * 0.78,
-          Math.max(diagonal * 0.16, 1.2),
-          Math.max(diagonal * 0.55, 2.4),
-        );
-        const placement = {
-          baseYaw: bestDirection.yaw,
-          lookDistance,
-          minClearance,
-          origin,
-          score,
-        };
-
-        if (!bestPlacement || placement.score > bestPlacement.score) {
-          bestPlacement = placement;
-        }
-      });
-    });
-  });
-
-  if (bestPlacement) {
-    return bestPlacement;
+function getImmersiveTourFrame(
+  rig: ImmersiveCameraRig,
+  elapsedSeconds: number,
+): ImmersiveTourFrame | null {
+  const points = rig.tourPoints;
+  if (points.length < 2) {
+    return null;
   }
 
-  const center = box.getCenter(new THREE.Vector3());
+  const totalDuration = points.reduce((total, point) => total + point.duration, 0);
+  if (totalDuration <= 0) {
+    return null;
+  }
+
+  let localTime = elapsedSeconds % totalDuration;
+  if (localTime < 0) {
+    localTime += totalDuration;
+  }
+
+  let elapsed = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index];
+    const next = points[(index + 1) % points.length];
+    const segmentDuration = Math.max(current.duration, 0.001);
+    if (localTime <= elapsed + segmentDuration || index === points.length - 1) {
+      const rawProgress = clamp((localTime - elapsed) / segmentDuration, 0, 1);
+      const progress = smoothStep(rawProgress);
+
+      return {
+        position: current.position.clone().lerp(next.position, progress),
+        target: current.target.clone().lerp(next.target, progress),
+      };
+    }
+
+    elapsed += segmentDuration;
+  }
+
   return {
-    baseYaw: 0,
-    lookDistance: Math.max(diagonal * 0.36, 1.5),
-    minClearance: 0,
-    origin: center,
-    score: 0,
+    position: points[0].position.clone(),
+    target: points[0].target.clone(),
   };
 }
 
@@ -1981,11 +2360,16 @@ function applyImmersiveCameraPose(
   yaw: number,
   pitch: number,
 ) {
-  const resolvedYaw = rig.baseYaw + yaw;
+  const resolvedYaw = rig.baseYaw + yaw * IMMERSIVE_TRACKING_YAW_SENSITIVITY;
+  const resolvedPitch = clamp(
+    rig.basePitch + pitch * IMMERSIVE_TRACKING_PITCH_SENSITIVITY,
+    -Math.PI * 0.49,
+    Math.PI * 0.49,
+  );
   const lookDirection = new THREE.Vector3(
-    Math.sin(resolvedYaw) * Math.cos(pitch),
-    Math.sin(pitch),
-    -Math.cos(resolvedYaw) * Math.cos(pitch),
+    Math.sin(resolvedYaw) * Math.cos(resolvedPitch),
+    Math.sin(resolvedPitch),
+    -Math.cos(resolvedYaw) * Math.cos(resolvedPitch),
   ).normalize();
   const lookTarget = rig.origin.clone().add(lookDirection.multiplyScalar(rig.lookDistance));
 
@@ -1996,15 +2380,110 @@ function applyImmersiveCameraPose(
   camera.updateProjectionMatrix();
 }
 
+function applyCompassImmersiveCameraPose(
+  camera: THREE.PerspectiveCamera,
+  rig: ImmersiveCameraRig,
+  yaw: number,
+  pitch: number,
+  roll: number,
+) {
+  const orbitYaw = rig.baseYaw + yaw * IMMERSIVE_TRACKING_YAW_SENSITIVITY;
+  const elevation = clamp(
+    Math.PI * 0.34 - pitch * 0.92,
+    Math.PI * 0.18,
+    Math.PI * 0.46,
+  );
+  const orbitDistance = rig.lookDistance * 1.38;
+  const horizontalDistance = Math.cos(elevation) * orbitDistance;
+  const verticalDistance = Math.sin(elevation) * orbitDistance;
+  const rollOffset = roll * rig.lookDistance * 0.38;
+  const cameraOrigin = rig.target.clone().add(
+    new THREE.Vector3(
+      Math.sin(orbitYaw) * horizontalDistance + rollOffset,
+      verticalDistance,
+      Math.cos(orbitYaw) * horizontalDistance,
+    ),
+  );
+  const lookTarget = rig.target.clone().add(new THREE.Vector3(0, rig.lookDistance * 0.05, 0));
+
+  camera.position.copy(cameraOrigin);
+  camera.near = rig.near;
+  camera.far = rig.far;
+  camera.lookAt(lookTarget);
+  camera.rotateZ(clamp(
+    -roll * IMMERSIVE_TRACKING_ROLL_SENSITIVITY,
+    -Math.PI * 0.24,
+    Math.PI * 0.24,
+  ));
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+}
+
+function applyImmersiveTourCameraPose(
+  camera: THREE.PerspectiveCamera,
+  rig: ImmersiveCameraRig,
+  frame: ImmersiveTourFrame,
+  yaw: number,
+  pitch: number,
+  roll: number,
+) {
+  const baseDirection = frame.target.clone().sub(frame.position);
+  const baseDistance = Math.max(baseDirection.length(), rig.lookDistance);
+  const horizontalDistance = Math.hypot(baseDirection.x, baseDirection.z);
+  const baseYaw = Math.atan2(baseDirection.x, -baseDirection.z);
+  const basePitch = Math.atan2(baseDirection.y, Math.max(horizontalDistance, 0.001));
+  const resolvedYaw = baseYaw + yaw * IMMERSIVE_TOUR_HEAD_LOOK_WEIGHT;
+  const resolvedPitch = clamp(
+    basePitch + pitch * IMMERSIVE_TOUR_HEAD_LOOK_WEIGHT,
+    -Math.PI * 0.49,
+    Math.PI * 0.49,
+  );
+  const lookDirection = new THREE.Vector3(
+    Math.sin(resolvedYaw) * Math.cos(resolvedPitch),
+    Math.sin(resolvedPitch),
+    -Math.cos(resolvedYaw) * Math.cos(resolvedPitch),
+  ).normalize();
+  const lookTarget = frame.position.clone().add(lookDirection.multiplyScalar(baseDistance));
+
+  camera.position.copy(frame.position);
+  camera.near = rig.near;
+  camera.far = rig.far;
+  camera.lookAt(lookTarget);
+  if (IMMERSIVE_TOUR_ROLL_WEIGHT > 0) {
+    camera.rotateZ(clamp(
+      -roll * IMMERSIVE_TOUR_ROLL_WEIGHT,
+      -Math.PI * 0.18,
+      Math.PI * 0.18,
+    ));
+  }
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+}
+
+function applyTrackedImmersiveTourCameraPose(
+  camera: THREE.PerspectiveCamera,
+  rig: ImmersiveCameraRig,
+  frame: ImmersiveTourFrame,
+  referenceOrientation: THREE.Quaternion,
+  currentOrientation: THREE.Quaternion,
+) {
+  camera.position.copy(frame.position);
+  camera.near = rig.near;
+  camera.far = rig.far;
+  camera.lookAt(frame.target);
+  camera.quaternion.multiply(referenceOrientation.clone().multiply(currentOrientation));
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+}
+
 function applyTrackedImmersiveCameraPose(
   camera: THREE.PerspectiveCamera,
   rig: ImmersiveCameraRig,
   referenceOrientation: THREE.Quaternion,
   currentOrientation: THREE.Quaternion,
 ) {
-  const baseOrientation = new THREE.Quaternion().setFromAxisAngle(
-    new THREE.Vector3(0, 1, 0),
-    rig.baseYaw,
+  const baseOrientation = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(rig.basePitch, rig.baseYaw, 0, "YXZ"),
   );
   const viewerOrientation = baseOrientation.multiply(
     referenceOrientation.clone().multiply(currentOrientation),
@@ -2040,9 +2519,8 @@ function getDeviceMotionQuaternion(
     );
 }
 
-function getCompassOrientation(
+function getTiltOrientation(
   accelerometer: { x: number; y: number; z: number },
-  magnetometer: { x: number; y: number; z: number },
 ) {
   const ax = accelerometer.x;
   const ay = accelerometer.y;
@@ -2055,6 +2533,20 @@ function getCompassOrientation(
   const pitch = Math.atan2(-ax, Math.sqrt(ay * ay + az * az));
   const roll = Math.atan2(ay, az || 0.0001);
 
+  return { pitch, roll };
+}
+
+function getCompassOrientation(
+  accelerometer: { x: number; y: number; z: number },
+  magnetometer: { x: number; y: number; z: number },
+) {
+  const tilt = getTiltOrientation(accelerometer);
+  if (!tilt) {
+    return null;
+  }
+
+  const pitch = tilt.pitch;
+  const roll = tilt.roll;
   const mx = magnetometer.x;
   const my = magnetometer.y;
   const mz = magnetometer.z;
@@ -2070,40 +2562,7 @@ function getCompassOrientation(
     mz * Math.sin(roll) * Math.cos(pitch);
   const yaw = Math.atan2(-compensatedY, compensatedX);
 
-  return { pitch, yaw };
-}
-
-function getImmersiveSampleDirections() {
-  return [
-    new THREE.Vector3(0, 0, -1),
-    new THREE.Vector3(1, 0, -1).normalize(),
-    new THREE.Vector3(1, 0, 0),
-    new THREE.Vector3(1, 0, 1).normalize(),
-    new THREE.Vector3(0, 0, 1),
-    new THREE.Vector3(-1, 0, 1).normalize(),
-    new THREE.Vector3(-1, 0, 0),
-    new THREE.Vector3(-1, 0, -1).normalize(),
-  ].map((direction) => ({
-    direction,
-    yaw: Math.atan2(direction.x, -direction.z),
-  }));
-}
-
-function measureClearance(
-  raycaster: THREE.Raycaster,
-  model: THREE.Object3D,
-  origin: THREE.Vector3,
-  direction: THREE.Vector3,
-  far: number,
-) {
-  raycaster.near = 0;
-  raycaster.far = far;
-  raycaster.set(origin, direction);
-  const hit = raycaster
-    .intersectObject(model, true)
-    .find((intersection) => intersection.distance > 0.001);
-
-  return hit?.distance ?? far;
+  return { pitch, roll, yaw };
 }
 
 function applyTextureQuality(object: THREE.Object3D, maxAnisotropy: number) {
@@ -2180,10 +2639,19 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function smoothStep(value: number) {
+  const safeValue = clamp(value, 0, 1);
+  return safeValue * safeValue * (3 - 2 * safeValue);
+}
+
 function normalizeAngle(value: number) {
   const fullTurn = Math.PI * 2;
   const wrappedValue = (value + Math.PI) % fullTurn;
   return (wrappedValue < 0 ? wrappedValue + fullTurn : wrappedValue) - Math.PI;
+}
+
+function lerpAngle(current: number, target: number, amount: number) {
+  return current + normalizeAngle(target - current) * amount;
 }
 
 function getEmbeddedImageDimensions(bytes: Buffer, mimeType?: string) {

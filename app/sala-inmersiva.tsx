@@ -2,7 +2,7 @@ import {
   CabezaClavaModelView,
   type HeadTrackingDebugState,
 } from "@/components/museiq/cabeza-clava-model-view";
-import { ArSceneBackground, arColors } from "@/components/museiq/ar-flow";
+import { arColors } from "@/components/museiq/ar-flow";
 import { getRoomImmersiveExperience } from "@/lib/room-experiences";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -26,8 +27,25 @@ type MotionCapabilities = {
   magnetometerAvailable: boolean | null;
 };
 
+const ENABLE_VR_TERMINAL_LOGS = false;
+const VR_FRAME_HEIGHT_RATIO = 0.72;
+const VR_FRAME_WIDTH_RATIO = 0.82;
+
+function logVr(...args: Parameters<typeof console.log>) {
+  if (ENABLE_VR_TERMINAL_LOGS) {
+    console.log(...args);
+  }
+}
+
+function warnVr(...args: Parameters<typeof console.warn>) {
+  if (ENABLE_VR_TERMINAL_LOGS) {
+    console.warn(...args);
+  }
+}
+
 export default function SalaInmersivaScreen() {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const { roomId } = useLocalSearchParams<{ roomId?: string }>();
   const experience = getRoomImmersiveExperience(roomId);
   const [headTrackingDebug, setHeadTrackingDebug] = useState<HeadTrackingDebugState | null>(null);
@@ -39,8 +57,10 @@ export default function SalaInmersivaScreen() {
   });
   const [motionPermissionState, setMotionPermissionState] =
     useState<MotionPermissionState>("checking");
+  const [isDebugCollapsed, setDebugCollapsed] = useState(true);
   const lastTerminalLogAtRef = useRef(0);
   const lastTerminalLogSignatureRef = useRef("");
+  const [modelCanMount, setModelCanMount] = useState(false);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [nativeLandscapeLockReady, setNativeLandscapeLockReady] = useState(false);
 
@@ -63,30 +83,29 @@ export default function SalaInmersivaScreen() {
         if (isMounted) {
           setNativeLandscapeLockReady(true);
         }
-      } catch {
+      } catch (error) {
+        warnVr("[MuseIQ][VR] No se pudo bloquear landscape nativo", error);
         if (isMounted) {
           setNativeLandscapeLockReady(false);
-          console.warn("[MuseIQ][VR] No se pudo bloquear en landscape");
         }
       }
     };
 
-    lockLandscape().catch(() => {
+    lockLandscape().catch((error) => {
+      warnVr("[MuseIQ][VR] No se pudo bloquear landscape nativo", error);
       if (isMounted) {
-        console.warn("[MuseIQ][VR] No se pudo bloquear en landscape");
+        setNativeLandscapeLockReady(false);
       }
     });
 
     return () => {
       isMounted = false;
       setNativeLandscapeLockReady(false);
-      if (screenOrientationModule) {
-        screenOrientationModule
-          .lockAsync(screenOrientationModule.OrientationLock.PORTRAIT_UP)
-          .catch(() => {
-            console.warn("[MuseIQ][VR] No se pudo restaurar portrait");
-          });
-      }
+      screenOrientationModule
+        ?.lockAsync(screenOrientationModule.OrientationLock.PORTRAIT_UP)
+        .catch((error) => {
+          warnVr("[MuseIQ][VR] No se pudo restaurar portrait", error);
+        });
     };
   }, [experience]);
 
@@ -97,6 +116,7 @@ export default function SalaInmersivaScreen() {
       const DeviceMotion = sensorsModule.DeviceMotion;
       const Gyroscope = sensorsModule.Gyroscope;
       const Magnetometer = sensorsModule.Magnetometer;
+      const MagnetometerUncalibrated = sensorsModule.MagnetometerUncalibrated;
 
       if (Platform.OS === "android") {
         const [
@@ -104,23 +124,27 @@ export default function SalaInmersivaScreen() {
           deviceMotionAvailable,
           gyroscopeAvailable,
           magnetometerAvailable,
+          uncalibratedMagnetometerAvailable,
         ] = await Promise.all([
           Accelerometer.isAvailableAsync().catch(() => false),
           DeviceMotion.isAvailableAsync().catch(() => false),
           Gyroscope.isAvailableAsync().catch(() => false),
           Magnetometer.isAvailableAsync().catch(() => false),
+          MagnetometerUncalibrated.isAvailableAsync().catch(() => false),
         ]);
+        const anyMagnetometerAvailable =
+          magnetometerAvailable || uncalibratedMagnetometerAvailable;
         setMotionCapabilities({
           accelerometerAvailable,
           deviceMotionAvailable,
           gyroscopeAvailable,
-          magnetometerAvailable,
+          magnetometerAvailable: anyMagnetometerAvailable,
         });
 
         setMotionPermissionState(
           deviceMotionAvailable ||
             gyroscopeAvailable ||
-            (accelerometerAvailable && magnetometerAvailable)
+            (accelerometerAvailable && anyMagnetometerAvailable)
             ? "granted"
             : "unavailable",
         );
@@ -157,11 +181,13 @@ export default function SalaInmersivaScreen() {
 
     const checkMotionPermission = async () => {
       try {
+        logVr("[MuseIQ][VR] Iniciando chequeo de sensores");
         const sensorsModule = await import("expo-sensors");
         const Accelerometer = sensorsModule.Accelerometer;
         const DeviceMotion = sensorsModule.DeviceMotion;
         const Gyroscope = sensorsModule.Gyroscope;
         const Magnetometer = sensorsModule.Magnetometer;
+        const MagnetometerUncalibrated = sensorsModule.MagnetometerUncalibrated;
 
         if (Platform.OS === "android") {
           const [
@@ -169,17 +195,28 @@ export default function SalaInmersivaScreen() {
             deviceMotionAvailable,
             gyroscopeAvailable,
             magnetometerAvailable,
+            uncalibratedMagnetometerAvailable,
           ] = await Promise.all([
             Accelerometer.isAvailableAsync().catch(() => false),
             DeviceMotion.isAvailableAsync().catch(() => false),
             Gyroscope.isAvailableAsync().catch(() => false),
             Magnetometer.isAvailableAsync().catch(() => false),
+            MagnetometerUncalibrated.isAvailableAsync().catch(() => false),
           ]);
+          const anyMagnetometerAvailable =
+            magnetometerAvailable || uncalibratedMagnetometerAvailable;
           setMotionCapabilities({
             accelerometerAvailable,
             deviceMotionAvailable,
             gyroscopeAvailable,
+            magnetometerAvailable: anyMagnetometerAvailable,
+          });
+          logVr("[MuseIQ][VR] Sensores Android", {
+            accelerometerAvailable,
+            deviceMotionAvailable,
+            gyroscopeAvailable,
             magnetometerAvailable,
+            uncalibratedMagnetometerAvailable,
           });
 
           if (!isMounted) {
@@ -189,7 +226,7 @@ export default function SalaInmersivaScreen() {
           setMotionPermissionState(
             deviceMotionAvailable ||
               gyroscopeAvailable ||
-              (accelerometerAvailable && magnetometerAvailable)
+              (accelerometerAvailable && anyMagnetometerAvailable)
               ? "granted"
               : "unavailable",
           );
@@ -218,7 +255,8 @@ export default function SalaInmersivaScreen() {
         }
 
         setMotionPermissionState(permissions.canAskAgain ? "prompt" : "blocked");
-      } catch {
+      } catch (error) {
+        warnVr("[MuseIQ][VR] Error al chequear sensores", error);
         if (isMounted) {
           setMotionPermissionState("unavailable");
         }
@@ -235,6 +273,23 @@ export default function SalaInmersivaScreen() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    setModelCanMount(false);
+
+    if (!experience || motionPermissionState === "checking") {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      logVr("[MuseIQ][VR] Montando visor 3D inmersivo");
+      setModelCanMount(true);
+    }, 350);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [experience, motionPermissionState, windowHeight, windowWidth]);
 
   useEffect(() => {
     const payload = {
@@ -280,7 +335,7 @@ export default function SalaInmersivaScreen() {
 
     lastTerminalLogAtRef.current = now;
     lastTerminalLogSignatureRef.current = signature;
-    console.log("[MuseIQ][VR]", payload);
+    logVr("[MuseIQ][VR]", payload);
   }, [headTrackingDebug, motionCapabilities, motionPermissionState]);
 
   useEffect(() => {
@@ -310,22 +365,59 @@ export default function SalaInmersivaScreen() {
     );
   }
 
+  const usesLandscapeFallback = Platform.OS === "android" && windowWidth < windowHeight;
+  const effectiveViewerWidth = usesLandscapeFallback ? windowHeight : windowWidth;
+  const effectiveViewerHeight = usesLandscapeFallback ? windowWidth : windowHeight;
+  const framedViewerWidth = Math.round(effectiveViewerWidth * VR_FRAME_WIDTH_RATIO);
+  const framedViewerHeight = Math.round(effectiveViewerHeight * VR_FRAME_HEIGHT_RATIO);
+  const viewerStageStyle = usesLandscapeFallback
+    ? [
+        styles.viewerStage,
+        styles.viewerStageLandscapeFallback,
+        {
+          height: framedViewerHeight,
+          left: (windowWidth - framedViewerWidth) / 2,
+          top: (windowHeight - framedViewerHeight) / 2,
+          width: framedViewerWidth,
+        },
+      ]
+    : [
+        styles.viewerStage,
+        {
+          bottom: "auto" as const,
+          height: framedViewerHeight,
+          left: (windowWidth - framedViewerWidth) / 2,
+          right: "auto" as const,
+          top: (windowHeight - framedViewerHeight) / 2,
+          width: framedViewerWidth,
+        },
+      ];
+
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <ArSceneBackground dim="rgba(5,8,13,0.14)" />
-      <View style={styles.viewerStage}>
-        <CabezaClavaModelView
-          headTracking={motionPermissionState === "granted"}
-          interactive={motionPermissionState !== "granted"}
-          modelAsset={experience.modelAsset}
-          modelLabel={experience.modelLabel}
-          onHeadTrackingDebug={setHeadTrackingDebug}
-          recenterSignal={recenterSignal}
-          stereo
-          style={styles.model}
-          viewMode="immersive"
-        />
+      <View style={viewerStageStyle}>
+        {modelCanMount ? (
+          <CabezaClavaModelView
+            key={`${framedViewerWidth}x${framedViewerHeight}-${
+              motionPermissionState === "granted" ? "tracked" : "manual"
+            }`}
+            headTracking={motionPermissionState === "granted"}
+            interactive={motionPermissionState !== "granted"}
+            modelAsset={experience.modelAsset}
+            modelLabel={experience.modelLabel}
+            onHeadTrackingDebug={setHeadTrackingDebug}
+            recenterSignal={recenterSignal}
+            stereo
+            style={styles.model}
+            viewMode="immersive"
+          />
+        ) : (
+          <View style={styles.modelBootOverlay}>
+            <ActivityIndicator color={arColors.primary} size="small" />
+            <Text style={styles.modelBootText}>Inicializando sensores</Text>
+          </View>
+        )}
       </View>
 
       <SafeAreaView edges={["top", "left", "right"]} style={styles.overlaySafeArea}>
@@ -340,57 +432,81 @@ export default function SalaInmersivaScreen() {
           <Ionicons color="#FFFFFF" name="arrow-back" size={28} />
         </Pressable>
         <View pointerEvents="box-none" style={styles.debugOverlay}>
-          <View style={styles.debugCard}>
-            <Text style={styles.debugTitle}>VR Debug</Text>
-            <Text style={styles.debugLine}>
-              {`permiso=${motionPermissionState} source=${headTrackingDebug?.source ?? "none"}`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`native_landscape=${nativeLandscapeLockReady ? "si" : "no"}`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`dm_avail=${formatFlag(headTrackingDebug?.deviceMotionAvailable ?? motionCapabilities.deviceMotionAvailable)} dm_events=${headTrackingDebug?.deviceMotionEvents ?? 0}`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`gyro_avail=${formatFlag(headTrackingDebug?.gyroscopeAvailable ?? motionCapabilities.gyroscopeAvailable)} gyro_events=${headTrackingDebug?.gyroscopeEvents ?? 0}`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`accel_avail=${formatFlag(headTrackingDebug?.accelerometerAvailable ?? motionCapabilities.accelerometerAvailable)} accel_events=${headTrackingDebug?.accelerometerEvents ?? 0}`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`mag_avail=${formatFlag(headTrackingDebug?.magnetometerAvailable ?? motionCapabilities.magnetometerAvailable)} mag_events=${headTrackingDebug?.magnetometerEvents ?? 0}`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`alpha=${formatMetric(headTrackingDebug?.alpha)} beta=${formatMetric(headTrackingDebug?.beta)}`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`accel=(${formatMetric(headTrackingDebug?.accelX)}, ${formatMetric(headTrackingDebug?.accelY)}, ${formatMetric(headTrackingDebug?.accelZ)})`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`gyro=(${formatMetric(headTrackingDebug?.gyroX)}, ${formatMetric(headTrackingDebug?.gyroY)}, ${formatMetric(headTrackingDebug?.gyroZ)})`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`mag=(${formatMetric(headTrackingDebug?.magX)}, ${formatMetric(headTrackingDebug?.magY)}, ${formatMetric(headTrackingDebug?.magZ)})`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`yaw=${formatMetric(headTrackingDebug?.yaw)} pitch=${formatMetric(headTrackingDebug?.pitch)}`}
-            </Text>
-            <Text style={styles.debugLine}>
-              {`error=${headTrackingDebug?.error ?? "--"} platform=${headTrackingDebug?.platform ?? Platform.OS}`}
-            </Text>
+          {isDebugCollapsed ? (
             <Pressable
-              onPress={() => {
-                setRecenterSignal((current) => current + 1);
-              }}
+              onPress={() => setDebugCollapsed(false)}
               style={({ pressed }) => [
-                styles.recenterButton,
+                styles.debugCollapsedButton,
                 pressed ? styles.pressed : null,
               ]}
             >
-              <Ionicons color="#03131E" name="locate-outline" size={15} />
-              <Text style={styles.recenterButtonLabel}>Recentrar vista</Text>
+              <Ionicons color="#7DD3FC" name="bug-outline" size={16} />
+              <Text style={styles.debugCollapsedLabel}>Debug</Text>
             </Pressable>
-          </View>
+          ) : (
+            <View style={styles.debugCard}>
+              <View style={styles.debugHeader}>
+                <Text style={styles.debugTitle}>VR Debug</Text>
+                <Pressable
+                  onPress={() => setDebugCollapsed(true)}
+                  style={({ pressed }) => [
+                    styles.debugCollapseButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Ionicons color="#7DD3FC" name="chevron-up-outline" size={16} />
+                </Pressable>
+              </View>
+              <Text style={styles.debugLine}>
+                {`permiso=${motionPermissionState} source=${headTrackingDebug?.source ?? "none"}`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`native_landscape=${nativeLandscapeLockReady ? "si" : "no"} fallback=${usesLandscapeFallback ? "si" : "no"}`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`dm_avail=${formatFlag(headTrackingDebug?.deviceMotionAvailable ?? motionCapabilities.deviceMotionAvailable)} dm_events=${headTrackingDebug?.deviceMotionEvents ?? 0}`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`gyro_avail=${formatFlag(headTrackingDebug?.gyroscopeAvailable ?? motionCapabilities.gyroscopeAvailable)} gyro_events=${headTrackingDebug?.gyroscopeEvents ?? 0}`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`accel_avail=${formatFlag(headTrackingDebug?.accelerometerAvailable ?? motionCapabilities.accelerometerAvailable)} accel_events=${headTrackingDebug?.accelerometerEvents ?? 0}`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`mag_avail=${formatFlag(headTrackingDebug?.magnetometerAvailable ?? motionCapabilities.magnetometerAvailable)} mag_events=${headTrackingDebug?.magnetometerEvents ?? 0}`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`alpha=${formatMetric(headTrackingDebug?.alpha)} beta=${formatMetric(headTrackingDebug?.beta)}`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`accel=(${formatMetric(headTrackingDebug?.accelX)}, ${formatMetric(headTrackingDebug?.accelY)}, ${formatMetric(headTrackingDebug?.accelZ)})`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`gyro=(${formatMetric(headTrackingDebug?.gyroX)}, ${formatMetric(headTrackingDebug?.gyroY)}, ${formatMetric(headTrackingDebug?.gyroZ)})`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`mag=(${formatMetric(headTrackingDebug?.magX)}, ${formatMetric(headTrackingDebug?.magY)}, ${formatMetric(headTrackingDebug?.magZ)})`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`yaw=${formatMetric(headTrackingDebug?.yaw)} pitch=${formatMetric(headTrackingDebug?.pitch)}`}
+              </Text>
+              <Text style={styles.debugLine}>
+                {`error=${headTrackingDebug?.error ?? "--"} platform=${headTrackingDebug?.platform ?? Platform.OS}`}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setRecenterSignal((current) => current + 1);
+                }}
+                style={({ pressed }) => [
+                  styles.recenterButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Ionicons color="#03131E" name="locate-outline" size={15} />
+                <Text style={styles.recenterButtonLabel}>Recentrar vista</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {motionPermissionState !== "granted" ? (
@@ -474,8 +590,24 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#000000",
   },
+  viewerStageLandscapeFallback: {
+    bottom: "auto",
+    right: "auto",
+    transform: [{ rotate: "90deg" }],
+  },
   model: {
     ...StyleSheet.absoluteFillObject,
+  },
+  modelBootOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    gap: 10,
+    justifyContent: "center",
+  },
+  modelBootText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
   debugOverlay: {
     left: 16,
@@ -492,11 +624,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  debugCollapsedButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(4,7,12,0.82)",
+    borderColor: "rgba(89,190,255,0.32)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    minHeight: 38,
+    paddingHorizontal: 13,
+  },
+  debugCollapsedLabel: {
+    color: "#D5ECFF",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  debugHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  debugCollapseButton: {
+    alignItems: "center",
+    height: 26,
+    justifyContent: "center",
+    width: 26,
+  },
   debugTitle: {
     color: "#7DD3FC",
     fontSize: 12,
     fontWeight: "900",
-    marginBottom: 6,
     textTransform: "uppercase",
   },
   debugLine: {
