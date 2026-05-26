@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>MuseIQ - Reporte de Estado del Proyecto</title>
+  <style>
+    @page {
+      margin: 18mm 16mm;
+    }
+
+    body {
+      background: #eef4f8;
+      color: #142033;
+      font-family: "Liberation Sans", Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .page-shell {
+      background: #ffffff;
+      box-shadow: 0 24px 70px rgba(15, 53, 84, 0.16);
+      box-sizing: border-box;
+      margin: 28px auto;
+      max-width: 1120px;
+      padding: 34px 42px 38px;
+      width: calc(100% - 48px);
+    }
+
+    h1, h2, h3 {
+      color: #0f3554;
+      margin: 0 0 8px;
+    }
+
+    h1 {
+      font-size: 24pt;
+      letter-spacing: -0.4px;
+    }
+
+    h2 {
+      border-bottom: 2px solid #1689ce;
+      font-size: 16pt;
+      margin-top: 24px;
+      padding-bottom: 4px;
+    }
+
+    h3 {
+      font-size: 12.5pt;
+      margin-top: 14px;
+    }
+
+    p {
+      margin: 0 0 9px;
+    }
+
+    ul {
+      margin: 6px 0 12px 18px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    a {
+      color: #1689ce;
+      text-decoration: none;
+    }
+
+    .cover {
+      background: linear-gradient(135deg, #0a263d, #1689ce);
+      border-radius: 18px;
+      color: #ffffff;
+      margin: 0 auto 26px;
+      padding: 28px 30px;
+    }
+
+    .cover h1,
+    .cover p {
+      color: #ffffff;
+    }
+
+    .cover .subtitle {
+      font-size: 13pt;
+      margin-top: 8px;
+      max-width: 650px;
+    }
+
+    .cover-meta {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 12px;
+      margin-top: 18px;
+      padding: 12px 14px;
+    }
+
+    .brand-row {
+      align-items: center;
+      display: flex;
+      gap: 18px;
+    }
+
+    .logo {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 20px;
+      height: 72px;
+      object-fit: contain;
+      padding: 10px;
+      width: 72px;
+    }
+
+    .pill {
+      background: #e8f5fd;
+      border: 1px solid #b7def4;
+      border-radius: 999px;
+      color: #0f5d8f;
+      display: inline-block;
+      font-size: 9.5pt;
+      font-weight: 700;
+      margin: 0 4px 6px 0;
+      padding: 4px 9px;
+    }
+
+    .section-card {
+      background: #f8fbfd;
+      border: 1px solid #d9e9f3;
+      border-radius: 14px;
+      margin: 12px 0;
+      padding: 14px 16px;
+    }
+
+    .highlight {
+      background: #fff8e8;
+      border-left: 4px solid #f2b84b;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .two-column {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .resource-table {
+      border-collapse: collapse;
+      margin-top: 8px;
+      width: 100%;
+    }
+
+    .resource-table th,
+    .resource-table td {
+      border: 1px solid #d8e5ee;
+      padding: 7px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .resource-table th {
+      background: #eaf6fd;
+      color: #0f3554;
+      font-weight: 700;
+    }
+
+    .screenshot {
+      border: 1px solid #d5e5ef;
+      border-radius: 14px;
+      display: block;
+      margin: 10px 0 4px;
+      max-width: 100%;
+    }
+
+    .concept-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1fr;
+      margin-top: 12px;
+    }
+
+    .concept-card {
+      background: #f8fbfd;
+      border: 1px solid #d9e9f3;
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .concept-card img {
+      border: 1px solid #d5e5ef;
+      border-radius: 14px;
+      display: block;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+
+    .concept-card h3 {
+      margin-top: 0;
+    }
+
+    .small {
+      color: #5d7084;
+      font-size: 9.5pt;
+    }
+
+    .footer-note {
+      border-top: 1px solid #d8e5ee;
+      color: #5d7084;
+      font-size: 9pt;
+      margin-top: 22px;
+      padding-top: 8px;
+    }
+
+    @media (max-width: 760px) {
+      .page-shell {
+        margin: 0;
+        padding: 18px;
+        width: 100%;
+      }
+
+      .brand-row,
+      .two-column {
+        display: block;
+      }
+
+      .logo {
+        margin-bottom: 14px;
+      }
+
+      .resource-table {
+        font-size: 9.5pt;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page-shell {
+        box-shadow: none;
+        margin: 0;
+        max-width: none;
+        padding: 0;
+        width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+  <section class="cover">
+    <div class="brand-row">
+      <img class="logo" src="../assets/museiq-icon.png" alt="Icono MuseIQ" />
+      <div>
+        <h1>MuseIQ - Reporte de Estado del Proyecto</h1>
+        <p class="subtitle">Guia movil contextual e inmersiva para museos, con BLE, QR, voz, IA, visualizacion 3D y experiencia de sala en modo inmersivo.</p>
+      </div>
+    </div>
+    <div class="cover-meta">
+      <p><strong>Fecha:</strong> 26 de mayo de 2026</p>
+      <p><strong>Equipo/proyecto:</strong> MuseIQ</p>
+      <p><strong>Objetivo del documento:</strong> responder la seccion 5 del reporte de estado para Make It Happen y adjuntar evidencia tecnica/documental del avance.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Resumen Ejecutivo</h2>
+    <p>MuseIQ es un prototipo movil para transformar la visita a museos en una experiencia contextual e interactiva. La aplicacion prioriza un flujo AR-first: el visitante entra al museo, selecciona el contexto, recibe informacion de sala/obra, puede escanear QR, preguntar por voz o texto, escuchar narracion, ver modelos 3D y acceder a una experiencia inmersiva basada en una reconstruccion 3D de sala.</p>
+    <p>El proyecto combina una app Expo/React Native con sensores del telefono, BLE para deteccion de sala, flujo QR para identificar obras, integracion con MuseRAG, un modulo IoT con ESP32/MicroPython para beacons BLE y un modulo <strong>obj-3d</strong> para preparar activos 3D de obras. El prototipo actual ya cuenta con navegacion principal, pantallas de estado, modo tecnico, flujo AR temporal, fallback 3D y una sala inmersiva experimental con archivo <strong>lugar.glb</strong>.</p>
+    <p><strong>MuseRAG</strong> funciona como la capa de inteligencia contextual del proyecto: la app envia preguntas del visitante junto con museo, sala, obra, modo de respuesta y contexto curatorial de la pieza; el backend responde con texto/Markdown, fuentes documentales, imagenes asociadas y metricas de recuperacion/generacion. Esto permite que las respuestas no sean genericas, sino apoyadas en contenido del museo.</p>
+    <p><strong>obj-3d</strong> complementa la app como pipeline de digitalizacion 3D: actualmente concentra una coleccion local de <strong>25 modelos GLB</strong> de referencia y se proyecta como el flujo para capturar obras mediante fotografias, obtener una reconstruccion o imagen 3D asistida por IA y refinarla en Blender antes de exportarla a formatos optimizados para MuseIQ.</p>
+    <div class="section-card">
+      <h3>Integracion MuseRAG en el prototipo</h3>
+      <ul>
+        <li><strong>Entrada:</strong> pregunta del visitante, museo, sala, obra, modo de respuesta y contexto curatorial.</li>
+        <li><strong>Proceso:</strong> consulta al endpoint <code>/api/preguntar</code> con timeout, cancelacion y manejo de errores.</li>
+        <li><strong>Salida:</strong> respuesta en texto/Markdown, fuentes, score, metadata, imagenes asociadas y metricas.</li>
+        <li><strong>Uso en app:</strong> modal de preguntas por voz/texto, historial local, fuentes visuales y narracion opcional.</li>
+      </ul>
+    </div>
+    <div class="section-card">
+      <h3>Pipeline obj-3d para obras digitalizadas</h3>
+      <ul>
+        <li><strong>Entrada:</strong> set de fotografias de una obra o pieza museografica, capturadas desde varios angulos.</li>
+        <li><strong>Proceso:</strong> reconstruccion asistida por IA, limpieza de geometria, ajuste de escala, materiales y texturas en Blender.</li>
+        <li><strong>Salida:</strong> archivos <code>.glb</code> o <code>.obj</code> optimizados para visor 3D, AR y experiencias inmersivas.</li>
+        <li><strong>Uso en app:</strong> asociar cada modelo a la ficha de obra, QR, MuseRAG, hotspots y recorridos AR/VR.</li>
+      </ul>
+    </div>
+    <div>
+      <span class="pill">Expo 54</span>
+      <span class="pill">React Native 0.81</span>
+      <span class="pill">TypeScript</span>
+      <span class="pill">BLE</span>
+      <span class="pill">QR</span>
+      <span class="pill">3D/GLB</span>
+      <span class="pill">MuseRAG</span>
+      <span class="pill">obj-3d</span>
+      <span class="pill">Blender</span>
+      <span class="pill">Cardboard experimental</span>
+    </div>
+    <img class="screenshot" src="../screenshots/muse-experience.png" alt="Captura de MuseIQ" />
+    <p class="small">Imagen de referencia incluida en el repositorio: <code>docs/screenshots/muse-experience.png</code>.</p>
+  </section>
+
+  <section>
+    <h2>Visuales Conceptuales del Proyecto</h2>
+    <p>Las siguientes imagenes resumen las tres capacidades clave que se estan integrando en MuseIQ: experiencia inmersiva, generacion/preparacion de modelos 3D y respuestas contextualizadas con MuseRAG.</p>
+    <div class="concept-grid">
+      <article class="concept-card">
+        <h3>Experiencia inmersiva por sala</h3>
+        <img src="../assets/immersive-experience-concept.png" alt="Visual conceptual de la experiencia inmersiva MuseIQ" />
+        <p>Representa el modo de sala inmersiva para visor tipo Cardboard: la app detecta el contexto de sala, carga una reconstruccion 3D y muestra una vista estereoscopica para recorrer el espacio.</p>
+      </article>
+      <article class="concept-card">
+        <h3>obj-3d: fotos a modelo 3D</h3>
+        <img src="../assets/obj-3d-experience-concept.png" alt="Visual conceptual del pipeline obj-3d" />
+        <p>Resume el objetivo de <code>obj-3d</code>: capturar fotografias de obras, generar una reconstruccion asistida por IA, refinarla en Blender y exportar modelos <code>.glb</code> o <code>.obj</code> optimizados para la app.</p>
+      </article>
+      <article class="concept-card">
+        <h3>MuseRAG: IA con contexto curatorial</h3>
+        <img src="../assets/muserag-experience-concept.png" alt="Visual conceptual de MuseRAG" />
+        <p>Explica el proposito de MuseRAG: recibir una pregunta del visitante con contexto de museo, sala y obra; consultar fuentes curatoriales, catalogos, imagenes y base vectorial; y devolver una respuesta sustentada con fuentes.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>5.1 Actividades Realizadas hasta la Fecha</h2>
+    <div class="section-card">
+      <p>Se desarrollo el prototipo funcional de MuseIQ como guia movil contextual para museos. La app ya implementa el flujo principal documentado en el proyecto: inicio, seleccion de museo, preparacion de visita, Home AR, exploracion de sala, escaneo QR simulado, obra identificada, detalle de obra, carga AR, AR activo temporal, hotspots, audio, preguntas con IA y fallback a visor 3D.</p>
+      <p>Se integro el cliente de MuseRAG en <code>lib/muserag-api.ts</code>. La app resuelve la URL del backend desde <code>EXPO_PUBLIC_MUSERAG_URL</code> o desde la configuracion de Expo, arma el payload para <code>/api/preguntar</code>, maneja timeout de 45 segundos, cancelacion de solicitudes, errores de red y parsing de JSON.</p>
+      <p>El flujo de chat usa MuseRAG desde <code>features/chat/hooks/use-artwork-chat-controller.ts</code>. Cuando el usuario pregunta por texto o voz, se envia la pregunta con <code>museo</code>, <code>sala</code>, <code>obra</code>, <code>modo</code>, <code>session_id</code> y <code>artwork_context</code> con titulo, autor, periodo, tecnica, resumen, contexto, relacion con sala, pistas de recorrido, etiquetas, obras cercanas y preguntas sugeridas.</p>
+      <p>La respuesta se renderiza en Markdown, guarda historial local, registra analitica de preguntas y muestra fuentes. Las fuentes incluyen fragmentos, score, metadata, etiquetas, paginas o referencias visuales, y pueden abrir imagenes asociadas mediante carrusel/visor de imagenes.</p>
+      <p>Se identifico y organizo el modulo local <code>obj-3d</code>, que actualmente contiene <strong>25 archivos GLB</strong> con un peso aproximado de <strong>85 MB</strong>. Este modulo se documenta como base para el flujo de digitalizacion de obras: captura fotografica, reconstruccion asistida por IA, refinamiento en Blender y exportacion de modelos listos para la app.</p>
+      <p>Tambien se avanzo en la modularizacion de la app: las rutas de <code>app/</code> se estan manteniendo como entradas finas de Expo Router y la logica visual/funcional se agrupa en <code>features/</code>, <code>hooks/</code>, <code>providers/</code> y componentes reutilizables en <code>components/museiq/</code>. Esta estructura queda documentada en <code>ARCHITECTURE.md</code> y <code>README-DEV.md</code>.</p>
+      <p>En la capa de experiencia inmersiva se incorporo una capability local para <code>SALA_1</code>, que permite simular una sala con modo inmersivo mientras BLE real sigue en integracion. La app precarga <code>assets/models/immersive/lugar.glb</code>, abre <code>sala-inmersiva</code>, renderiza el entorno 3D en modo SBS para visor tipo Cardboard y cuenta con un recorrido automatico basico para dispositivos que no tienen sensores suficientes para tracking fluido.</p>
+      <p>En paralelo se mantuvo el modulo IoT <code>iot-museiq</code>, basado en ESP32/ESP32-C3 con MicroPython, para emitir advertising BLE con datos de sala y dispositivo. Esto sirve como base para detectar contexto fisico del visitante dentro del museo.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5.2 Problemas Encontrados</h2>
+    <div class="section-card">
+      <p>El principal reto tecnico reciente estuvo en la experiencia inmersiva 3D. Algunos dispositivos Android de prueba no exponen <code>DeviceMotion</code> ni giroscopio, por lo que el tracking de cabeza no puede ser fluido como en un visor VR nativo. Se implementaron fallbacks con acelerometro y magnetometro, pero la frecuencia de la brujula puede ser baja y provocar una sensacion de movimiento limitado.</p>
+      <p>En MuseRAG, el reto principal es que el telefono no puede usar <code>localhost</code> para conectarse al backend; necesita una IP LAN accesible por Wi-Fi. Por eso el proyecto documenta <code>EXPO_PUBLIC_MUSERAG_URL</code>, resolucion de host y troubleshooting para casos en los que Expo recarga mal la variable o el backend no esta levantado.</p>
+      <p>Tambien se debe consolidar el contrato entre MuseRAG y la experiencia AR/3D. Hoy MuseRAG responde preguntas y fuentes, pero todavia falta definir formalmente como entregara recursos como <code>model_3d</code>, <code>hotspots</code>, <code>room_model_3d</code> o capacidades inmersivas por sala.</p>
+      <p>En <code>obj-3d</code>, el problema pendiente es convertir una coleccion de modelos y pruebas en un pipeline reproducible. La calidad final dependera de la iluminacion, cantidad de fotografias, cobertura de angulos, superficies reflectivas, limpieza de malla, reduccion de poligonos, texturas y validacion cultural de cada reconstruccion.</p>
+      <p>Tambien se identificaron problemas de rendimiento y carga con modelos GLB pesados. Para mitigarlo, se trabajo en cache/preparacion del modelo, lectura local del GLB y reduccion de bloqueos durante la carga. Ademas, el modo SBS puede generar deformaciones visuales si la camara se acerca demasiado al modelo o si la separacion entre ojos es alta para el tamano/escala del entorno.</p>
+      <p>Otro desafio es la integracion BLE en condiciones reales. Por ahora la deteccion de sala y la experiencia inmersiva se simulan con datos locales o accesos manuales, ya que aun falta validar beacons fisicos en sala con RSSI, multiples nodos por sala y protocolo final de identificacion.</p>
+      <p>Finalmente, el QR real con camara, AR real con ARCore/ARKit o libreria equivalente y la descarga dinamica de modelos 3D por obra siguen pendientes. Actualmente existen pantallas, overlays y estados simulados que permiten validar la experiencia de usuario antes de conectar todas las integraciones definitivas.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5.3 Hitos Alcanzados</h2>
+    <div class="two-column">
+      <div class="section-card">
+        <h3>Producto y UX</h3>
+        <ul>
+          <li>Flujo AR-first implementado como experiencia principal.</li>
+          <li>Home AR con acciones flotantes: explorar, preguntar, audio y QR.</li>
+          <li>Obra identificada con card central y CTA <strong>Ver en AR</strong>.</li>
+          <li>Audio, QR y chat contextual como bottom sheets/modales.</li>
+          <li>Preguntas por voz o texto con respuesta IA contextual desde MuseRAG.</li>
+          <li>Visualizacion de fuentes, scores, metadata e imagenes asociadas a la respuesta.</li>
+          <li>Primer inventario local de modelos 3D para piezas y salas.</li>
+          <li>Drawer compacto y pantallas auxiliares de configuracion, ayuda, modo tecnico y cambio de museo.</li>
+        </ul>
+      </div>
+      <div class="section-card">
+        <h3>Tecnologia</h3>
+        <ul>
+          <li>App Expo/React Native con TypeScript y Expo Router.</li>
+          <li>Estado BLE resumido para Home y modo tecnico.</li>
+          <li>Cliente MuseRAG con URL configurable, timeout, cancelacion, parsing y manejo de errores.</li>
+          <li>Payload contextual hacia MuseRAG con museo, sala, obra, modo de respuesta y contexto curatorial.</li>
+          <li>Modulo <code>obj-3d</code> definido como pipeline de fotografia a modelo 3D con apoyo de IA y Blender.</li>
+          <li>Visor 3D y fallback cuando AR no esta disponible.</li>
+          <li>Modo inmersivo por sala con <code>lugar.glb</code>.</li>
+          <li>APK de development client generado con EAS para Android.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="section-card">
+      <p>El roadmap registra como cubiertas las fases de base visual, navegacion AR-first, estados principales del Home, QR simulado, obra identificada, carga AR, AR activo temporal, chat IA como modal, audio como sheet y la primera version de sala inmersiva 3D.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5.4 Planes para el Siguiente Mes</h2>
+    <div class="section-card">
+      <ul>
+        <li>Implementar QR real con camara, parsing y mapeo a obras.</li>
+        <li>Probar MuseRAG con backend local accesible desde el celular y documentar evidencia de respuestas con fuentes.</li>
+        <li>Mejorar el contrato MuseRAG para que tambien entregue recursos AR/3D: <code>model_3d</code>, <code>hotspots</code>, <code>room_model_3d</code> y <code>immersive_mode</code>.</li>
+        <li>Preparar una pequena coleccion curatorial de prueba para MuseRAG, con textos, imagenes y metadata de obras/salas.</li>
+        <li>Definir el protocolo de captura fotografica para <code>obj-3d</code>: numero minimo de fotos, angulos, iluminacion, escala y checklist de calidad.</li>
+        <li>Crear una prueba piloto de digitalizacion: tomar fotos de una obra, generar reconstruccion asistida por IA, limpiar en Blender y exportar un <code>.glb</code> optimizado.</li>
+        <li>Conectar los modelos generados por <code>obj-3d</code> con metadata de obra para que QR, MuseRAG, AR y visor 3D usen el mismo identificador.</li>
+        <li>Validar BLE con beacons ESP32 reales en sala, usando RSSI y varios nodos por sala.</li>
+        <li>Definir el contrato de datos para <code>model_3d</code>, <code>hotspots</code>, <code>immersive_mode</code> y <code>room_model_3d</code>.</li>
+        <li>Optimizar modelos GLB para reducir peso, mejorar carga y evitar deformaciones visuales en SBS.</li>
+        <li>Separar claramente modo inmersivo movil de modo Cardboard estereoscopico.</li>
+        <li>Evaluar integracion AR real con ARCore/ARKit o alternativa compatible con Expo/React Native.</li>
+        <li>Multiplicar la capability inmersiva a mas salas y reemplazar el mapping local de <code>SALA_1</code>.</li>
+        <li>Agregar pantalla dedicada para modelo 3D no disponible y estado de actualizacion.</li>
+        <li>Realizar pruebas con usuarios o pruebas guiadas en dispositivo Android real.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>5.5 Otros Comentarios o Preguntas al Equipo Organizador Make It Happen</h2>
+    <div class="section-card">
+      <p>Nos gustaria recibir orientacion sobre que criterios tendran mayor peso en la evaluacion: impacto cultural/social, innovacion tecnica, validacion con usuarios, calidad de la demo funcional o escalabilidad del prototipo. MuseIQ cruza varias areas: app movil, IoT/BLE, IA conversacional, voz, visualizacion 3D y experiencia inmersiva; por ello seria valioso saber que dimensiones conviene priorizar para la siguiente presentacion.</p>
+      <p>Tambien seria util confirmar si el concurso valorara mas una demo instalada en dispositivo real, un video corto de recorrido o una explicacion tecnica con arquitectura y roadmap. Actualmente el equipo puede mostrar una app navegable, APK de desarrollo, documentacion y flujo funcional simulado, mientras se completan las integraciones de BLE/QR/AR reales.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5.6 Informacion Adicional y Recursos</h2>
+    <p>Se recomienda adjuntar este PDF como documento principal de respaldo y usar los siguientes enlaces como evidencia complementaria:</p>
+    <table class="resource-table">
+      <thead>
+        <tr>
+          <th>Recurso</th>
+          <th>Enlace</th>
+          <th>Uso sugerido</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Repositorio App MuseIQ</td>
+          <td><a href="https://github.com/eduardo202020/iot">https://github.com/eduardo202020/iot</a></td>
+          <td>Codigo fuente principal de la aplicacion movil.</td>
+        </tr>
+        <tr>
+          <td>Repositorio IoT/BLE</td>
+          <td><a href="https://github.com/eduardo202020/iot-museiq">https://github.com/eduardo202020/iot-museiq</a></td>
+          <td>Codigo MicroPython para ESP32/ESP32-C3 y pruebas BLE.</td>
+        </tr>
+        <tr>
+          <td>Repositorio MuseRAG</td>
+          <td><a href="https://github.com/eduardo202020/museRAG">https://github.com/eduardo202020/museRAG</a></td>
+          <td>Backend RAG local con FastAPI, Chroma y LM Studio para responder preguntas contextualizadas por museo, sala y obra.</td>
+        </tr>
+        <tr>
+          <td>Carpeta local obj-3d</td>
+          <td><a href="../../../obj-3d/">../../../obj-3d/</a></td>
+          <td>Coleccion local de modelos GLB y base del pipeline de fotos a modelo 3D con IA y Blender. Pendiente de publicar como repositorio o integrarse al repo principal.</td>
+        </tr>
+        <tr>
+          <td>Visual experiencia inmersiva</td>
+          <td><a href="../assets/immersive-experience-concept.png">immersive-experience-concept.png</a></td>
+          <td>Imagen conceptual para explicar el modo Cardboard/SBS y recorrido inmersivo de sala.</td>
+        </tr>
+        <tr>
+          <td>Visual obj-3d</td>
+          <td><a href="../assets/obj-3d-experience-concept.png">obj-3d-experience-concept.png</a></td>
+          <td>Imagen conceptual del flujo fotos, IA, Blender y exportacion de modelo 3D.</td>
+        </tr>
+        <tr>
+          <td>Visual MuseRAG</td>
+          <td><a href="../assets/muserag-experience-concept.png">muserag-experience-concept.png</a></td>
+          <td>Imagen conceptual del flujo pregunta, contexto, fuentes, recuperacion RAG y respuesta sustentada.</td>
+        </tr>
+        <tr>
+          <td>APK Android Dev Client</td>
+          <td><a href="https://expo.dev/accounts/jguevaral/projects/museiq/builds/d9a16c19-cba9-40f5-9a46-628cf321cdea">Build EAS Android</a></td>
+          <td>Instalacion de prueba en Android con permisos nativos actualizados.</td>
+        </tr>
+        <tr>
+          <td>README App</td>
+          <td><a href="https://github.com/eduardo202020/iot/blob/master/README.md">README.md</a></td>
+          <td>Vision general, flujo implementado y estado actual.</td>
+        </tr>
+        <tr>
+          <td>README Dev</td>
+          <td><a href="https://github.com/eduardo202020/iot/blob/master/README-DEV.md">README-DEV.md</a></td>
+          <td>Setup tecnico, BLE, MuseRAG, desarrollo y troubleshooting.</td>
+        </tr>
+        <tr>
+          <td>Cliente MuseRAG</td>
+          <td><a href="https://github.com/eduardo202020/iot/blob/master/lib/muserag-api.ts">lib/muserag-api.ts</a></td>
+          <td>Resolucion de URL, payload contextual, consulta a <code>/api/preguntar</code>, timeouts y errores.</td>
+        </tr>
+        <tr>
+          <td>Controlador Chat/MuseRAG</td>
+          <td><a href="https://github.com/eduardo202020/iot/blob/master/features/chat/hooks/use-artwork-chat-controller.ts">use-artwork-chat-controller.ts</a></td>
+          <td>Orquesta preguntas, voz, contexto de obra, respuesta, fuentes, historial y analitica.</td>
+        </tr>
+        <tr>
+          <td>Roadmap</td>
+          <td><a href="https://github.com/eduardo202020/iot/blob/master/ROADMAP.md">ROADMAP.md</a></td>
+          <td>Cobertura por flujo, fases tecnicas y proximos pasos.</td>
+        </tr>
+        <tr>
+          <td>Arquitectura</td>
+          <td><a href="https://github.com/eduardo202020/iot/blob/master/ARCHITECTURE.md">ARCHITECTURE.md</a></td>
+          <td>Estructura modular y convenciones de refactor.</td>
+        </tr>
+        <tr>
+          <td>Flujo IoT</td>
+          <td><a href="https://github.com/eduardo202020/iot-museiq/blob/master/flujo.md">flujo.md</a></td>
+          <td>Flujo de trabajo para pruebas ESP32/MicroPython.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="highlight">
+      <p><strong>Nota:</strong> si el formulario permite un solo archivo de hasta 10 MB, se recomienda subir este PDF. Si permite enlaces adicionales, incluir los repositorios y el APK de EAS. No se recomienda subir el APK directamente porque probablemente excede el limite de peso.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Fuentes Locales Consultadas</h2>
+    <ul>
+      <li><code>museiqApp/README.md</code>: vision general, flujo visible, estado actual y tecnologias.</li>
+      <li><code>museiqApp/README-DEV.md</code>: alcance tecnico, setup, BLE, development build y prioridades.</li>
+      <li><code>museiqApp/ROADMAP.md</code>: fases, cobertura por pantallas y proximos pasos.</li>
+      <li><code>museiqApp/ARCHITECTURE.md</code>: arquitectura modular y convenciones de refactor.</li>
+      <li><code>museRAG/README.md</code>: backend RAG local, contrato <code>/api/preguntar</code>, fuentes indexadas y salida con fuentes/imagenes.</li>
+      <li><code>obj-3d/</code>: inventario local de 25 modelos GLB para pruebas de visualizacion 3D y base del futuro pipeline de digitalizacion.</li>
+      <li><code>iot-museiq/README.md</code>: modulo BLE con ESP32/ESP32-C3 y formatos de advertising.</li>
+      <li><code>iot-museiq/flujo.md</code>: flujo de trabajo diario para cargar y probar firmware MicroPython.</li>
+    </ul>
+  </section>
+
+  <p class="footer-note">Documento generado desde el workspace local de MuseIQ el 26 de mayo de 2026. Los enlaces de GitHub dependen de que los ultimos cambios locales hayan sido publicados en el repositorio remoto.</p>
+  </main>
+</body>
+</html>
